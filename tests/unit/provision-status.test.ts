@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { handleProvisionStatus, handleProvisionCallback } from '../../server/utils/provision-handlers'
 
 /**
  * Unit tests for provision-status and provision-callback endpoints.
@@ -14,25 +15,6 @@ const mockRedis = {
   hset: vi.fn(),
   expire: vi.fn(),
   hgetall: vi.fn()
-}
-
-// --- Pure functions to be imported from implementation ---
-// These will be replaced with actual imports once implemented.
-
-async function handleProvisionStatus(
-  sessionId: string | undefined,
-  redis: typeof mockRedis
-): Promise<any> {
-  throw new Error('Not implemented')
-}
-
-async function handleProvisionCallback(
-  authHeader: string | undefined,
-  body: any,
-  config: { provisionCallbackSecret: string },
-  redis: typeof mockRedis
-): Promise<any> {
-  throw new Error('Not implemented')
 }
 
 describe('provision-status: GET /api/provision-status', () => {
@@ -67,7 +49,7 @@ describe('provision-status: GET /api/provision-status', () => {
 
   it('returns 400 validation error when session_id is missing', async () => {
     await expect(handleProvisionStatus(undefined, mockRedis))
-      .rejects.toThrow()
+      .rejects.toThrow('session_id is required')
   })
 
   it('returns siteUrl and loginUrl when available in state', async () => {
@@ -149,7 +131,7 @@ describe('provision-callback: POST /api/provision-callback', () => {
         validConfig,
         mockRedis
       )
-    ).rejects.toThrow(/401|Unauthorized/)
+    ).rejects.toThrow(/Unauthorized/)
   })
 
   it('returns 401 with missing authorization header', async () => {
@@ -160,7 +142,7 @@ describe('provision-callback: POST /api/provision-callback', () => {
         validConfig,
         mockRedis
       )
-    ).rejects.toThrow(/401|Unauthorized/)
+    ).rejects.toThrow(/Unauthorized/)
   })
 
   it('returns 422 validation error with invalid status value', async () => {
