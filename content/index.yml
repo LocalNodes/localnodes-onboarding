@@ -1,0 +1,94 @@
+hero:
+  badge: "For Community Organizers"
+  title: "Your community's knowledge is scattered across dozens of tools"
+  description: "LocalNodes brings it all together in one AI-powered knowledge garden. A place where conversations, events, and shared wisdom grow -- and an AI assistant that actually understands your community."
+  primaryCta: "Get Started"
+  secondaryCta: "See a Live Garden"
+  secondaryCtaUrl: "https://cascadia.localnodes.xyz"
+
+howItWorks:
+  headline: "Simple setup"
+  title: "Up and running in minutes"
+  description: "No servers to manage. No technical skills required. Just three simple steps."
+  steps:
+    - number: 1
+      icon: "i-lucide-pen-line"
+      title: "Name your community"
+      description: "Choose a subdomain that reflects your community's identity. It becomes yourname.localnodes.xyz -- your own corner of the web."
+    - number: 2
+      icon: "i-lucide-credit-card"
+      title: "Subscribe"
+      description: "$29/month. Everything included -- hosting, AI, updates, and support. No hidden costs, no surprises."
+    - number: 3
+      icon: "i-lucide-sprout"
+      title: "Start growing"
+      description: "Your knowledge garden is ready in minutes. Invite your community, start conversations, and watch your collective wisdom grow."
+
+features:
+  headline: "Three pillars"
+  title: "Everything your community needs"
+  description: "Three foundations, working together, to help your community thrive."
+  pillars:
+    - icon: "i-lucide-brain"
+      title: "AI-Powered Knowledge Assistant"
+      description: "An AI that actually understands your community's context. It reads your events, topics, and conversations -- then helps members find answers, discover connections, and surface insights that would otherwise stay hidden."
+    - icon: "i-lucide-users"
+      title: "Instant Community Platform"
+      description: "Groups, events, topics, file library, and member profiles -- everything a thriving community needs, ready from day one. No plugins to install, no configurations to wrestle with."
+    - icon: "i-lucide-globe"
+      title: "Bioregional Sovereignty"
+      description: "Your community owns its knowledge. Hosted on your subdomain, governed by your values. No platform lock-in, no algorithm deciding what your members see. Your data stays yours."
+  capabilities:
+    - icon: "i-lucide-search"
+      title: "Hybrid Search"
+      description: "Keyword and semantic search working together -- find what you mean, not just what you type."
+    - icon: "i-lucide-shield-check"
+      title: "Managed Hosting"
+      description: "SSL, backups, and automatic updates included. We handle the infrastructure so you can focus on your community."
+    - icon: "i-lucide-sparkles"
+      title: "AI Processing Included"
+      description: "Embeddings, summaries, and intelligent search -- all included in your plan. No per-query costs."
+
+pricing:
+  headline: "Simple pricing"
+  title: "One plan. Everything included."
+  description: "No tiers, no feature gates. Every community gets the full platform."
+  price: "$29"
+  billingCycle: "/month"
+  planDescription: "Everything you need to grow your community's collective knowledge"
+  features:
+    - title: "AI-powered knowledge assistant"
+      icon: "i-lucide-brain"
+    - title: "Groups, events, topics & file library"
+      icon: "i-lucide-users"
+    - title: "Hybrid search (keyword + semantic)"
+      icon: "i-lucide-search"
+    - title: "Custom subdomain (yourname.localnodes.xyz)"
+      icon: "i-lucide-globe"
+    - title: "Hosting, SSL & automatic updates"
+      icon: "i-lucide-shield-check"
+    - title: "AI embeddings & processing included"
+      icon: "i-lucide-sparkles"
+  reassurance: "No hidden costs. No per-query fees. No surprises."
+
+socialProof:
+  headline: "Growing communities"
+  title: "3 communities already growing"
+  description: "Real communities using LocalNodes today. Visit them and see for yourself."
+  communities:
+    - name: "Cascadia"
+      description: "Bioregional knowledge commons for the Pacific Northwest. Connecting communities across watersheds and ecosystems."
+      url: "https://cascadia.localnodes.xyz"
+    - name: "Boulder"
+      description: "Community knowledge garden for Boulder, Colorado. Local events, neighborhood wisdom, and civic engagement."
+      url: "https://boulder.localnodes.xyz"
+    - name: "Portland"
+      description: "Local knowledge network for Portland, Oregon. Neighborhood organizing, mutual aid, and community resilience."
+      url: "https://portland.localnodes.xyz"
+
+cta:
+  title: "Your community's knowledge deserves a home"
+  description: "Stop losing conversations to chat apps and scattered documents. Give your community an AI-powered knowledge garden where everything grows together."
+  primaryCta: "Get Started"
+  secondaryCta: "See a Live Garden"
+  secondaryCtaUrl: "https://cascadia.localnodes.xyz"
