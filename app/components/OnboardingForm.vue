@@ -3,15 +3,12 @@ import { onboardingSchema, type OnboardingSchema } from '~/utils/onboarding-sche
 
 const state = reactive<OnboardingSchema>({
   communityName: '',
-  email: '',
-  password: ''
+  email: ''
 })
 
 const { slug, subdomain, availability, errorMessage } = useSubdomain(
   toRef(() => state.communityName)
 )
-
-const showPassword = ref(false)
 
 const canSubmit = computed(() => availability.value === 'available')
 
@@ -37,6 +34,7 @@ async function onSubmit() {
           placeholder="e.g., Cascadia Bioregion"
           size="xl"
           class="w-full"
+          autofocus
         />
       </UFormField>
       <SubdomainPreview :subdomain="subdomain" :availability="availability" />
@@ -53,27 +51,6 @@ async function onSubmit() {
         size="xl"
         class="w-full"
       />
-    </UFormField>
-
-    <UFormField label="Password" name="password" required>
-      <UInput
-        v-model="state.password"
-        :type="showPassword ? 'text' : 'password'"
-        placeholder="At least 8 characters"
-        size="xl"
-        class="w-full"
-      >
-        <template #trailing>
-          <UButton
-            :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-            variant="ghost"
-            size="xs"
-            :padded="false"
-            color="neutral"
-            @click="showPassword = !showPassword"
-          />
-        </template>
-      </UInput>
     </UFormField>
 
     <div class="pt-2">
