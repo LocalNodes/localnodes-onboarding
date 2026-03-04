@@ -8,8 +8,15 @@ export default defineNuxtConfig({
     preference: 'dark'
   },
 
+  runtimeConfig: {
+    // Private keys (server-only, set via NUXT_* env vars)
+    coolifyApiUrl: 'https://coolify.localnodes.xyz/api/v1',
+    coolifyApiToken: '',  // Set via NUXT_COOLIFY_API_TOKEN env var
+  },
+
   routeRules: {
-    '/': { prerender: true }
+    '/': { prerender: true },
+    '/onboarding': { ssr: true }
   },
 
   app: {
