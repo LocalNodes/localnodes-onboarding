@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { triggerProvisioning } from '../../server/utils/provisioning'
 
 /**
  * Unit tests for the provisioning trigger logic.
@@ -20,23 +21,6 @@ const mockRedis = {
 
 // Mock dispatch function
 const mockDispatch = vi.fn()
-
-// Pure function: triggerProvisioning
-// This will be imported from server/utils/provisioning.ts once implemented
-async function triggerProvisioning(
-  session: {
-    id: string
-    metadata: { subdomain: string; communityName: string; email: string }
-    customer_email: string
-  },
-  deps: {
-    redis: typeof mockRedis
-    dispatchProvisioningWorkflow: typeof mockDispatch
-  }
-): Promise<{ alreadyProcessing: boolean }> {
-  // This function does not exist yet -- tests should fail
-  throw new Error('Not implemented')
-}
 
 describe('provision-trigger: triggerProvisioning', () => {
   const testSession = {

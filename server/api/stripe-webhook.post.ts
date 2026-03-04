@@ -1,3 +1,7 @@
+import type Stripe from 'stripe'
+import { triggerProvisioning } from '../utils/provisioning'
+import { dispatchProvisioningWorkflow } from '../utils/github'
+
 export default defineEventHandler(async (event) => {
   const signature = getHeader(event, 'stripe-signature')
   if (!signature) {
@@ -12,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const stripe = useStripe()
 
-  let stripeEvent
+  let stripeEvent: Stripe.Event
   try {
     stripeEvent = stripe.webhooks.constructEvent(rawBody, signature, config.stripeWebhookSecret)
   } catch (err) {
@@ -22,14 +26,28 @@ export default defineEventHandler(async (event) => {
 
   switch (stripeEvent.type) {
     case 'checkout.session.completed': {
-      const session = stripeEvent.data.object
+      const session = stripeEvent.data.object as Stripe.Checkout.Session
       console.log('Checkout session completed:', {
         sessionId: session.id,
         customerEmail: session.customer_email,
         metadata: session.metadata,
         subscriptionId: session.subscription
       })
-      // Phase 15 will add: trigger provisioning via GitHub Actions
+
+      const redis = useRedis()
+      const { alreadyProcessing } = await triggerProvisioning(
+        {
+          id: session.id,
+          metadata: session.metadata as { subdomain: string; communityName: string; email: string },
+          customer_email: session.customer_email || ''
+        },
+        { redis, dispatchProvisioningWorkflow }
+      )
+
+      if (alreadyProcessing) {
+        console.log('Provisioning already in progress for session:', session.id)
+      }
+
       break
     }
     default:

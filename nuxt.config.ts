@@ -17,6 +17,17 @@ export default defineNuxtConfig({
     stripeSecretKey: '',        // NUXT_STRIPE_SECRET_KEY
     stripeWebhookSecret: '',    // NUXT_STRIPE_WEBHOOK_SECRET
     stripePriceId: '',          // NUXT_STRIPE_PRICE_ID
+
+    // Upstash Redis (server-only, set via NUXT_UPSTASH_* env vars)
+    upstashRedisUrl: '',        // NUXT_UPSTASH_REDIS_URL
+    upstashRedisToken: '',      // NUXT_UPSTASH_REDIS_TOKEN
+
+    // GitHub Actions (server-only, set via NUXT_GITHUB_* env vars)
+    githubToken: '',            // NUXT_GITHUB_TOKEN (fine-grained PAT)
+    githubRepo: 'LocalNodes/os-knowledge-garden',  // NUXT_GITHUB_REPO
+
+    // Provisioning callback (server-only)
+    provisionCallbackSecret: '', // NUXT_PROVISION_CALLBACK_SECRET
   },
 
   routeRules: {

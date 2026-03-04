@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { triggerProvisioning } from '../../server/utils/provisioning'
 
 /**
  * Unit tests for provisioning idempotency logic.
@@ -17,22 +18,6 @@ const mockRedis = {
 
 // Mock dispatch function
 const mockDispatch = vi.fn()
-
-// Pure function: triggerProvisioning
-// Will be imported from server/utils/provisioning.ts once implemented
-async function triggerProvisioning(
-  session: {
-    id: string
-    metadata: { subdomain: string; communityName: string; email: string }
-    customer_email: string
-  },
-  deps: {
-    redis: typeof mockRedis
-    dispatchProvisioningWorkflow: typeof mockDispatch
-  }
-): Promise<{ alreadyProcessing: boolean }> {
-  throw new Error('Not implemented')
-}
 
 describe('idempotency: Redis SETNX lock', () => {
   const makeSession = (id: string) => ({
