@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
       }
     },
     success_url: `${getRequestURL(event).origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${getRequestURL(event).origin}/onboarding`
+    cancel_url: `${getRequestURL(event).origin}/cancel`
   })
 
   if (!session.url) {
