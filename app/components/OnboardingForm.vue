@@ -10,12 +10,34 @@ const { slug, subdomain, availability, errorMessage } = useSubdomain(
   toRef(() => state.communityName)
 )
 
-const canSubmit = computed(() => availability.value === 'available')
+const toast = useToast()
+const submitting = ref(false)
+
+const canSubmit = computed(() => availability.value === 'available' && !submitting.value)
 
 async function onSubmit() {
-  if (availability.value !== 'available') return
-  console.log('Onboarding form submitted:', { ...state, slug: slug.value })
-  await navigateTo('/onboarding/confirm')
+  if (availability.value !== 'available' || submitting.value) return
+
+  submitting.value = true
+  try {
+    const { url } = await $fetch('/api/create-checkout', {
+      method: 'POST',
+      body: {
+        communityName: state.communityName,
+        email: state.email,
+        subdomain: slug.value
+      }
+    })
+
+    await navigateTo(url, { external: true })
+  } catch (error: any) {
+    toast.add({
+      title: 'Payment error',
+      description: error?.data?.statusText || 'Could not start checkout. Please try again.',
+      color: 'error'
+    })
+    submitting.value = false
+  }
 }
 </script>
 
@@ -56,11 +78,11 @@ async function onSubmit() {
     <div class="pt-2">
       <UButton
         type="submit"
-        label="Continue to Payment"
+        :label="submitting ? 'Redirecting to payment...' : 'Continue to Payment'"
         block
         size="xl"
         :disabled="!canSubmit || availability === 'checking'"
-        :loading="availability === 'checking'"
+        :loading="availability === 'checking' || submitting"
       />
       <p class="mt-2 text-center text-sm text-(--ui-text-muted)">
         You'll be charged $29/month
