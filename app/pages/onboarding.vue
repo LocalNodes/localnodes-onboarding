@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineRouteRules({ ssr: true })
+// Route rules for /onboarding (ssr: true) are defined in nuxt.config.ts
 
 useSeoMeta({
   title: 'Get Started - LocalNodes',
