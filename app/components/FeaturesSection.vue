@@ -8,37 +8,50 @@
     <!-- Three pillars with equal weight -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
       <div
-        v-for="pillar in pillars"
+        v-for="(pillar, index) in pillars"
         :key="pillar.title"
-        class="relative p-8 rounded-2xl border border-zinc-800 bg-zinc-900/50 hover:border-primary/30 transition-colors"
+        v-motion
+        :initial="{ opacity: 0, y: 50 }"
+        :visibleOnce="{ opacity: 1, y: 0, transition: { duration: 800, delay: index * 200, type: 'spring', stiffness: 40 } }"
+        class="relative p-8 rounded-3xl border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-xl hover:border-primary/50 hover:bg-zinc-800/40 hover:-translate-y-2 transition-all duration-500 group overflow-hidden shadow-lg hover:shadow-primary/20"
       >
-        <div class="flex items-center justify-center w-14 h-14 rounded-xl bg-primary/10 mb-6">
-          <UIcon :name="pillar.icon" class="text-3xl text-primary" />
+        <!-- subtle gradient background on hover -->
+        <div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl pointer-events-none" />
+        
+        <div class="relative z-10">
+          <div class="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-8 border border-primary/20 group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-300 shadow-inner">
+            <UIcon :name="pillar.icon" class="text-4xl text-primary/80 group-hover:text-primary transition-colors duration-300" />
+          </div>
+          <h3 class="text-2xl font-bold text-zinc-100 mb-4 group-hover:text-white transition-colors">
+            {{ pillar.title }}
+          </h3>
+          <p class="text-zinc-400 leading-relaxed font-light">
+            {{ pillar.description }}
+          </p>
         </div>
-        <h3 class="text-xl font-semibold text-zinc-100 mb-3">
-          {{ pillar.title }}
-        </h3>
-        <p class="text-zinc-400 leading-relaxed">
-          {{ pillar.description }}
-        </p>
       </div>
     </div>
 
     <!-- Additional capabilities -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div
-        v-for="cap in capabilities"
+        v-for="(cap, index) in capabilities"
         :key="cap.title"
-        class="flex gap-4 p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/30"
+        v-motion
+        :initial="{ opacity: 0, scale: 0.9 }"
+        :visibleOnce="{ opacity: 1, scale: 1, transition: { duration: 600, delay: 600 + index * 150 } }"
+        class="flex gap-5 p-6 rounded-2xl border border-zinc-800/40 bg-zinc-900/20 hover:bg-zinc-800/40 hover:border-zinc-700 transition-all duration-300 group"
       >
-        <div class="flex-shrink-0">
-          <UIcon :name="cap.icon" class="text-xl text-secondary" />
+        <div class="flex-shrink-0 mt-1">
+          <div class="flex items-center justify-center w-10 h-10 rounded-full bg-secondary/10 group-hover:bg-secondary/20 transition-colors duration-300">
+            <UIcon :name="cap.icon" class="text-xl text-secondary" />
+          </div>
         </div>
         <div>
-          <h4 class="text-sm font-semibold text-zinc-200 mb-1">
+          <h4 class="text-base font-semibold text-zinc-200 mb-2 group-hover:text-white transition-colors">
             {{ cap.title }}
           </h4>
-          <p class="text-sm text-zinc-500 leading-relaxed">
+          <p class="text-sm text-zinc-500 leading-relaxed font-light group-hover:text-zinc-400 transition-colors">
             {{ cap.description }}
           </p>
         </div>
