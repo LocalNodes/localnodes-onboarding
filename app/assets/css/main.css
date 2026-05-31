@@ -18,3 +18,26 @@
 html {
   scroll-behavior: smooth;
 }
+
+/*
+ * Respect the OS "reduce motion" preference. @vueuse/motion drives its
+ * animations via inline styles (JS), so it ignores prefers-reduced-motion on
+ * its own -- we force any element it has hidden (opacity:0) back to visible and
+ * neutralize transforms, then flatten the looping decorative CSS animations.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [style*="opacity:0"],
+  [style*="opacity: 0"] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

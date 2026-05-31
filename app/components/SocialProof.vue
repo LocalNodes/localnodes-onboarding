@@ -7,34 +7,42 @@
   >
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <UCard
-        v-for="community in communities"
+        v-for="(community, index) in communities"
         :key="community.name"
-        class="hover:border-primary/30 transition-colors"
+        v-motion
+        :initial="{ opacity: 0, y: 30 }"
+        :visibleOnce="{ opacity: 1, y: 0, transition: { duration: 600, delay: index * 200, type: 'spring', stiffness: 50 } }"
+        class="border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-xl hover:border-primary/40 hover:-translate-y-1 transition-all duration-500 group shadow-lg hover:shadow-primary/10 rounded-2xl overflow-hidden relative"
       >
+        <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        
         <template #header>
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <UIcon name="i-lucide-trees" class="text-lg text-primary" />
+          <div class="flex items-center gap-4 relative z-10">
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center ring-1 ring-primary/20 group-hover:bg-primary/20 transition-colors duration-300 shadow-inner">
+              <UIcon name="i-lucide-trees" class="text-xl text-primary/80 group-hover:text-primary transition-colors" />
             </div>
-            <h3 class="text-lg font-semibold text-zinc-100">
+            <h3 class="text-xl font-semibold text-zinc-100 group-hover:text-white transition-colors">
               {{ community.name }}
             </h3>
           </div>
         </template>
 
-        <p class="text-sm text-zinc-400 leading-relaxed">
+        <p class="text-sm text-zinc-400 leading-relaxed font-light relative z-10">
           {{ community.description }}
         </p>
 
         <template #footer>
-          <UButton
-            :label="`Visit ${community.name}`"
-            :to="community.url"
-            target="_blank"
-            variant="outline"
-            size="sm"
-            trailing-icon="i-lucide-external-link"
-          />
+          <div class="relative z-10">
+            <UButton
+              :label="`Visit ${community.name}`"
+              :to="community.url"
+              target="_blank"
+              variant="outline"
+              size="sm"
+              trailing-icon="i-lucide-external-link"
+              class="group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300"
+            />
+          </div>
         </template>
       </UCard>
     </div>
