@@ -27,7 +27,10 @@ useSeoMeta({
     <div class="max-w-md mx-auto text-center">
 
       <!-- WAITING STATE -->
-      <template v-if="sessionId && !isComplete && !isFailed">
+      <!-- Also covers "complete but siteUrl not yet written" (callback only sets
+           siteUrl when the payload includes site_url) so we never render an empty
+           link or fall through to the bare no-session screen. -->
+      <template v-if="sessionId && !isFailed && (!isComplete || !siteUrl)">
         <GardenAnimation class="mb-8" />
 
         <h1 class="text-2xl font-bold mb-2">Growing your garden...</h1>
@@ -46,9 +49,10 @@ useSeoMeta({
       </template>
 
       <!-- SUCCESS STATE -->
+      <!-- Guard on siteUrl: only render once the URL is present (drops the `!`). -->
       <ProvisioningComplete
-        v-else-if="sessionId && isComplete"
-        :site-url="siteUrl!"
+        v-else-if="sessionId && isComplete && siteUrl"
+        :site-url="siteUrl"
         :login-url="loginUrl"
       />
 

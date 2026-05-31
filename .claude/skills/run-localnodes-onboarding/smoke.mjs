@@ -11,7 +11,7 @@
 
 const base = (process.argv[2] || 'http://localhost:3000').replace(/\/$/, '')
 
-/** @type {{name:string, run:(t:string,s:number)=>(true|string)}[]} */
+/** @type {{name:string, path:string, expect:(body:string,status:number)=>(true|string)}[]} */
 const checks = [
   {
     name: 'GET / renders hero copy (SEO / SSR)',

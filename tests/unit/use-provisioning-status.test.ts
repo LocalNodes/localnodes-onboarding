@@ -1,4 +1,47 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ref, nextTick } from 'vue'
+
+// Mock $fetch globally before importing the composable (Nuxt auto-import)
+vi.stubGlobal('$fetch', vi.fn())
+
+// Mock @vueuse/core so we can drive the polling callback manually and avoid
+// real timers. The pure helpers (getStageIndex, etc.) don't use these at
+// runtime, so mocking @vueuse/core does not affect them.
+//
+// - useTimeoutPoll: capture the poll callback (don't auto-run it via a real
+//   timer). `pollHarness.run()` invokes the captured callback so tests stay
+//   deterministic. `pause` is a spy so we can assert polling stops.
+// - useCountdown: return a controllable `remaining` ref + spy `pause`.
+const pollHarness: {
+  fn: (() => void | Promise<void>) | null
+  pause: ReturnType<typeof vi.fn>
+  run: () => Promise<void>
+} = {
+  fn: null,
+  pause: vi.fn(),
+  run: async () => {
+    if (pollHarness.fn) await pollHarness.fn()
+  }
+}
+
+const countdownHarness = {
+  remaining: ref(240),
+  pause: vi.fn()
+}
+
+vi.mock('@vueuse/core', () => ({
+  useTimeoutPoll: (fn: () => void | Promise<void>, _interval: number, _opts?: unknown) => {
+    pollHarness.fn = fn
+    return { pause: pollHarness.pause, resume: vi.fn(), isActive: ref(false) }
+  },
+  useCountdown: (_initial: number) => ({
+    remaining: countdownHarness.remaining,
+    pause: countdownHarness.pause,
+    resume: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn()
+  })
+}))
 
 // ---- Pure function tests (no Vue reactivity needed) ----
 
@@ -10,7 +53,8 @@ import {
   getStageIndex,
   formatTimeRemaining,
   isTerminalStatus,
-  mapStagesToState
+  mapStagesToState,
+  useProvisioningStatus
 } from '~/composables/useProvisioningStatus'
 
 describe('useProvisioningStatus - pure helpers', () => {
@@ -164,5 +208,155 @@ describe('useProvisioningStatus - pure helpers', () => {
       expect(result[0].id).toBe('triggered')
       expect(result[0].label).toBe('Payment confirmed')
     })
+  })
+})
+
+// ---- Stateful composable tests (drive the mocked poll callback manually) ----
+
+describe('useProvisioningStatus - composable', () => {
+  beforeEach(() => {
+    vi.mocked($fetch).mockReset()
+    pollHarness.fn = null
+    pollHarness.pause.mockClear()
+    countdownHarness.pause.mockClear()
+    countdownHarness.remaining.value = 240
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('does not fetch and pauses polling when sessionId is undefined', async () => {
+    const provisioning = useProvisioningStatus(undefined)
+
+    // The !sessionId guard pauses polling synchronously on setup.
+    expect(pollHarness.pause).toHaveBeenCalled()
+
+    // Even if the poll callback fires, the guard prevents any $fetch.
+    await pollHarness.run()
+    expect(vi.mocked($fetch)).not.toHaveBeenCalled()
+
+    // State stays at the initial "no data yet" value.
+    expect(provisioning.status.value).toBe('unknown')
+  })
+
+  it('starts at "unknown" with no fetch having occurred yet', () => {
+    const { status, isComplete, isFailed } = useProvisioningStatus('cs_test_123')
+    expect(status.value).toBe('unknown')
+    expect(isComplete.value).toBe(false)
+    expect(isFailed.value).toBe(false)
+    expect(vi.mocked($fetch)).not.toHaveBeenCalled()
+  })
+
+  it('reflects a fetched in-progress status into status + derived stages', async () => {
+    vi.mocked($fetch).mockResolvedValue({ status: 'provisioning' })
+
+    const { status, stages, currentStageIndex, isComplete, isFailed } =
+      useProvisioningStatus('cs_test_123')
+
+    await pollHarness.run()
+    await nextTick()
+
+    expect(vi.mocked($fetch)).toHaveBeenCalledWith('/api/provision-status', {
+      query: { session_id: 'cs_test_123' }
+    })
+    expect(status.value).toBe('provisioning')
+    expect(currentStageIndex.value).toBe(1)
+    expect(isComplete.value).toBe(false)
+    expect(isFailed.value).toBe(false)
+    // stage 0 completed, stage 1 active
+    expect(stages.value[0].state).toBe('completed')
+    expect(stages.value[1].state).toBe('active')
+  })
+
+  it('captures siteUrl/loginUrl from the response payload', async () => {
+    vi.mocked($fetch).mockResolvedValue({
+      status: 'complete',
+      siteUrl: 'https://garden.localnodes.xyz',
+      loginUrl: 'https://garden.localnodes.xyz/login'
+    })
+
+    const { siteUrl, loginUrl } = useProvisioningStatus('cs_test_123')
+
+    await pollHarness.run()
+    await nextTick()
+
+    expect(siteUrl.value).toBe('https://garden.localnodes.xyz')
+    expect(loginUrl.value).toBe('https://garden.localnodes.xyz/login')
+  })
+
+  it('treats "complete" as terminal: isComplete true and polling paused', async () => {
+    vi.mocked($fetch).mockResolvedValue({ status: 'complete' })
+
+    const { status, isComplete, isFailed } = useProvisioningStatus('cs_test_123')
+
+    await pollHarness.run()
+    await nextTick()
+
+    expect(status.value).toBe('complete')
+    expect(isComplete.value).toBe(true)
+    expect(isFailed.value).toBe(false)
+    // terminal status pauses polling and the countdown
+    expect(pollHarness.pause).toHaveBeenCalled()
+    expect(countdownHarness.pause).toHaveBeenCalled()
+  })
+
+  it('treats "failed" as terminal: isFailed true, error captured, polling paused', async () => {
+    vi.mocked($fetch).mockResolvedValue({ status: 'failed', error: 'provisioning blew up' })
+
+    const { status, isFailed, isComplete, error, currentStageIndex } =
+      useProvisioningStatus('cs_test_123')
+
+    await pollHarness.run()
+    await nextTick()
+
+    expect(status.value).toBe('failed')
+    expect(isFailed.value).toBe(true)
+    expect(isComplete.value).toBe(false)
+    expect(error.value).toBe('provisioning blew up')
+    expect(currentStageIndex.value).toBe(-1)
+    expect(pollHarness.pause).toHaveBeenCalled()
+  })
+
+  it('stops fetching once a terminal status has been reached', async () => {
+    vi.mocked($fetch).mockResolvedValue({ status: 'complete' })
+
+    useProvisioningStatus('cs_test_123')
+
+    await pollHarness.run()
+    await nextTick()
+    expect(vi.mocked($fetch)).toHaveBeenCalledTimes(1)
+
+    // A subsequent poll tick should short-circuit on the isTerminalStatus guard.
+    await pollHarness.run()
+    expect(vi.mocked($fetch)).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps prior state when $fetch rejects (network-error resilience)', async () => {
+    // First poll succeeds and advances to "provisioning".
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'provisioning' })
+
+    const { status, isComplete, isFailed } = useProvisioningStatus('cs_test_123')
+
+    await pollHarness.run()
+    await nextTick()
+    expect(status.value).toBe('provisioning')
+
+    // Next poll rejects; the catch {} must swallow it and leave state intact.
+    vi.mocked($fetch).mockRejectedValueOnce(new Error('network down'))
+
+    await expect(pollHarness.run()).resolves.toBeUndefined()
+    await nextTick()
+
+    // Status did not blank out or crash; it retains the last known good value.
+    expect(status.value).toBe('provisioning')
+    expect(isComplete.value).toBe(false)
+    expect(isFailed.value).toBe(false)
+  })
+
+  it('exposes a formatted timeRemaining derived from the countdown', () => {
+    countdownHarness.remaining.value = 225
+    const { timeRemaining } = useProvisioningStatus('cs_test_123')
+    expect(timeRemaining.value).toBe('3:45')
   })
 })

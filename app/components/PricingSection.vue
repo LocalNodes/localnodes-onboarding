@@ -22,9 +22,9 @@
             label: 'View on GitHub',
             to: 'https://github.com/LocalNodes/os-knowledge-garden',
             target: '_blank',
-            color: 'neutral',
-            size: 'xl',
-            variant: 'outline'
+            color: 'neutral' as const,
+            size: 'xl' as const,
+            variant: 'outline' as const
           }"
           variant="subtle"
           class="h-full border border-zinc-800/60 bg-zinc-900/30 backdrop-blur-md hover:border-zinc-700 hover:bg-zinc-800/20 transition-all duration-300 rounded-3xl group"
@@ -48,8 +48,8 @@
           :button="{
             label: 'Get Started',
             to: '/onboarding',
-            color: 'primary',
-            size: 'xl'
+            color: 'primary' as const,
+            size: 'xl' as const
           }"
           highlight
           variant="subtle"
