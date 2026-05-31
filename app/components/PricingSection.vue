@@ -7,42 +7,63 @@
   >
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
       <!-- Self-Host card (left) -->
-      <UPricingPlan
-        title="Self-Host"
-        price="Free"
-        billing-cycle="forever"
-        description="Run your own instance. Full source code, your infrastructure, total control."
-        :features="selfHostFeatures"
-        :button="{
-          label: 'View on GitHub',
-          to: 'https://github.com/LocalNodes/os-knowledge-garden',
-          target: '_blank',
-          color: 'neutral' as const,
-          size: 'xl' as const,
-          variant: 'outline' as const
-        }"
-        variant="subtle"
-      />
+      <div 
+        v-motion
+        :initial="{ opacity: 0, x: -40 }"
+        :visibleOnce="{ opacity: 1, x: 0, transition: { duration: 800, type: 'spring', stiffness: 45 } }"
+      >
+        <UPricingPlan
+          title="Self-Host"
+          price="Free"
+          billing-cycle="forever"
+          description="Run your own instance. Full source code, your infrastructure, total control."
+          :features="selfHostFeatures"
+          :button="{
+            label: 'View on GitHub',
+            to: 'https://github.com/LocalNodes/os-knowledge-garden',
+            target: '_blank',
+            color: 'neutral' as const,
+            size: 'xl' as const,
+            variant: 'outline' as const
+          }"
+          variant="subtle"
+          class="h-full border border-zinc-800/60 bg-zinc-900/30 backdrop-blur-md hover:border-zinc-700 hover:bg-zinc-800/20 transition-all duration-300 rounded-3xl group"
+        />
+      </div>
 
       <!-- Managed card (right) -->
-      <UPricingPlan
-        title="Managed"
-        price="$29"
-        billing-cycle="/month"
-        description="Everything you need to grow your community's collective knowledge"
-        :features="managedFeatures"
-        :button="{
-          label: 'Get Started',
-          to: '/onboarding',
-          color: 'primary' as const,
-          size: 'xl' as const
-        }"
-        highlight
-        variant="subtle"
-      />
+      <div 
+        v-motion
+        :initial="{ opacity: 0, x: 40 }"
+        :visibleOnce="{ opacity: 1, x: 0, transition: { duration: 800, delay: 200, type: 'spring', stiffness: 45 } }"
+        class="relative group"
+      >
+        <div class="absolute -inset-0.5 bg-gradient-to-br from-primary/30 to-amber-400/20 rounded-3xl blur opacity-40 group-hover:opacity-60 transition duration-500 pointer-events-none" />
+        <UPricingPlan
+          title="Managed"
+          price="$29"
+          billing-cycle="/month"
+          description="Everything you need to grow your community's collective knowledge"
+          :features="managedFeatures"
+          :button="{
+            label: 'Get Started',
+            to: '/onboarding',
+            color: 'primary' as const,
+            size: 'xl' as const
+          }"
+          highlight
+          variant="subtle"
+          class="relative h-full border border-zinc-800/80 bg-zinc-900/80 backdrop-blur-xl rounded-3xl shadow-xl group-hover:shadow-primary/10 transition-shadow duration-300"
+        />
+      </div>
     </div>
 
-    <p class="mt-6 text-center text-sm text-zinc-500">
+    <p 
+      v-motion
+      :initial="{ opacity: 0, y: 20 }"
+      :visibleOnce="{ opacity: 1, y: 0, transition: { duration: 600, delay: 600 } }"
+      class="mt-10 text-center text-sm text-zinc-500 font-light"
+    >
       No hidden costs. No per-query fees. No surprises.
     </p>
   </UPageSection>

@@ -7,40 +7,65 @@
     ]"
   >
     <template #headline>
-      <UBadge variant="subtle" color="primary" size="lg">
-        For Community Organizers
-      </UBadge>
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 20 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 800 } }"
+      >
+        <UBadge variant="subtle" color="primary" size="lg" class="shadow-sm ring-1 ring-primary/20 backdrop-blur-md">
+          For Community Organizers
+        </UBadge>
+      </div>
     </template>
 
     <template #title>
-      Your community's knowledge is scattered across
-      <span class="text-primary">dozens of tools</span>
+      <!-- LCP element: kept fully opaque at first paint (subtle scale only) so
+           it isn't hidden behind a fade-in during hydration. -->
+      <div
+        v-motion
+        :initial="{ scale: 0.97 }"
+        :enter="{ scale: 1, transition: { duration: 800, delay: 100 } }"
+      >
+        Your community's knowledge is scattered across
+        <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-amber-400">dozens of tools</span>
+      </div>
     </template>
 
     <template #description>
-      LocalNodes brings it all together in one AI-powered knowledge garden.
-      A place where conversations, events, and shared wisdom grow -- and an
-      AI assistant that actually understands your community.
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 20 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 1000, delay: 400 } }"
+      >
+        LocalNodes brings it all together in one AI-powered knowledge garden.
+        A place where conversations, events, and shared wisdom grow -- and an
+        <span class="font-medium text-white">AI assistant that actually understands your community.</span>
+      </div>
     </template>
 
     <template #default>
       <!-- Abstract geometric art using CSS gradients -->
-      <div class="relative w-full aspect-square max-w-lg mx-auto">
+      <div 
+        class="relative w-full aspect-square max-w-lg mx-auto"
+        v-motion
+        :initial="{ opacity: 0, scale: 0.9 }"
+        :enter="{ opacity: 1, scale: 1, transition: { duration: 1200, delay: 600, type: 'spring', stiffness: 50 } }"
+      >
         <!-- Background glow -->
-        <div class="absolute inset-0 rounded-3xl overflow-hidden">
+        <div class="absolute inset-0 rounded-3xl overflow-hidden shadow-2xl shadow-primary/10">
           <!-- Primary teal gradient orb -->
           <div
-            class="absolute top-1/4 left-1/4 w-3/4 h-3/4 rounded-full opacity-30 blur-3xl"
+            class="absolute top-1/4 left-1/4 w-3/4 h-3/4 rounded-full opacity-40 blur-[80px] mix-blend-screen animate-[pulse_6s_ease-in-out_infinite]"
             style="background: radial-gradient(circle, rgb(20 184 166) 0%, transparent 70%)"
           />
           <!-- Secondary amber gradient orb -->
           <div
-            class="absolute bottom-1/4 right-1/4 w-2/3 h-2/3 rounded-full opacity-25 blur-3xl"
+            class="absolute bottom-1/4 right-1/4 w-2/3 h-2/3 rounded-full opacity-35 blur-[80px] mix-blend-screen animate-[pulse_8s_ease-in-out_infinite_reverse]"
             style="background: radial-gradient(circle, rgb(245 158 11) 0%, transparent 70%)"
           />
           <!-- Conic gradient overlay -->
           <div
-            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 rounded-full opacity-20 blur-2xl"
+            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 rounded-full opacity-30 blur-3xl animate-[spin_20s_linear_infinite]"
             style="background: conic-gradient(from 45deg, rgb(20 184 166), rgb(245 158 11), rgb(20 184 166))"
           />
         </div>

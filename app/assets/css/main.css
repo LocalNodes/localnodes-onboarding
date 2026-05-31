@@ -18,3 +18,36 @@
 html {
   scroll-behavior: smooth;
 }
+
+/*
+ * Respect the OS "reduce motion" preference. @vueuse/motion drives its
+ * animations via inline styles (JS), so it ignores prefers-reduced-motion on
+ * its own -- we force any element it has hidden (opacity:0) back to visible and
+ * neutralize transforms, then flatten the looping decorative CSS animations.
+ *
+ * NOTE: a bare [style*="opacity:0"] substring match would also catch fractional
+ * values like "opacity:0.5"/"opacity: 0.3" (the "0" is a prefix of "0.5"), and
+ * wrongly force genuinely semi-transparent elements to full opacity. So we anchor
+ * each selector on what follows a TRUE zero: a ";" (more properties follow) or
+ * end-of-attribute via $= (opacity is the last/only property). Both the no-space
+ * and space-after-colon variants are covered, since browsers may normalize
+ * the colon spacing differently.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [style*="opacity:0;"],
+  [style*="opacity: 0;"],
+  [style$="opacity:0"],
+  [style$="opacity: 0"] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
