@@ -1,0 +1,6 @@
+{
+  "worktree": {
+    "bgIsolation": "worktree",
+    "baseRef": "head"
+  }
+}
