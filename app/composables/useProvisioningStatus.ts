@@ -71,7 +71,6 @@ export function mapStagesToState(currentStageIndex: number) {
   return STAGES.map((s, i) => ({
     id: s.id,
     label: s.label,
-    statuses: s.statuses,
     state: (currentStageIndex < 0)
       ? 'pending' as const
       : i < currentStageIndex
@@ -104,14 +103,18 @@ export function useProvisioningStatus(sessionId: string | undefined) {
   const currentStageIndex = computed(() => getStageIndex(status.value))
   const stages = computed(() => mapStagesToState(currentStageIndex.value))
 
-  // Countdown timer: 240 seconds (4 minutes)
-  const { remaining, pause: pauseCountdown } = useCountdown(PROVISIONING_SECONDS)
+  // Countdown timer: 240 seconds (4 minutes).
+  // `immediate: true` is required to actually start ticking. @vueuse's
+  // useCountdown defers to useIntervalFn, whose auto-start is guarded by
+  // `immediate && isClient` -- so the per-second interval runs only in the
+  // browser and is skipped during SSR (no dangling server-side timer).
+  const { remaining, pause: pauseCountdown } = useCountdown(PROVISIONING_SECONDS, { immediate: true })
 
   const timeRemaining = computed(() => formatTimeRemaining(remaining.value))
 
-  // Pause countdown when provisioning completes
-  watch(isComplete, (done) => {
-    if (done) pauseCountdown()
+  // Pause countdown on any terminal status (complete OR failed), not just complete.
+  watch(status, (s) => {
+    if (isTerminalStatus(s)) pauseCountdown()
   })
 
   // Polling: fetch status every 3 seconds
