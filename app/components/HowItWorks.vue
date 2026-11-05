@@ -48,7 +48,7 @@ const steps = [
     number: 2,
     icon: 'i-lucide-credit-card',
     title: 'Subscribe',
-    description: '$29/month. Everything included -- hosting, AI, updates, and support. No hidden costs, no surprises.'
+    description: 'Pick your plan at checkout. Hosting, AI, updates and support are included, and you see the price before you pay.'
   },
   {
     number: 3,

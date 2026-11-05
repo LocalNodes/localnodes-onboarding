@@ -4,7 +4,6 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 const navItems: NavigationMenuItem[] = [
   { label: 'How it Works', to: '#how-it-works' },
   { label: 'Features', to: '#features' },
-  { label: 'Pricing', to: '#pricing' },
   { label: 'Communities', to: '#communities' }
 ]
 </script>

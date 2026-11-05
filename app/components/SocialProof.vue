@@ -1,11 +1,11 @@
 <template>
   <UPageSection
     id="communities"
-    headline="Growing communities"
-    title="3 communities already growing"
-    description="Real communities using LocalNodes today. Visit them and see for yourself."
+    headline="Live demos"
+    title="Explore a demo community"
+    description="These are demo sites with sample content, so you can see what a LocalNodes community looks like before you start your own."
   >
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto gap-6">
       <UCard
         v-for="(community, index) in communities"
         :key="community.name"
@@ -53,18 +53,13 @@
 const communities = [
   {
     name: 'Cascadia',
-    description: 'Bioregional knowledge commons for the Pacific Northwest. Connecting communities across watersheds and ecosystems.',
+    description: 'Demo: a bioregional knowledge commons for the Pacific Northwest. Connecting communities across watersheds and ecosystems.',
     url: 'https://cascadia.localnodes.xyz'
   },
   {
     name: 'Boulder',
-    description: 'Community knowledge garden for Boulder, Colorado. Local events, neighborhood wisdom, and civic engagement.',
+    description: 'Demo: a community knowledge garden for Boulder, Colorado. Local events, neighborhood wisdom, and civic engagement.',
     url: 'https://boulder.localnodes.xyz'
-  },
-  {
-    name: 'Portland',
-    description: 'Local knowledge network for Portland, Oregon. Neighborhood organizing, mutual aid, and community resilience.',
-    url: 'https://portland.localnodes.xyz'
   }
 ]
 </script>

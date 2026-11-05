@@ -27,11 +27,6 @@
               </NuxtLink>
             </li>
             <li>
-              <NuxtLink to="#pricing" class="text-sm text-zinc-400 hover:text-teal-400 transition-colors">
-                Pricing
-              </NuxtLink>
-            </li>
-            <li>
               <NuxtLink to="#communities" class="text-sm text-zinc-400 hover:text-teal-400 transition-colors">
                 Communities
               </NuxtLink>
