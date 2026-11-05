@@ -5,6 +5,9 @@ defineProps<{
 </script>
 
 <template>
+  <!-- fresh3 22-UI-SPEC Part 7 (onboarding): completed steps keep normal text
+       plus a check icon, no strikethrough; no hard-coded white text, so the
+       list reads on the forced-light /success page. -->
   <ol class="space-y-3">
     <li
       v-for="(stage, i) in stages"
@@ -19,23 +22,26 @@ defineProps<{
         <UIcon
           v-if="stage.state === 'completed'"
           name="i-lucide-check-circle"
-          class="text-primary-500 w-6 h-6"
+          class="text-primary w-6 h-6"
+          aria-hidden="true"
         />
         <div
           v-else-if="stage.state === 'active'"
-          class="w-5 h-5 rounded-full border-2 border-primary-500 border-t-transparent animate-spin"
+          class="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin"
+          aria-hidden="true"
         />
         <div
           v-else
-          class="w-5 h-5 rounded-full border-2 border-(--ui-border)"
+          class="w-5 h-5 rounded-full border-2 border-(--ui-border-accented)"
+          aria-hidden="true"
         />
       </div>
       <!-- Label -->
       <span
         :class="[
           'text-sm',
-          stage.state === 'completed' ? 'text-primary-400 line-through' : '',
-          stage.state === 'active' ? 'text-white font-medium' : '',
+          stage.state === 'completed' ? 'text-(--ui-text)' : '',
+          stage.state === 'active' ? 'text-(--ui-text) font-semibold' : '',
           stage.state === 'pending' ? 'text-(--ui-text-muted)' : ''
         ]"
       >{{ stage.label }}</span>

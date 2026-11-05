@@ -1,5 +1,7 @@
 <script setup lang="ts">
 // Route rules for /onboarding (ssr: true) are defined in nuxt.config.ts
+// Task page: forced light (fresh3 22-UI-SPEC Part 1, "Dark mode (Nuxt only)").
+definePageMeta({ colorMode: 'light' })
 
 useSeoMeta({
   title: 'Get Started - LocalNodes',

@@ -12,7 +12,7 @@ const navItems: NavigationMenuItem[] = [
   <UHeader>
     <template #title>
       <NuxtLink to="/" class="flex items-center gap-2">
-        <span class="font-bold text-xl text-teal-400">LocalNodes</span>
+        <span class="font-bold text-xl text-primary">LocalNodes</span>
       </NuxtLink>
     </template>
 

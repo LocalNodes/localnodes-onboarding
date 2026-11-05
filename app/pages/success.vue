@@ -1,5 +1,7 @@
 <script setup lang="ts">
 // Route rules for /success (ssr: true) are defined in nuxt.config.ts
+// Task page: forced light (fresh3 22-UI-SPEC Part 1, "Dark mode (Nuxt only)").
+definePageMeta({ colorMode: 'light' })
 
 const route = useRoute()
 const sessionId = route.query.session_id as string | undefined
@@ -47,7 +49,7 @@ useSeoMeta({
 
       <!-- FAILURE STATE (Phase 17 will expand this) -->
       <template v-else-if="isFailed">
-        <UIcon name="i-lucide-alert-circle" class="text-red-500 mb-6 mx-auto" size="64" />
+        <UIcon name="i-lucide-alert-circle" class="text-error mb-6 mx-auto" size="64" />
 
         <h1 class="text-2xl font-bold mb-2">Something went wrong</h1>
 
@@ -74,7 +76,7 @@ useSeoMeta({
           :initial="{ opacity: 0, y: 20 }"
           :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
         >
-          <UIcon name="i-lucide-sprout" class="text-primary-500 mb-6 mx-auto" size="64" />
+          <UIcon name="i-lucide-sprout" class="text-primary mb-6 mx-auto" size="64" />
 
           <h1 class="text-2xl font-bold mb-2">Your garden is ready!</h1>
 
@@ -101,7 +103,7 @@ useSeoMeta({
           This usually takes about 4 minutes.
         </p>
 
-        <p class="text-xl font-mono text-primary-400 mb-8">{{ timeRemaining }}</p>
+        <p class="text-xl font-mono text-primary mb-8">{{ timeRemaining }}</p>
 
         <ProvisioningProgress :stages="stages" class="text-left mb-8" />
 

@@ -60,7 +60,7 @@ async function onSubmit() {
         />
       </UFormField>
       <SubdomainPreview :subdomain="subdomain" :availability="availability" />
-      <p v-if="errorMessage" class="mt-1 text-sm text-red-500">
+      <p v-if="errorMessage" class="mt-1 text-sm text-error">
         {{ errorMessage }}
       </p>
     </div>
