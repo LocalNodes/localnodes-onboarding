@@ -19,9 +19,9 @@ const iconName = computed(() => {
 
 const colorClass = computed(() => {
   switch (props.availability) {
-    case 'available': return 'text-green-500'
-    case 'taken': return 'text-red-500'
-    case 'invalid': return 'text-amber-500'
+    case 'available': return 'text-success'
+    case 'taken': return 'text-error'
+    case 'invalid': return 'text-warning'
     default: return 'text-(--ui-text-muted)'
   }
 })
