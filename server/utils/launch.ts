@@ -1,7 +1,7 @@
 // Pre-launch gate (Tom, 2026-11-06, PR #9): LocalNodes launches only when
 // funds and votes are complete. Until then the paid sign-up flow stays in the
 // code but is unreachable: its pages redirect to the early-access form and its
-// API routes return 404. One server-side flag opens it: runtimeConfig
+// API routes return 404 (the Stripe webhook answers but acts on nothing). One server-side flag opens it: runtimeConfig
 // `launchOpen`, set by the env var NUXT_LAUNCH_OPEN (default closed).
 // Plain module, no Nitro globals, so tests import it directly.
 
@@ -13,9 +13,11 @@ export const GATED_API = [
   '/api/create-checkout',
   '/api/check-subdomain',
   '/api/provision-status',
-  '/api/provision-callback',
-  '/api/stripe-webhook'
+  '/api/provision-callback'
 ]
+// Not gated: /api/stripe-webhook stays reachable while closed, verifies the
+// signature and takes no action (server/utils/stripe-webhook.ts), so Stripe
+// never logs failures against a live endpoint.
 
 export const EARLY_ACCESS_URL = '/#early-access'
 

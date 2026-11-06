@@ -83,5 +83,7 @@ describe('launch gate (decision)', () => {
   it('does not catch look-alike paths', () => {
     expect(gateDecision('/onboardingx', false)).toBe('pass')
     expect(gateDecision('/api/early-access', false)).toBe('pass')
+    // The webhook is handled in its route while closed (200, no action).
+    expect(gateDecision('/api/stripe-webhook', false)).toBe('pass')
   })
 })
