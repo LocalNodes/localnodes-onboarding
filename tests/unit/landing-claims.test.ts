@@ -248,7 +248,8 @@ describe('banned-claims.json covers every item D-16 names', () => {
     'an online guild or DAO',
     'a housing co-op',
     'open source (GPL and AGPL)',
-    // Feature wording is no longer policed (D-16 as revised, Tom 2026-11-06).
+    // Not honesty bans since D-16 as revised (Tom, 2026-11-06); these are in
+    // the separate voice and product rules list (tested below).
     'a passed proposal can execute automatically',
     'Immutable, censorship-resistant records',
     'Find groups near you'
@@ -256,5 +257,72 @@ describe('banned-claims.json covers every item D-16 names', () => {
 
   it.each(nearMisses)('near miss "%s" hits nothing', (word) => {
     expect(findBannedHits(word, fixture.banned)).toEqual([])
+  })
+})
+
+describe('voice and product rules (a separate list from the honesty bans)', () => {
+  const rules = fixture.voiceRules.rules as { pattern: string, rule: string }[]
+
+  // Hard-coded probes, one or more per rule list entry.
+  const probes: [string, string][] = [
+    ['PLACE-01', 'Find groups near you'],
+    ['PLACE-01', 'Meet the people near me'],
+    ['PLACE-01', 'Everything happening in your town'],
+    ['PLACE-01', 'Groups in your area'],
+    ['PLACE-01', 'Built for local residents'],
+    ['AI-advisory', 'Passed proposals execute automatically'],
+    ['AI-advisory', 'The treasury executes automatically'],
+    ['AI-advisory', 'Payments automatically execute once approved'],
+    ['AI-advisory', 'Proposals auto-execute'],
+    ['AI-advisory', 'with autoexecution'],
+    ['Voice', 'A censorship-resistant record'],
+    ['Voice', 'Immutable history'],
+    ['Voice', 'An unstoppable community'],
+    ['Voice', 'A revolutionary platform'],
+    ['Voice', 'Seamlessly connected'],
+    ['Voice', 'An AI-powered library'],
+    ['Voice', 'We empower communities']
+  ]
+
+  it.each(probes)('%s fires on "%s" and the output names the list', (rule, probe) => {
+    const hits = findBannedHits(probe, rules)
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.every((h: { rule: string }) => h.rule === rule)).toBe(true)
+    expect(findBannedHits(probe, fixture.banned)).toEqual([])
+  })
+
+  it.each(rules.map(r => [r.pattern, r]))('rule %s fires on a probe', (_p, row) => {
+    expect(probes.some(([, probe]) => findBannedHits(probe, [row]).length > 0)).toBe(true)
+  })
+
+  const nearMisses = [
+    'Any group that shares a purpose is welcome, online or in one place.',
+    'Meet near the river',
+    'Your area of work',
+    'An executive summary',
+    'Powered by Gemini',
+    'a member panel settles disputes'
+  ]
+
+  it.each(nearMisses)('near miss "%s" fires no voice or product rule', (text) => {
+    expect(findBannedHits(text, rules)).toEqual([])
+  })
+
+  it('a planted voice-rule hit fails the CLI and names the list and rule', () => {
+    const r = run(page(CLEAN_BODY + '<p>Find groups near you, with seamless sync.</p>'))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*near \(\?:you\|me\).*voice and product rules, PLACE-01/m)
+    expect(r.out).toMatch(/^FAIL .*seamless.*voice and product rules, Voice/m)
+  })
+
+  it('an honesty hit names the honesty list', () => {
+    const r = run(page(CLEAN_BODY + '<p>127 Communities</p>'))
+    expect(r.out).toMatch(/^FAIL .*127 Communities \(honesty bans:/m)
+  })
+
+  it('the clean page passes both lists', () => {
+    const r = run(page(CLEAN_BODY + '<p>Any group that shares a purpose is welcome, online or in one place.</p>'))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
   })
 })

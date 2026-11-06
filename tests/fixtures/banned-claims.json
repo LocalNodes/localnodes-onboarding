@@ -370,5 +370,115 @@
       ".output/public/index.html",
       ".vercel/output/static/index.html"
     ]
+  },
+  "voiceRules": {
+    "description": "Voice and product rules, separate from the honesty bans (orchestrator, 2026-11-06). Same matching as `banned`; a hit fails the build and names this list and its rule.",
+    "rules": [
+      {
+        "pattern": "find groups near you",
+        "regex": false,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "\\bnear (?:you|me)\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "your town",
+        "regex": false,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "\\byour area\\b(?!\\s+of\\b)",
+        "regex": true,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "local residents",
+        "regex": false,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "\\bexecut(?:e|es|ed|ing|ion)\\s+automatically\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "AI-advisory",
+        "reason": "AI-advisory / governance rule: nothing executes without members' votes or signatures (pan.archi lineage)"
+      },
+      {
+        "pattern": "\\bautomatically\\s+execut\\w*",
+        "regex": true,
+        "flags": "i",
+        "rule": "AI-advisory",
+        "reason": "AI-advisory / governance rule: nothing executes without members' votes or signatures (pan.archi lineage)"
+      },
+      {
+        "pattern": "\\bauto-?execut\\w*",
+        "regex": true,
+        "flags": "i",
+        "rule": "AI-advisory",
+        "reason": "AI-advisory / governance rule: nothing executes without members' votes or signatures (pan.archi lineage)"
+      },
+      {
+        "pattern": "censorship-resistant",
+        "regex": false,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\bimmutable\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\bunstoppable\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\brevolutionary\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\bseamless(?:ly)?\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "AI-powered",
+        "regex": false,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\bempower\\w*",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      }
+    ]
   }
 }

@@ -14,6 +14,8 @@
 //      "open source (GPL and AGPL)"), never GPL without AGPL; each inventory
 //      feature's badge (none, or exactly "Coming"; LANDING.md section 5); every
 //      demo-site link labelled a demo; no frame word;
+//   Plus the voice and product rules (PLACE-01, AI-advisory, voice), a
+//   separate list; every FAIL line names the list a hit came from.
 //   3. the sign-up pages (/onboarding, /success, /cancel) for frame and buyer
 //      words (D-05).
 //
@@ -259,10 +261,13 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     lines.push(`FAIL ${file}: ${what} (${why})`)
   }
 
-  // 1. Banned claims in the landing sources.
+  const voiceRules = fixture.voiceRules?.rules ?? []
+
+  // 1. Honesty bans and voice and product rules in the landing sources.
   for (const file of landingSources(root)) {
     const src = stripCss(readFileSync(file, 'utf8'))
-    for (const row of findBannedHits(src, fixture.banned)) fail(relative(root, file), row.pattern, row.reason)
+    for (const row of findBannedHits(src, fixture.banned)) fail(relative(root, file), row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(src, voiceRules)) fail(relative(root, file), row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
   }
 
   const builtDirs = []
@@ -275,8 +280,10 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     lines.push(`CHECK ${builtRel}`)
 
     // Banned claims on the built page (visible text, meta).
-    for (const row of findBannedHits(text, fixture.banned)) fail(builtRel, row.pattern, row.reason)
-    for (const row of findBannedHits(meta, fixture.banned)) fail(`${builtRel}: meta`, row.pattern, row.reason)
+    for (const row of findBannedHits(text, fixture.banned)) fail(builtRel, row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(meta, fixture.banned)) fail(`${builtRel}: meta`, row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(text, voiceRules)) fail(builtRel, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
+    for (const row of findBannedHits(meta, voiceRules)) fail(`${builtRel}: meta`, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
 
     // 2. Required claims on the built page.
     for (const req of fixture.required) {
