@@ -1,7 +1,7 @@
 // Early-access list (Tom, 2026-11-06, PR #9): validation, honeypot, rate
 // limit, one reply for every accepted request, the email never logged.
-import { describe, it, expect, vi } from 'vitest'
-import { handleEarlyAccess, addResendContact, ACCEPTED, hashIp, type Deps } from '../../server/utils/early-access'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { handleEarlyAccess, addResendContact, allowRequest, ACCEPTED, hashIp, RESPONSE_FLOOR_MS, RATE_LIMIT, type Deps, type LimiterRedis } from '../../server/utils/early-access'
 
 const EMAIL = 'organizer@example.com'
 
@@ -9,6 +9,7 @@ function deps(over: Partial<Deps> = {}) {
   const logs: string[] = []
   const d: Deps & { logs: string[] } = {
     configured: true,
+    floorMs: 0,
     allow: vi.fn(async () => true),
     addContact: vi.fn(async () => {}),
     log: (m: string) => { logs.push(m) },
@@ -107,5 +108,86 @@ describe('early access: Resend contact', () => {
     await addResendContact({ email: EMAIL, community: '', groupKind: '' }, 're_test', 'seg_1', fetcher)
     expect(fetcher).toHaveBeenCalledTimes(1)
     expect((fetcher.mock.calls[0] as unknown as [string, { body: Record<string, unknown> }])[1].body).not.toHaveProperty('properties')
+  })
+})
+
+describe('early access: response-time floor (fake timers)', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  async function settleAt(promise: Promise<unknown>) {
+    let done = false
+    promise.then(() => { done = true })
+    await vi.advanceTimersByTimeAsync(RESPONSE_FLOOR_MS - 1)
+    const before = done
+    await vi.advanceTimersByTimeAsync(1)
+    return { before, after: done }
+  }
+
+  const slow = (ms: number, fail = false) => vi.fn(() => new Promise<void>((resolve, reject) => setTimeout(() => (fail ? reject(Object.assign(new Error('dupe'), { statusCode: 409 })) : resolve()), ms)))
+
+  it.each([
+    ['a new contact (fast)', { email: EMAIL }, slow(5)],
+    ['a duplicate Resend refuses (slower)', { email: EMAIL }, slow(400, true)],
+    ['the honeypot (Resend never called)', { email: EMAIL, hpField: 'x' }, slow(5)]
+  ])('%s replies only once the floor has passed', async (_name, body, addContact) => {
+    const p = handleEarlyAccess(body, '1.2.3.4', { configured: true, allow: async () => true, addContact })
+    const { before, after } = await settleAt(p)
+    expect(before).toBe(false)
+    expect(after).toBe(true)
+    expect(await p).toEqual({ status: 200, body: ACCEPTED })
+  })
+
+  it('a call slower than the floor replies when it finishes, not later', async () => {
+    let done = false
+    const p = handleEarlyAccess({ email: EMAIL }, '1.2.3.4', { configured: true, allow: async () => true, addContact: slow(1500) })
+    p.then(() => { done = true })
+    await vi.advanceTimersByTimeAsync(1499)
+    expect(done).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(done).toBe(true)
+  })
+})
+
+describe('early access: rate limit TTL', () => {
+  // In-memory stand-in for Upstash with a clock; EXPIRE can be made to fail.
+  function memRedis() {
+    let now = 0
+    const store = new Map<string, { n: number, until: number | null }>()
+    let expireFailures = 0
+    const live = (k: string) => {
+      const e = store.get(k)
+      if (e && e.until !== null && e.until <= now) store.delete(k)
+      return store.get(k)
+    }
+    const redis: LimiterRedis = {
+      incr: async (k) => { const e = live(k) ?? { n: 0, until: null }; e.n++; store.set(k, e); return e.n },
+      ttl: async (k) => { const e = live(k); return !e ? -2 : e.until === null ? -1 : Math.ceil((e.until - now) / 1000) },
+      expire: async (k, sec) => {
+        if (expireFailures > 0) { expireFailures--; throw new Error('EXPIRE failed') }
+        const e = live(k); if (e) e.until = now + sec * 1000; return 1
+      }
+    }
+    return { redis, tick: (sec: number) => { now += sec * 1000 }, failNextExpire: () => { expireFailures++ } }
+  }
+
+  it('allows up to the limit in a window, then refuses', async () => {
+    const { redis } = memRedis()
+    const results = []
+    for (let i = 0; i < RATE_LIMIT.max + 1; i++) results.push(await allowRequest(redis, 'ip'))
+    expect(results.slice(0, RATE_LIMIT.max).every(Boolean)).toBe(true)
+    expect(results.at(-1)).toBe(false)
+  })
+
+  it('when EXPIRE fails once, the next request repairs the TTL and the IP is not blocked forever', async () => {
+    const m = memRedis()
+    m.failNextExpire()
+    expect(await allowRequest(m.redis, 'ip')).toBe(true) // EXPIRE fails here
+    expect(await m.redis.ttl('rl:early-access:ip')).toBe(-1)
+    for (let i = 0; i < RATE_LIMIT.max; i++) await allowRequest(m.redis, 'ip') // TTL reapplied
+    expect(await allowRequest(m.redis, 'ip')).toBe(false)
+    expect(await m.redis.ttl('rl:early-access:ip')).toBeGreaterThan(0)
+    m.tick(RATE_LIMIT.windowSeconds + 1)
+    expect(await allowRequest(m.redis, 'ip')).toBe(true)
   })
 })

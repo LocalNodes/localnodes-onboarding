@@ -1,4 +1,4 @@
-import { handleEarlyAccess, addResendContact, RATE_LIMIT } from '../utils/early-access'
+import { handleEarlyAccess, addResendContact, allowRequest } from '../utils/early-access'
 
 // Early-access list (server/utils/early-access.ts). The rate limit uses the
 // Upstash Redis already wired for provisioning; if Redis isn't configured or
@@ -12,11 +12,7 @@ export default defineEventHandler(async (event) => {
     configured: Boolean(config.resendApiKey && config.resendSegmentId),
     allow: async (ipHash) => {
       try {
-        const redis = useRedis()
-        const key = `rl:early-access:${ipHash}`
-        const count = await redis.incr(key)
-        if (count === 1) await redis.expire(key, RATE_LIMIT.windowSeconds)
-        return count <= RATE_LIMIT.max
+        return await allowRequest(useRedis(), ipHash)
       } catch {
         console.warn('early-access: rate limit unavailable, allowing the request')
         return true
