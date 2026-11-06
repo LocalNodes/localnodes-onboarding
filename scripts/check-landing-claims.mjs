@@ -1,0 +1,242 @@
+#!/usr/bin/env node
+// Landing-page claims check (fresh3 22.1-04, D-16).
+//
+// Every claim on localnodes.xyz must be true on the day it ships. This reads
+// the banned and required claims from tests/fixtures/banned-claims.json (a
+// copy of fresh3 .planning/brand/LANDING.md section 6) and checks:
+//   1. the prerendered landing page (.output/public/index.html): visible text
+//      and meta tags, plus the landing sources (app/pages/index.vue,
+//      app/components/*.vue, content/**, nuxt.config.ts), for banned claims;
+//   2. the built page for the required claims: both licences named (or
+//      "open source (GPL and AGPL)"), never GPL without AGPL; coming features
+//      with their rung; every demo-site link labelled a demo; no frame word;
+//   3. the sign-up pages (/onboarding, /success, /cancel) for frame and buyer
+//      words (D-05).
+//
+// Usage: node scripts/check-landing-claims.mjs [--root <dir>]
+// Exit: 0 pass, 1 fail, 2 the built page is missing (run npm run build first).
+// Node built-ins only.
+
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
+import { join, relative, resolve, dirname } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const ALNUM = /[A-Za-z0-9]/
+
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Compile one banned row into a RegExp. */
+export function compileRow(row) {
+  if (row.regex) return new RegExp(row.pattern, row.flags ?? '')
+  const p = row.pattern
+  const start = ALNUM.test(p[0]) ? '\\b' : ''
+  const end = ALNUM.test(p[p.length - 1]) ? '\\b' : ''
+  return new RegExp(start + escapeRegex(p) + end, 'i')
+}
+
+/** Return the banned rows whose pattern matches text. */
+export function findBannedHits(text, banned) {
+  return banned.filter((row) => compileRow(row).test(text))
+}
+
+function decodeEntities(s) {
+  return s
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#x27;|&#39;|&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+}
+
+/** Drop CSS: <style> blocks and class, :class and style attribute values. */
+export function stripCss(src) {
+  return src
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/\s:?(class|style)\s*=\s*"[^"]*"/gi, ' ')
+    .replace(/\s:?(class|style)\s*=\s*'[^']*'/gi, ' ')
+}
+
+/** Visible text of an HTML page: no scripts, CSS or tags; whitespace collapsed. */
+export function visibleText(html) {
+  const noCss = stripCss(html)
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<template[\s\S]*?<\/template>/gi, ' ')
+  return decodeEntities(noCss.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
+}
+
+/** The <title> plus every meta tag's content attribute. */
+export function metaText(html) {
+  const parts = []
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+  if (title) parts.push(title[1])
+  for (const m of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const c = m[0].match(/\scontent\s*=\s*"([^"]*)"/i) || m[0].match(/\scontent\s*=\s*'([^']*)'/i)
+    if (c) parts.push(c[1])
+  }
+  return decodeEntities(parts.join(' \n '))
+}
+
+/** Every <a href> with its visible text and aria-label. */
+export function links(html) {
+  const out = []
+  for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
+    const attrs = m[1]
+    const href = (attrs.match(/\shref\s*=\s*"([^"]*)"/i) || [])[1]
+    if (!href) continue
+    const aria = (attrs.match(/\saria-label\s*=\s*"([^"]*)"/i) || [])[1] || ''
+    out.push({ href: decodeEntities(href), text: visibleText(m[2]), aria: decodeEntities(aria) })
+  }
+  return out
+}
+
+function walk(dir) {
+  if (!existsSync(dir)) return []
+  const out = []
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name)
+    if (statSync(p).isDirectory()) out.push(...walk(p))
+    else out.push(p)
+  }
+  return out
+}
+
+/** Landing source files, relative to root. */
+export function landingSources(root) {
+  const files = []
+  const index = join(root, 'app/pages/index.vue')
+  if (existsSync(index)) files.push(index)
+  const comps = join(root, 'app/components')
+  if (existsSync(comps)) {
+    for (const f of readdirSync(comps)) if (f.endsWith('.vue')) files.push(join(comps, f))
+  }
+  files.push(...walk(join(root, 'content')))
+  const cfg = join(root, 'nuxt.config.ts')
+  if (existsSync(cfg)) files.push(cfg)
+  return files
+}
+
+function licenceProblems(text, rule) {
+  const problems = []
+  const gpl = new RegExp(rule.gplMention)
+  const agpl = new RegExp(rule.agplMention)
+  const namesBoth = rule.both.every((l) => text.includes(l))
+  const short = text.toLowerCase().includes(rule.short.toLowerCase())
+  if (!namesBoth && !short) {
+    problems.push(`licence missing: name ${rule.both.join(' and ')} or say "${rule.short}"`)
+  }
+  if (gpl.test(text) && !agpl.test(text)) {
+    problems.push('GPL without AGPL: the page mentions GPL but never AGPL')
+  }
+  return problems
+}
+
+function demoLinkProblems(html, siteHost) {
+  const problems = []
+  for (const l of links(html)) {
+    let url
+    try {
+      url = new URL(l.href, `https://${siteHost}/`)
+    } catch {
+      continue
+    }
+    const host = url.hostname.toLowerCase()
+    const isSite = host === siteHost || host === `www.${siteHost}`
+    if (!host.endsWith(`.${siteHost}`) || isSite) continue
+    if (!/demo/i.test(l.text) && !/demo/i.test(l.aria)) {
+      problems.push(`demo link not labelled a demo: ${l.href} ("${l.text}")`)
+    }
+  }
+  return problems
+}
+
+/**
+ * Run every check. Returns { code, lines }. code: 0 pass, 1 fail, 2 no build.
+ */
+export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-claims.json')) {
+  const lines = []
+  const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
+  const builtPath = join(root, '.output/public/index.html')
+  if (!existsSync(builtPath)) {
+    lines.push(`MISSING ${relative(root, builtPath)}: run npm run build first`)
+    lines.push('RESULT: FAIL')
+    return { code: 2, lines }
+  }
+  let failed = false
+  const fail = (file, what, why) => {
+    failed = true
+    lines.push(`FAIL ${file}: ${what} (${why})`)
+  }
+
+  // 1. Banned claims: built page (visible text, meta) and landing sources.
+  const html = readFileSync(builtPath, 'utf8')
+  const text = visibleText(html)
+  const meta = metaText(html)
+  const builtRel = relative(root, builtPath)
+  for (const row of findBannedHits(text, fixture.banned)) fail(builtRel, row.pattern, row.reason)
+  for (const row of findBannedHits(meta, fixture.banned)) fail(`${builtRel}: meta`, row.pattern, row.reason)
+  for (const file of landingSources(root)) {
+    const src = stripCss(readFileSync(file, 'utf8'))
+    for (const row of findBannedHits(src, fixture.banned)) fail(relative(root, file), row.pattern, row.reason)
+  }
+
+  // 2. Required claims on the built page.
+  for (const req of fixture.required) {
+    if (req.id === 'licence') {
+      for (const p of licenceProblems(text, req)) fail(builtRel, req.rule, p)
+    } else if (req.id === 'coming') {
+      for (const s of req.mustContain) if (!text.includes(s)) fail(builtRel, req.rule, `missing "${s}"`)
+    } else if (req.id === 'demo-label') {
+      for (const p of demoLinkProblems(html, fixture.siteHost)) fail(builtRel, req.rule, p)
+    }
+  }
+  if (!fixture.frameWordAllowed) {
+    for (const w of fixture.frameWords) {
+      const re = compileRow({ pattern: w, regex: false })
+      if (re.test(text) || re.test(meta)) fail(builtRel, w, 'frame word on the landing page (D-14)')
+    }
+  }
+
+  // 3. Sign-up pages: no frame or buyer words (D-05).
+  const words = [
+    ...fixture.frameWords.map((w) => ({ re: compileRow({ pattern: w, regex: false }), w, why: 'frame word in the sign-up flow (D-05)' })),
+    ...fixture.buyerWords.map((w) => ({ re: new RegExp(w, 'i'), w, why: 'buyer word in the sign-up flow (D-05)' }))
+  ]
+  const signup = []
+  for (const s of fixture.signupSources ?? []) {
+    const p = join(root, s)
+    if (existsSync(p)) signup.push({ file: s, text: stripCss(readFileSync(p, 'utf8')) })
+  }
+  for (const route of ['onboarding', 'success', 'cancel']) {
+    const p = join(root, '.output/public', route, 'index.html')
+    if (existsSync(p)) {
+      const h = readFileSync(p, 'utf8')
+      signup.push({ file: relative(root, p), text: `${visibleText(h)} \n ${metaText(h)}` })
+    }
+  }
+  for (const { file, text: t } of signup) {
+    for (const { re, w, why } of words) if (re.test(t)) fail(file, w, why)
+  }
+
+  lines.push(failed ? 'RESULT: FAIL' : 'RESULT: PASS')
+  return { code: failed ? 1 : 0, lines }
+}
+
+function main(argv) {
+  const i = argv.indexOf('--root')
+  const here = dirname(fileURLToPath(import.meta.url))
+  const root = i >= 0 ? resolve(argv[i + 1]) : resolve(here, '..')
+  const fixture = join(resolve(here, '..'), 'tests/fixtures/banned-claims.json')
+  const { code, lines } = runCheck(root, fixture)
+  for (const l of lines) console.log(l)
+  process.exit(code)
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main(process.argv.slice(2))
+}
