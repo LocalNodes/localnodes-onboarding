@@ -18,8 +18,9 @@ const examples = [
     body: 'Holds deeds, stewardship plans, surveys and meeting notes, private to its stewards where it needs to be. Votes on land-use decisions with a public record, and settles disagreements through a member panel.'
   },
   {
-    title: 'A Drupal user group',
-    body: 'Keeps its meetup notes, talk write-ups and organizing handbook in one place; members ask "Who\'s organizing the next contribution day?" and get the answer with the notes it came from. Sees its sponsorship fund\'s balance and who approves spending, and votes on how to spend it.'
+    // Replaces the Drupal user group example (Tom, 2026-11-06: too niche).
+    title: 'A neighborhood association',
+    body: 'Shares news and events as posts on its own site instead of a social media group, and keeps its minutes and bylaws where members can ask "When is the next block cleanup?" and get the answer with the minutes it came from. Collects dues or runs a mutual aid fund that several members approve, and votes on which neighborhood projects to take on.'
   },
   {
     title: 'A bioregional network',

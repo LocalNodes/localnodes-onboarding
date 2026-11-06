@@ -4,19 +4,33 @@
 // kind of group, plus a honeypot field people never see. The server answers
 // every accepted request the same way, so this form shows one thank-you
 // whatever happened to the address.
+// Accessibility (Codex P2): a live region that is always in the page (empty
+// at first) announces the result; on success the confirmation takes focus;
+// an email error is tied to the email field: UFormField's `error` sets the
+// input's aria-describedby to the error text's id and aria-invalid (checked in
+// the browser, 2026-11-06).
 const email = ref('')
 const community = ref('')
 const groupKind = ref<string | undefined>(undefined)
 const hpField = ref('') // honeypot
 const state = ref<'idle' | 'sending' | 'done' | 'error'>('idle')
 const message = ref('')
+const emailError = ref('')
+const announce = ref('')
+const confirmation = ref<HTMLElement | null>(null)
 
-const kinds = ['Co-op', 'Online guild or DAO', 'Land trust', 'User group or meetup', 'Network of groups', 'Something else']
+// Group kinds: D-14 applies here (a pre-launch interest form on the landing
+// page, not the provisioning sign-up flow D-05 covers; orchestrator ruling,
+// 2026-11-06). Neighborhood or tenant group and Mutual aid network added by
+// Tom, 2026-11-06.
+const kinds = ['Co-op', 'Online guild or DAO', 'Land trust', 'Neighborhood or tenant group', 'Mutual aid network', 'User group or meetup', 'Network of groups', 'Something else']
 
 async function submit() {
   if (state.value === 'sending') return
   state.value = 'sending'
   message.value = ''
+  emailError.value = ''
+  announce.value = ''
   try {
     const res = await $fetch<{ ok: boolean, message: string }>('/api/early-access', {
       method: 'POST',
@@ -24,22 +38,36 @@ async function submit() {
     })
     state.value = 'done'
     message.value = res.message
+    announce.value = res.message
+    await nextTick()
+    confirmation.value?.focus()
   } catch (err) {
+    const e = err as { statusCode?: number, status?: number, data?: { message?: string } }
+    const text = e?.data?.message ?? 'Something went wrong. Please try again.'
     state.value = 'error'
-    const data = (err as { data?: { message?: string } })?.data
-    message.value = data?.message ?? 'Something went wrong. Please try again.'
+    if ((e?.statusCode ?? e?.status) === 400) emailError.value = text
+    else message.value = text
+    announce.value = text
   }
 }
 </script>
 
 <template>
   <div class="w-full max-w-xl">
-    <p v-if="state === 'done'" role="status" class="rounded-lg border border-default bg-elevated p-5 text-lg text-highlighted">
+    <!-- Always present, empty at first, so screen readers announce changes. -->
+    <p role="status" aria-live="polite" class="sr-only">{{ announce }}</p>
+
+    <p
+      v-if="state === 'done'"
+      ref="confirmation"
+      tabindex="-1"
+      class="rounded-lg border border-default bg-elevated p-5 text-lg text-highlighted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
       {{ message }}
     </p>
 
     <form v-else class="relative flex flex-col gap-4 text-left" novalidate @submit.prevent="submit">
-      <UFormField label="Email" name="email" required>
+      <UFormField label="Email" name="email" required :error="emailError || undefined">
         <UInput
           v-model="email"
           type="email"
@@ -63,7 +91,7 @@ async function submit() {
         <input id="ea-hp" v-model="hpField" type="text" name="ea_hp_field" tabindex="-1" autocomplete="off">
       </div>
 
-      <p v-if="state === 'error'" role="alert" class="text-error">
+      <p v-if="message" id="ea-form-error" class="text-error">
         {{ message }}
       </p>
 
@@ -73,6 +101,7 @@ async function submit() {
         size="xl"
         color="primary"
         :loading="state === 'sending'"
+        :aria-describedby="message ? 'ea-form-error' : undefined"
         class="self-start"
       />
 
