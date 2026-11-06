@@ -1,99 +1,73 @@
-<template>
-  <UPageSection
-    id="features"
-    headline="Three pillars"
-    title="Everything your community needs"
-    description="Three foundations, working together, to help your community thrive."
-  >
-    <!-- Three pillars with equal weight -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
-      <div
-        v-for="(pillar, index) in pillars"
-        :key="pillar.title"
-        v-motion
-        :initial="{ opacity: 0, y: 50 }"
-        :visibleOnce="{ opacity: 1, y: 0, transition: { duration: 800, delay: index * 200, type: 'spring', stiffness: 40 } }"
-        class="relative p-8 rounded-3xl border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-xl hover:border-primary/50 hover:bg-zinc-800/40 hover:-translate-y-2 transition-all duration-500 group overflow-hidden shadow-lg hover:shadow-primary/20"
-      >
-        <!-- subtle gradient background on hover -->
-        <div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl pointer-events-none" />
-        
-        <div class="relative z-10">
-          <div class="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-8 border border-primary/20 group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-300 shadow-inner">
-            <UIcon :name="pillar.icon" class="text-4xl text-primary/80 group-hover:text-primary transition-colors duration-300" />
-          </div>
-          <h3 class="text-2xl font-bold text-zinc-100 mb-4 group-hover:text-white transition-colors">
-            {{ pillar.title }}
-          </h3>
-          <p class="text-zinc-400 leading-relaxed font-light">
-            {{ pillar.description }}
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Additional capabilities -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div
-        v-for="(cap, index) in capabilities"
-        :key="cap.title"
-        v-motion
-        :initial="{ opacity: 0, scale: 0.9 }"
-        :visibleOnce="{ opacity: 1, scale: 1, transition: { duration: 600, delay: 600 + index * 150 } }"
-        class="flex gap-5 p-6 rounded-2xl border border-zinc-800/40 bg-zinc-900/20 hover:bg-zinc-800/40 hover:border-zinc-700 transition-all duration-300 group"
-      >
-        <div class="flex-shrink-0 mt-1">
-          <div class="flex items-center justify-center w-10 h-10 rounded-full bg-secondary/10 group-hover:bg-secondary/20 transition-colors duration-300">
-            <UIcon :name="cap.icon" class="text-xl text-secondary" />
-          </div>
-        </div>
-        <div>
-          <h4 class="text-base font-semibold text-zinc-200 mb-2 group-hover:text-white transition-colors">
-            {{ cap.title }}
-          </h4>
-          <p class="text-sm text-zinc-500 leading-relaxed font-light group-hover:text-zinc-400 transition-colors">
-            {{ cap.description }}
-          </p>
-        </div>
-      </div>
-    </div>
-  </UPageSection>
-</template>
-
 <script setup lang="ts">
-const pillars = [
+// What you get today (fresh3 LANDING.md 3.4, approved by Tom 2026-11-06).
+// Each item matches a claims-inventory row (LANDING.md section 5).
+// Status per LANDING.md section 5 (Codex review, 2026-11-06): the cited
+// assistant, the site, hybrid search and hosting work today on the demos
+// (cascadia, boulder; checked 2026-11-06). Bulk import and permission-aware
+// answers are Phase 22, built but not deployed yet, so they carry
+// "Coming, rung 1" until Phase 22 is deployed and verified on the demos.
+const features: { title: string, icon: string, body: string, chip?: string }[] = [
   {
-    icon: 'i-lucide-brain',
-    title: 'AI-Powered Knowledge Assistant',
-    description: 'An AI that actually understands your community\'s context. It reads your events, topics, and conversations -- then helps members find answers, discover connections, and surface insights that would otherwise stay hidden.'
+    title: 'Ask your library a question.',
+    icon: 'i-lucide-message-circle',
+    body: 'Ask the AI assistant and it answers from your group\'s pages, with numbered sources that link to each one.'
   },
   {
-    icon: 'i-lucide-users',
-    title: 'Instant Community Platform',
-    description: 'Groups, events, topics, file library, and member profiles -- everything a thriving community needs, ready from day one. No plugins to install, no configurations to wrestle with.'
+    title: 'Bring in many files at once.',
+    icon: 'i-lucide-file-text',
+    body: 'Upload a batch of your group\'s documents or import web pages, and each becomes a page members can search and ask about.',
+    chip: 'Coming, rung 1'
   },
   {
+    title: 'Answers that respect who can see what.',
+    icon: 'i-lucide-lock',
+    body: 'A member\'s answers draw only on pages that member is allowed to see. Private group pages stay private.',
+    chip: 'Coming, rung 1'
+  },
+  {
+    title: 'Your community\'s own site.',
     icon: 'i-lucide-globe',
-    title: 'Bioregional Sovereignty',
-    description: 'Your community owns its knowledge. Hosted on your subdomain, governed by your values. No platform lock-in, no algorithm deciding what your members see. Your data stays yours.'
-  }
-]
-
-const capabilities = [
+    body: 'Groups, events, topics and member profiles, on your own address: yourname.localnodes.xyz.'
+  },
   {
+    title: 'Search that finds what you mean.',
     icon: 'i-lucide-search',
-    title: 'Hybrid Search',
-    description: 'Keyword and semantic search working together -- find what you mean, not just what you type.'
+    body: 'Keyword search and meaning-based search work together.'
   },
   {
-    icon: 'i-lucide-shield-check',
-    title: 'Managed Hosting',
-    description: 'SSL, backups, and automatic updates included. We handle the infrastructure so you can focus on your community.'
-  },
-  {
-    icon: 'i-lucide-sparkles',
-    title: 'AI Processing Included',
-    description: 'Embeddings, summaries, and intelligent search -- all included in your plan. No per-query costs.'
+    title: 'Hosting and updates handled.',
+    icon: 'i-lucide-server',
+    body: 'We run the site and keep it updated, so you can get on with your community.'
   }
 ]
 </script>
+
+<template>
+  <section class="bg-default">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
+      <h2 class="text-3xl font-semibold text-highlighted">
+        What you get today
+      </h2>
+      <p class="text-lg text-muted">
+        Everything here works today unless it's marked Coming. You can try it on a
+        demo site.
+      </p>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div
+          v-for="feature in features"
+          :key="feature.title"
+          class="rounded-lg border border-default p-5 flex flex-col gap-2"
+        >
+          <UIcon :name="feature.icon" class="size-6 text-primary" aria-hidden="true" />
+          <h3 class="text-lg font-semibold text-highlighted">
+            {{ feature.title }}
+          </h3>
+          <p class="leading-relaxed text-muted">
+            {{ feature.body }}
+          </p>
+          <ComingChip v-if="feature.chip" :label="feature.chip" />
+        </div>
+      </div>
+    </div>
+  </section>
+</template>

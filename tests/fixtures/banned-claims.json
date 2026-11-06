@@ -1,0 +1,390 @@
+{
+  "source": "fresh3 .planning/brand/LANDING.md section 6 (Banned claims), approved by Tom 2026-11-06; D-16 (Tom, 2026-11-05)",
+  "banned": [
+    {
+      "pattern": "Climate Tech Collective",
+      "regex": false,
+      "reason": "Invented testimonial"
+    },
+    {
+      "pattern": "Neighborhood Housing Trust",
+      "regex": false,
+      "reason": "Invented testimonial with a money figure"
+    },
+    {
+      "pattern": "Open Source Maintainers Guild",
+      "regex": false,
+      "reason": "Invented testimonial"
+    },
+    {
+      "pattern": "Disaster Response Network",
+      "regex": false,
+      "reason": "Invented testimonial"
+    },
+    {
+      "pattern": "Urban Farm Collective - Oakland",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Design Justice Node - Boston",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Watershed DAO - Colorado",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Solar Cooperative - Puerto Rico",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Permaculture Guild - Vermont",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Mutual Aid Network - Detroit",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Seed Library - Portland",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Food Forest Collective - Austin",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Regenerative Ranch - Montana",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "Community Land Trust - Atlanta",
+      "regex": false,
+      "reason": "Not a real LocalNodes community"
+    },
+    {
+      "pattern": "127 Communities",
+      "regex": false,
+      "reason": "Invented user count"
+    },
+    {
+      "pattern": "$3.2M Under Community Control",
+      "regex": false,
+      "reason": "Invented money figure"
+    },
+    {
+      "pattern": "8,400 Decisions Made Collectively",
+      "regex": false,
+      "reason": "Invented stat"
+    },
+    {
+      "pattern": "423 Projects Funded",
+      "regex": false,
+      "reason": "Invented stat"
+    },
+    {
+      "pattern": "90% of community value lost to platforms",
+      "regex": false,
+      "reason": "Unsourced stat"
+    },
+    {
+      "pattern": "100% community-owned infrastructure",
+      "regex": false,
+      "reason": "Unsourced stat (and export is coming, rung 2)"
+    },
+    {
+      "pattern": "+423%",
+      "regex": false,
+      "reason": "Chart label with no data behind it"
+    },
+    {
+      "pattern": "$1.2M",
+      "regex": false,
+      "reason": "Invented money figure"
+    },
+    {
+      "pattern": "Security audited",
+      "regex": false,
+      "reason": "No audit has been done"
+    },
+    {
+      "pattern": "IPFS",
+      "regex": false,
+      "reason": "LocalNodes doesn't use IPFS"
+    },
+    {
+      "pattern": "Local LLMs",
+      "regex": false,
+      "reason": "The assistant uses Gemini, not a local model"
+    },
+    {
+      "pattern": "Open source under MIT License.",
+      "regex": false,
+      "reason": "Wrong licence"
+    },
+    {
+      "pattern": "\\bMIT\\b",
+      "regex": true,
+      "flags": "",
+      "reason": "Wrong licence (whole word, case-sensitive: the sign-up form's source contains submit and emit)"
+    },
+    {
+      "pattern": "[$€£]\\s?\\d",
+      "regex": true,
+      "flags": "i",
+      "reason": "Any money figure or price (D-16: no price until Tom sets one)"
+    },
+    {
+      "pattern": "\\d\\s?/\\s?mo",
+      "regex": true,
+      "flags": "i",
+      "reason": "Price per month without a currency symbol"
+    },
+    {
+      "pattern": "\\d\\s?/\\s?y(?:ea)?r",
+      "regex": true,
+      "flags": "i",
+      "reason": "Price per year without a currency symbol"
+    },
+    {
+      "pattern": "\\d\\s?per\\smonth",
+      "regex": true,
+      "flags": "i",
+      "reason": "Price per month written out"
+    },
+    {
+      "pattern": "\\d\\s?per\\syear",
+      "regex": true,
+      "flags": "i",
+      "reason": "Price per year written out"
+    },
+    {
+      "pattern": "\\d\\s?(?:USD)\\b",
+      "regex": true,
+      "flags": "i",
+      "reason": "Price with a currency code"
+    },
+    {
+      "pattern": "\\d\\s?(?:EUR)\\b",
+      "regex": true,
+      "flags": "i",
+      "reason": "Price with a currency code"
+    },
+    {
+      "pattern": "GoFundMe taking 8%",
+      "regex": false,
+      "reason": "Unsourced claim about another company's fees"
+    },
+    {
+      "pattern": "groups of 10 or 10,000",
+      "regex": false,
+      "reason": "Scale never tested"
+    },
+    {
+      "pattern": "Draft a proposal in 60 seconds",
+      "regex": false,
+      "reason": "Feature doesn't exist"
+    },
+    {
+      "pattern": "execute automatically",
+      "regex": false,
+      "reason": "Not built; proposals are coming, rung 2"
+    },
+    {
+      "pattern": "Immutable, censorship-resistant",
+      "regex": false,
+      "reason": "Unprovable, and hype"
+    },
+    {
+      "pattern": "Trusted by Communities",
+      "regex": false,
+      "reason": "No customers to cite"
+    },
+    {
+      "pattern": "Communities Already Building",
+      "regex": false,
+      "reason": "No community list"
+    },
+    {
+      "pattern": "Find groups near you",
+      "regex": false,
+      "reason": "Feature doesn't exist; place wording (PLACE-01)"
+    }
+  ],
+  "required": [
+    {
+      "id": "licence",
+      "rule": "GPL without AGPL",
+      "description": "The page names both GPL-2.0-or-later and AGPL-3.0-or-later, or says \"open source (GPL and AGPL)\". A page that mentions GPL (or General Public License) but never AGPL (or Affero) fails. D-16 (Tom, 2026-11-05)",
+      "both": [
+        "GPL-2.0-or-later",
+        "AGPL-3.0-or-later"
+      ],
+      "short": "open source (GPL and AGPL)",
+      "gplMention": "\\bGPL\\b|General Public License",
+      "agplMention": "AGPL|Affero"
+    },
+    {
+      "id": "demo-label",
+      "rule": "Demo links say demo",
+      "description": "Every link to a subdomain of the site host, other than the site itself and its sign-up routes, has \"demo\" in its text or aria-label (D-16)"
+    }
+  ],
+  "frameWords": [
+    "Network Nations",
+    "commons",
+    "network state"
+  ],
+  "frameWordAllowed": false,
+  "buyerWords": [
+    "\\bco-?ops?\\b",
+    "\\bguilds?\\b",
+    "\\bDAOs?\\b",
+    "\\bland trusts?\\b"
+  ],
+  "signupSources": [
+    "app/pages/onboarding.vue",
+    "app/pages/success.vue",
+    "app/pages/cancel.vue",
+    "app/components/OnboardingForm.vue",
+    "app/components/SubdomainPreview.vue",
+    "app/components/ProvisioningProgress.vue",
+    "app/components/ProvisioningComplete.vue",
+    "app/components/GardenAnimation.vue",
+    "app/components/AppHeader.vue",
+    "app/components/AppFooter.vue",
+    "app/layouts/default.vue"
+  ],
+  "siteHost": "localnodes.xyz",
+  "features": {
+    "description": "Each feature's status and chip, from fresh3 LANDING.md section 5 (claims inventory). Items are in page order. The check finds each title in the built page's visible text, after the previous item, and reads the chip that follows it, up to the next feature title or 400 characters. A 'today' feature must carry no Coming chip; a 'coming' feature's first chip must equal `chip` exactly. Flip a Phase 22 row to today only once Phase 22 is deployed and verified on the demos (LANDING.md section 5).",
+    "chipPattern": "Coming(?:, rung \\d+| with the group fund)?",
+    "window": 400,
+    "items": [
+      {
+        "title": "One library your members can search and ask",
+        "status": "today",
+        "source": "3.2; v1.0"
+      },
+      {
+        "title": "Answers that point to the page they came from",
+        "status": "today",
+        "source": "3.2; v1.0 cited answers"
+      },
+      {
+        "title": "A group fund that several members must approve",
+        "status": "coming",
+        "chip": "Coming",
+        "source": "3.2; Phase 21, rung 1"
+      },
+      {
+        "title": "Decisions your members make by vote, with a public record",
+        "status": "coming",
+        "chip": "Coming",
+        "source": "3.2; Phase 25, rung 2"
+      },
+      {
+        "title": "Open source software on your community's own site",
+        "status": "today",
+        "source": "3.2; licence rows"
+      },
+      {
+        "title": "Ask your library a question.",
+        "status": "today",
+        "source": "3.4; v1.0 group assistant with sources"
+      },
+      {
+        "title": "Bring in many files at once.",
+        "status": "coming",
+        "chip": "Coming, rung 1",
+        "source": "3.4; Phase 22 criteria 1, 2 (live check 22-26)"
+      },
+      {
+        "title": "Answers that respect who can see what.",
+        "status": "coming",
+        "chip": "Coming, rung 1",
+        "source": "3.4; Phase 22 criterion 3 (live check 22-27)"
+      },
+      {
+        "title": "Your community's own site.",
+        "status": "today",
+        "source": "3.4; Open Social, Phase 13/15"
+      },
+      {
+        "title": "Search that finds what you mean.",
+        "status": "today",
+        "source": "3.4; v1.0 hybrid search"
+      },
+      {
+        "title": "Hosting and updates handled.",
+        "status": "today",
+        "source": "3.4; Coolify + CI image"
+      },
+      {
+        "title": "See your group fund.",
+        "status": "coming",
+        "chip": "Coming, rung 1",
+        "source": "3.5; Phase 21"
+      },
+      {
+        "title": "Decide together.",
+        "status": "coming",
+        "chip": "Coming, rung 2",
+        "source": "3.5; Phase 25"
+      },
+      {
+        "title": "Rules only your members can change.",
+        "status": "coming",
+        "chip": "Coming, rung 2",
+        "source": "3.5; Phase 26"
+      },
+      {
+        "title": "Credit for the work people do.",
+        "status": "coming",
+        "chip": "Coming, rung 2",
+        "source": "3.5; Phase 27"
+      },
+      {
+        "title": "Fair moderation and a way to settle disputes.",
+        "status": "coming",
+        "chip": "Coming, rung 2",
+        "source": "3.5; Phases 29, 30"
+      },
+      {
+        "title": "Bring what you already have.",
+        "status": "coming",
+        "chip": "Coming, rung 2",
+        "source": "3.5; Phase 31"
+      },
+      {
+        "title": "Leave whenever you want.",
+        "status": "coming",
+        "chip": "Coming, rung 2",
+        "source": "3.5; Phase 32"
+      },
+      {
+        "title": "No fees for members.",
+        "status": "coming",
+        "chip": "Coming with the group fund",
+        "source": "3.5; v4.0 gas rule with Phases 21, 25"
+      }
+    ]
+  },
+  "buildOutputs": {
+    "description": "Prerendered landing page per Nitro preset. With a build-start stamp (written by prebuild), only candidates written during this build count; none fresh fails.",
+    "stampFile": ".claims-build-start",
+    "candidates": [
+      ".output/public/index.html",
+      ".vercel/output/static/index.html"
+    ]
+  }
+}

@@ -85,7 +85,7 @@ async function onSubmit() {
         :loading="availability === 'checking' || submitting"
       />
       <p class="mt-2 text-center text-sm text-(--ui-text-muted)">
-        You'll be charged $29/month
+        You'll see the price at checkout, before you pay.
       </p>
     </div>
   </UForm>
