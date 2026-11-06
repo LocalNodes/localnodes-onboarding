@@ -39,7 +39,7 @@ describe('early access: handler', () => {
 
   it('a filled honeypot gets the same reply and adds nothing', async () => {
     const d = deps()
-    const r = await handleEarlyAccess({ email: EMAIL, website: 'http://spam.example' }, '1.2.3.4', d)
+    const r = await handleEarlyAccess({ email: EMAIL, hpField: 'http://spam.example' }, '1.2.3.4', d)
     expect(r).toEqual({ status: 200, body: ACCEPTED })
     expect(d.addContact).not.toHaveBeenCalled()
   })

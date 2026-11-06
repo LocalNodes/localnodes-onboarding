@@ -14,7 +14,7 @@ export const earlyAccessSchema = v.object({
   community: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(80)), ''),
   groupKind: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(80)), ''),
   // Honeypot: hidden from people, left empty by them; bots fill it.
-  website: v.optional(v.string(), '')
+  hpField: v.optional(v.string(), '')
 })
 
 export type EarlyAccessInput = v.InferOutput<typeof earlyAccessSchema>
@@ -63,7 +63,7 @@ export async function handleEarlyAccess(raw: unknown, ip: string | undefined, de
     return { status: 429, body: { ok: false, message: 'Too many tries. Please wait a while and try again.' } }
   }
   const input = parsed.output
-  if (input.website) {
+  if (input.hpField) {
     // Honeypot filled: answer as if accepted, add nothing.
     return { status: 200, body: ACCEPTED }
   }

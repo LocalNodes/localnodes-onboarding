@@ -7,7 +7,7 @@
 const email = ref('')
 const community = ref('')
 const groupKind = ref<string | undefined>(undefined)
-const website = ref('') // honeypot
+const hpField = ref('') // honeypot
 const state = ref<'idle' | 'sending' | 'done' | 'error'>('idle')
 const message = ref('')
 
@@ -20,7 +20,7 @@ async function submit() {
   try {
     const res = await $fetch<{ ok: boolean, message: string }>('/api/early-access', {
       method: 'POST',
-      body: { email: email.value, community: community.value, groupKind: groupKind.value ?? '', website: website.value }
+      body: { email: email.value, community: community.value, groupKind: groupKind.value ?? '', hpField: hpField.value }
     })
     state.value = 'done'
     message.value = res.message
@@ -59,8 +59,8 @@ async function submit() {
 
       <!-- Honeypot: hidden from people and screen readers; bots fill it. -->
       <div aria-hidden="true" class="absolute -left-[9999px] w-px h-px overflow-hidden">
-        <label for="ea-website">Website</label>
-        <input id="ea-website" v-model="website" type="text" name="website" tabindex="-1" autocomplete="off">
+        <label for="ea-hp">Leave this empty</label>
+        <input id="ea-hp" v-model="hpField" type="text" name="ea_hp_field" tabindex="-1" autocomplete="off">
       </div>
 
       <p v-if="state === 'error'" role="alert" class="text-error">
