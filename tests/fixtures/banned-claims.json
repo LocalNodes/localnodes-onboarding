@@ -267,7 +267,7 @@
   "siteHost": "localnodes.xyz",
   "features": {
     "description": "Each feature's status and chip, from fresh3 LANDING.md section 5 (claims inventory). Items are in page order. The check finds each title in the built page's visible text, after the previous item, and reads the chip that follows it, up to the next feature title or 400 characters. A 'today' feature must carry no Coming chip; a 'coming' feature's first chip must equal `chip` exactly. Flip a Phase 22 row to today only once Phase 22 is deployed and verified on the demos (LANDING.md section 5).",
-    "chipPattern": "Coming(?:, (?:rung \\d+|Phase \\d+(?:\\.\\d+)?)| with the group fund)?",
+    "chipPattern": "Coming(?:, rung \\d+| with the group fund)?",
     "window": 400,
     "items": [
       {
@@ -305,13 +305,13 @@
       {
         "title": "Bring in many files at once.",
         "status": "coming",
-        "chip": "Coming, Phase 22",
+        "chip": "Coming, rung 1",
         "source": "3.4; Phase 22 criteria 1, 2 (live check 22-26)"
       },
       {
         "title": "Answers that respect who can see what.",
         "status": "coming",
-        "chip": "Coming, Phase 22",
+        "chip": "Coming, rung 1",
         "source": "3.4; Phase 22 criterion 3 (live check 22-27)"
       },
       {

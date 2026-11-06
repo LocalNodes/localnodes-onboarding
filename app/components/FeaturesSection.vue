@@ -5,7 +5,7 @@
 // assistant, the site, hybrid search and hosting work today on the demos
 // (cascadia, boulder; checked 2026-11-06). Bulk import and permission-aware
 // answers are Phase 22, built but not deployed yet, so they carry
-// "Coming, Phase 22" until Phase 22 is deployed and verified on the demos.
+// "Coming, rung 1" until Phase 22 is deployed and verified on the demos.
 const features: { title: string, icon: string, body: string, chip?: string }[] = [
   {
     title: 'Ask your library a question.',
@@ -16,13 +16,13 @@ const features: { title: string, icon: string, body: string, chip?: string }[] =
     title: 'Bring in many files at once.',
     icon: 'i-lucide-file-text',
     body: 'Upload a batch of your group\'s documents or import web pages, and each becomes a page members can search and ask about.',
-    chip: 'Coming, Phase 22'
+    chip: 'Coming, rung 1'
   },
   {
     title: 'Answers that respect who can see what.',
     icon: 'i-lucide-lock',
     body: 'A member\'s answers draw only on pages that member is allowed to see. Private group pages stay private.',
-    chip: 'Coming, Phase 22'
+    chip: 'Coming, rung 1'
   },
   {
     title: 'Your community\'s own site.',

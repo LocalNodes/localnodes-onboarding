@@ -127,11 +127,11 @@ describe('check-landing-claims guard fires', () => {
     expect(r.out).toMatch(/^FAIL .*See your group fund\..*expected "Coming, rung 1", found "Coming, rung 2"/m)
   })
 
-  it('exits 1 when a today feature gains a Coming chip, or a Phase 22 item loses its chip', () => {
+  it('exits 1 when a today feature gains a Coming chip, or a rung 1 (Phase 22) item loses its chip', () => {
     const marked = run(page(CLEAN_BODY.replace('Search that finds what you mean.</span> <span>Some words about it.</span>', 'Search that finds what you mean.</span> <span>Some words about it.</span> <span>Coming</span>')))
     expect(marked.code).toBe(1)
     expect(marked.out).toMatch(/^FAIL .*Search that finds what you mean\./m)
-    const unmarked = run(page(CLEAN_BODY.replace('Bring in many files at once.</span> <span>Some words about it.</span> <span class="chip">Coming, Phase 22</span>', 'Bring in many files at once.</span> <span>Some words about it.</span>')))
+    const unmarked = run(page(CLEAN_BODY.replace('Bring in many files at once.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 1</span>', 'Bring in many files at once.</span> <span>Some words about it.</span>')))
     expect(unmarked.code).toBe(1)
     expect(unmarked.out).toMatch(/^FAIL .*Bring in many files at once\./m)
   })
