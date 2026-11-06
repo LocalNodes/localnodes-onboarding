@@ -1,4 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+// Pre-launch gate flag (server/utils/launch.ts). One env var, NUXT_LAUNCH_OPEN,
+// sets both the server value and the public value the client route middleware
+// reads. The landing page is prerendered, so its public value is fixed at
+// build time: change the flag, then redeploy.
+const launchOpen = ['true', '1'].includes(process.env.NUXT_LAUNCH_OPEN ?? '')
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@vueuse/motion/nuxt'],
 
@@ -31,12 +37,17 @@ export default defineNuxtConfig({
 
     // Pre-launch gate (server-only): the paid sign-up flow opens only when
     // NUXT_LAUNCH_OPEN=true (server/utils/launch.ts). Default closed.
-    launchOpen: false,          // NUXT_LAUNCH_OPEN
+    launchOpen,                 // NUXT_LAUNCH_OPEN
 
     // Early-access list (server-only): Resend contacts, added to one segment
     // (Resend's "Audiences" are now "Segments").
     resendApiKey: '',           // NUXT_RESEND_API_KEY
     resendSegmentId: '',        // NUXT_RESEND_SEGMENT_ID
+
+    public: {
+      // Same flag, for the client route middleware (app/middleware/launch-gate.global.ts).
+      launchOpen
+    }
   },
 
   routeRules: {

@@ -1,9 +1,9 @@
 // Pre-launch gate (Tom, 2026-11-06, PR #9). Runs the real middleware module in
 // an h3 app, in front of a stand-in checkout route that would create a Stripe
 // session: while the flag is closed, a direct POST never reaches it.
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createApp, createRouter, defineEventHandler, toWebHandler } from 'h3'
-import { gateDecision, isLaunchOpen, GATED_API, GATED_PAGES } from '../../server/utils/launch'
+import { gateDecision, isLaunchOpen, GATED_API, GATED_PAGES } from '../../shared/launch'
 
 let launchOpen: unknown = false
 let reached = 0
@@ -85,5 +85,43 @@ describe('launch gate (decision)', () => {
     expect(gateDecision('/api/early-access', false)).toBe('pass')
     // The webhook is handled in its route while closed (200, no action).
     expect(gateDecision('/api/stripe-webhook', false)).toBe('pass')
+  })
+})
+
+describe('launch gate (client route middleware)', () => {
+  const g = globalThis as Record<string, unknown>
+
+  async function middleware(publicOpen: unknown) {
+    const navigateTo = vi.fn((to: unknown) => to)
+    g.defineNuxtRouteMiddleware = (fn: unknown) => fn
+    g.useRuntimeConfig = () => ({ public: { launchOpen: publicOpen } })
+    g.navigateTo = navigateTo
+    vi.resetModules()
+    const { default: mw } = await import('../../app/middleware/launch-gate.global')
+    return { mw: mw as (to: { path: string }) => unknown, navigateTo }
+  }
+
+  afterEach(() => {
+    delete g.defineNuxtRouteMiddleware
+    delete g.navigateTo
+  })
+
+  it.each(['/onboarding', '/success', '/cancel'])('client navigation to %s while closed lands on #early-access', async (path) => {
+    const { mw, navigateTo } = await middleware(false)
+    const result = mw({ path })
+    expect(navigateTo).toHaveBeenCalledWith({ path: '/', hash: '#early-access' }, { replace: true })
+    expect(result).toEqual({ path: '/', hash: '#early-access' })
+  })
+
+  it('leaves the landing page alone while closed', async () => {
+    const { mw, navigateTo } = await middleware(false)
+    expect(mw({ path: '/' })).toBeUndefined()
+    expect(navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('lets client navigation to /onboarding through once the launch is open', async () => {
+    const { mw, navigateTo } = await middleware(true)
+    expect(mw({ path: '/onboarding' })).toBeUndefined()
+    expect(navigateTo).not.toHaveBeenCalled()
   })
 })
