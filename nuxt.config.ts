@@ -28,13 +28,23 @@ export default defineNuxtConfig({
 
     // Provisioning callback (server-only)
     provisionCallbackSecret: '', // NUXT_PROVISION_CALLBACK_SECRET
+
+    // Pre-launch gate (server-only): the paid sign-up flow opens only when
+    // NUXT_LAUNCH_OPEN=true (server/utils/launch.ts). Default closed.
+    launchOpen: false,          // NUXT_LAUNCH_OPEN
+
+    // Early-access list (server-only): Resend contacts, added to one segment
+    // (Resend's "Audiences" are now "Segments").
+    resendApiKey: '',           // NUXT_RESEND_API_KEY
+    resendSegmentId: '',        // NUXT_RESEND_SEGMENT_ID
   },
 
   routeRules: {
     '/': { prerender: true },
     '/onboarding': { ssr: true },
     '/success': { ssr: true },
-    '/cancel': { prerender: true }
+    // Server-rendered (not prerendered) so the pre-launch gate can see it.
+    '/cancel': { ssr: true }
   },
 
   app: {
