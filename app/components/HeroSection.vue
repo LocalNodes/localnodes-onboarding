@@ -2,9 +2,9 @@
 // Hero (fresh3 LANDING.md 3.1, approved by Tom 2026-11-06). The first dark
 // band: the `dark` class scopes var(--ui-*) to the dark roles, so the band
 // takes its colours from the token output rather than literals.
-// TODO(22.1-08): the band colour #082f49 (palette B brand 950) and its roles
-// (muted #bae6fd, answer card #0f4f6d, source chip #e0f2fe) arrive through the
-// Nuxt dark tokens in 22.1-08; nothing here should hard-code them.
+// TODO(22.1-08): the exact band colour (palette B brand 950) and its roles
+// (muted text, answer card, source chip; BRAND.md section 5 "Dark mode") arrive
+// through the Nuxt dark tokens in 22.1-08; nothing here hard-codes them.
 </script>
 
 <template>

@@ -1,9 +1,13 @@
 <template>
   <div>
     <HeroSection id="hero" />
+    <ProblemSection id="the-problem" />
+    <WhoItsFor id="who-its-for" />
     <FeaturesSection id="what-you-get-today" />
+    <RoadmapSection id="whats-next" />
     <SocialProof id="see-it-in-action" />
     <HowItWorks id="how-it-works" />
+    <OpenSourceSection id="open-source" />
     <LandingCTA id="get-started" />
   </div>
 </template>
