@@ -1,71 +1,37 @@
+<script setup lang="ts">
+// Footer (fresh3 LANDING.md 3.9, D-16): the badge line, both licences in the
+// short form "Open source (GPL and AGPL)", never a GPL-only line; demo links
+// labelled demos; no stats or community list. Shared with the sign-up pages,
+// so it carries no frame or buyer words (D-05).
+const year = new Date().getFullYear()
+</script>
+
 <template>
-  <footer class="border-t border-zinc-800 bg-zinc-950">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <!-- Brand -->
-        <div>
-          <NuxtLink to="/" class="font-bold text-xl text-teal-400">
-            LocalNodes
+  <footer class="border-t border-default bg-default">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3 text-sm text-muted">
+          <NuxtLink to="/" aria-label="LocalNodes home">
+            <AppLogo size="sm" />
           </NuxtLink>
-          <p class="mt-2 text-sm text-zinc-400">
-            AI-powered knowledge gardens for communities.
-          </p>
+          <span aria-hidden="true">·</span>
+          <span>Home base for communities that run things together.</span>
         </div>
-
-        <!-- Navigation -->
-        <div>
-          <h3 class="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Navigate</h3>
-          <ul class="mt-3 space-y-2">
-            <li>
-              <NuxtLink to="#how-it-works" class="text-sm text-zinc-400 hover:text-teal-400 transition-colors">
-                How it Works
-              </NuxtLink>
-            </li>
-            <li>
-              <NuxtLink to="#features" class="text-sm text-zinc-400 hover:text-teal-400 transition-colors">
-                Features
-              </NuxtLink>
-            </li>
-            <li>
-              <NuxtLink to="#communities" class="text-sm text-zinc-400 hover:text-teal-400 transition-colors">
-                Communities
-              </NuxtLink>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Explore -->
-        <div>
-          <h3 class="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Explore</h3>
-          <ul class="mt-3 space-y-2">
-            <li>
-              <a
-                href="https://cascadia.localnodes.xyz"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-sm text-zinc-400 hover:text-teal-400 transition-colors"
-              >
-                Live Demo (Cascadia)
-              </a>
-            </li>
-            <li>
-              <NuxtLink to="/onboarding" class="text-sm text-zinc-400 hover:text-teal-400 transition-colors">
-                Get Started
-              </NuxtLink>
-            </li>
-          </ul>
-        </div>
+        <nav aria-label="Footer" class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <a href="https://cascadia.localnodes.xyz" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Cascadia demo<span class="sr-only"> (opens in a new tab)</span>
+          </a>
+          <a href="https://github.com/LocalNodes" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Code on GitHub<span class="sr-only"> (opens in a new tab)</span>
+          </a>
+          <NuxtLink to="/onboarding" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Set up your site
+          </NuxtLink>
+        </nav>
       </div>
-
-      <!-- Bottom bar -->
-      <div class="mt-8 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <p class="text-sm text-zinc-500">
-          &copy; {{ new Date().getFullYear() }} LocalNodes. All rights reserved.
-        </p>
-        <p class="text-sm text-zinc-600 italic">
-          Built for communities, by communities.
-        </p>
-      </div>
+      <p class="text-sm text-muted">
+        &copy; {{ year }} LocalNodes. Open source (GPL and AGPL).
+      </p>
     </div>
   </footer>
 </template>
