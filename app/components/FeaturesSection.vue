@@ -49,6 +49,9 @@ const features: { title: string, icon: string, body: string, coming?: boolean }[
       <h2 class="text-3xl font-semibold text-highlighted">
         What you get today
       </h2>
+      <p class="text-lg font-semibold text-highlighted">
+        Every answer shows the page it came from.
+      </p>
       <p class="text-lg text-muted">
         Everything here works today unless it's marked Coming. You can try it on a
         demo site.

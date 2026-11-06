@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Hero (fresh3 LANDING.md 3.1, approved by Tom 2026-11-06). The first dark
+// Hero (fresh3 LANDING.md 3.1, approved by Tom 2026-11-06; headline and
+// subline revised by Tom 2026-11-06, PR #9). The first dark
 // band: the `dark` class scopes var(--ui-*) to the dark roles, so the band
 // takes its colours from the token output rather than literals.
 // TODO(22.1-08): the exact band colour (palette B brand 950) and its roles
@@ -16,13 +17,12 @@
         </span>
 
         <h1 class="text-4xl sm:text-5xl leading-[1.15] font-semibold text-highlighted text-balance">
-          LocalNodes: your community's library, treasury and decisions, run by its members.
+          The second brain for your community.
         </h1>
 
         <p class="text-lg leading-relaxed text-muted max-w-2xl">
-          A home for your group's documents that members can search and ask, with
-          every answer pointing to the page it came from. It starts with your
-          library. Shared funds and group decisions are on the way.
+          Your group's documents, minutes and decisions in one place, so any member
+          can ask and get an answer from what your community actually wrote.
         </p>
 
         <div class="flex flex-wrap gap-3">
