@@ -170,20 +170,74 @@ function demoLinkProblems(html, siteHost) {
 }
 
 
+const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
+const HIDDEN_CLASSES = new Set(['hidden', 'sr-only', 'invisible'])
+
+/** Whether a tag's own attributes hide it: hidden, aria-hidden, inline style, or a hiding utility class. */
+export function hidesElement(attrs) {
+  if (/(^|\s)hidden(\s|=|$)/i.test(attrs)) return true
+  if (/\saria-hidden\s*=\s*["']?true/i.test(attrs)) return true
+  const style = (attrs.match(/\sstyle\s*=\s*"([^"]*)"/i) || attrs.match(/\sstyle\s*=\s*'([^']*)'/i) || [])[1] || ''
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(style)) return true
+  const cls = (attrs.match(/\sclass\s*=\s*"([^"]*)"/i) || attrs.match(/\sclass\s*=\s*'([^']*)'/i) || [])[1] || ''
+  // Responsive variants count too (md:hidden hides it on wider screens).
+  return cls.split(/\s+/).some((c) => HIDDEN_CLASSES.has(c.split(':').pop()))
+}
+
+/**
+ * Each element carrying `attribute`, with the text a reader can see in it:
+ * text inside a hidden descendant is left out, and an element inside a hidden
+ * ancestor (or hidden itself) has no visible text at all. Comments, scripts,
+ * templates, <noscript>, <style> and <title> never count.
+ */
+export function visibleMarked(html, attribute) {
+  const src = html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|template|noscript|title|style)\b[\s\S]*?<\/\1>/gi, ' ')
+  const marker = new RegExp(`\\s${attribute}(\\s|=|/|$)`, 'i')
+  const stack = [] // { tag, hidden, mark }
+  const out = []
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*)>/g
+  let last = 0
+  const addText = (text) => {
+    if (!text.trim()) return
+    const hidden = stack.some((e) => e.hidden)
+    for (const e of stack) if (e.mark && !hidden) e.mark.text += text
+  }
+  for (const m of src.matchAll(tagRe)) {
+    addText(src.slice(last, m.index))
+    last = m.index + m[0].length
+    const tag = m[1].toLowerCase()
+    const attrs = m[2] || ''
+    if (m[0].startsWith('</')) {
+      const i = stack.map((e) => e.tag).lastIndexOf(tag)
+      if (i >= 0) stack.length = i
+      continue
+    }
+    if (VOID_TAGS.has(tag) || /\/\s*$/.test(attrs)) continue
+    const entry = { tag, hidden: hidesElement(attrs), mark: null }
+    if (marker.test(attrs)) {
+      entry.mark = { text: '' }
+      out.push(entry.mark)
+    }
+    stack.push(entry)
+  }
+  addText(src.slice(last))
+  return out.map((o) => decodeEntities(o.text).replace(/\s+/g, ' ').trim())
+}
+
 /**
  * Pre-launch statement (Tom, 2026-11-06, PR #9): the page describes the
  * finished product in the present tense, so it must say, visibly, that
  * LocalNodes hasn't launched. Passes when at least one element carrying the
- * rule's attribute (`data-prelaunch`) has visible text containing the phrase.
+ * rule's attribute (`data-prelaunch`) shows the phrase to a reader: not in a
+ * comment, not hidden by an attribute, aria-hidden, an inline style or a
+ * hiding utility class, on it or on any ancestor (Codex P2).
  */
 export function prelaunchProblems(html, rule) {
-  const re = new RegExp(`<([a-z][a-z0-9]*)\\b[^>]*\\s${rule.attribute}\\b[^>]*>([\\s\\S]*?)<\\/\\1>`, 'gi')
-  // Only visible markup counts: not scripts, templates, <noscript> or <title>.
-  const shown = html.replace(/<(script|template|noscript|title|style)\b[\s\S]*?<\/\1>/gi, ' ')
-  for (const m of shown.matchAll(re)) {
-    if (visibleText(m[2]).toLowerCase().includes(rule.phrase.toLowerCase())) return []
-  }
-  return [`no pre-launch statement: no element with ${rule.attribute} saying "${rule.phrase}"`]
+  const phrase = rule.phrase.toLowerCase()
+  if (visibleMarked(html, rule.attribute).some((t) => t.toLowerCase().includes(phrase))) return []
+  return [`no pre-launch statement: no visible element with ${rule.attribute} saying "${rule.phrase}"`]
 }
 
 /**

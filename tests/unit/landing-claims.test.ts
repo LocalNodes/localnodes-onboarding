@@ -321,6 +321,33 @@ describe('pre-launch statement (Tom, 2026-11-06, PR #9)', () => {
     expect(r.code).toBe(1)
   })
 
+  // Codex P2: each way a statement can be in the HTML but not seen.
+  const rule = { attribute: 'data-prelaunch', phrase: 'Launching soon' }
+  it.each([
+    ['an HTML comment', '<!-- <p data-prelaunch>Launching soon.</p> -->'],
+    ['the hidden attribute', '<p data-prelaunch hidden>Launching soon.</p>'],
+    ['aria-hidden', '<p data-prelaunch aria-hidden="true">Launching soon.</p>'],
+    ['a hidden ancestor', '<div hidden><section><p data-prelaunch>Launching soon.</p></section></div>'],
+    ['an aria-hidden ancestor', '<div aria-hidden="true"><p data-prelaunch>Launching soon.</p></div>'],
+    ['inline display:none', '<p data-prelaunch style="display: none">Launching soon.</p>'],
+    ['inline visibility:hidden on an ancestor', '<div style="color:red;visibility:hidden"><p data-prelaunch>Launching soon.</p></div>'],
+    ['the hidden class', '<p data-prelaunch class="text-sm hidden">Launching soon.</p>'],
+    ['the sr-only class', '<p data-prelaunch class="sr-only">Launching soon.</p>'],
+    ['the invisible class on an ancestor', '<div class="invisible"><p data-prelaunch>Launching soon.</p></div>'],
+    ['a hidden child holding the phrase', '<p data-prelaunch>Welcome. <span class="sr-only">Launching soon.</span></p>'],
+    ['a responsive md:hidden ancestor', '<div class="md:hidden"><p data-prelaunch>Launching soon.</p></div>']
+  ])('fails a statement hidden by %s', (_why, html) => {
+    expect(prelaunchProblems(`<body>${html}</body>`, rule)).not.toEqual([])
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, html)))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/Pre-launch statement/)
+  })
+
+  it('passes a visible statement next to hidden siblings and void tags', () => {
+    const html = '<div class="flex"><p data-prelaunch class="inline-flex">Launching <b>soon</b>.<span class="sr-only">(banner)</span></p></div><div hidden>x</div><img src="a.png"><br>'
+    expect(prelaunchProblems(`<body>${html}</body>`, rule)).toEqual([])
+  })
+
   it('reads the statement through nested tags and any case', () => {
     expect(prelaunchProblems('<div data-prelaunch=""><b>LAUNCHING</b> soon.</div>', { attribute: 'data-prelaunch', phrase: 'Launching soon' })).toEqual([])
   })
