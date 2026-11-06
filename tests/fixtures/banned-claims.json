@@ -478,6 +478,28 @@
         "flags": "i",
         "rule": "Voice",
         "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "Building a Second Brain",
+        "regex": false,
+        "flags": "i",
+        "rule": "Third-party title",
+        "reason": "Someone else's book and course title; \"second brain\" alone is fine (orchestrator for Tom, 2026-11-06)"
+      }
+    ]
+  },
+  "badgedClaims": {
+    "description": "Fund claims need a status badge in the same sentence (Tom, 2026-11-06, PR #9, Codex P2, option A): shared funds work end to end on the test network but aren't on sign-up sites yet, so a sentence that names them carries a \"Test network\" or \"Coming\" badge (data-badge). Read from the built page's visible text; sections marked data-claims-exempt (the Fund what matters band, where every item is badged Coming) are skipped.",
+    "rules": [
+      {
+        "id": "fund",
+        "pattern": "\\b(?:shared (?:money|funds?|accounts?)|group funds?|treasur(?:y|ies))\\b",
+        "flags": "i",
+        "badges": [
+          "Test network",
+          "Coming"
+        ],
+        "reason": "fund claim without a Test network or Coming badge"
       }
     ]
   }

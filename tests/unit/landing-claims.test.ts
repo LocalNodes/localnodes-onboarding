@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 // @ts-expect-error plain .mjs script, no type declarations
-import { findBannedHits } from '../../scripts/check-landing-claims.mjs'
+import { findBannedHits, featureProblems, badgedText } from '../../scripts/check-landing-claims.mjs'
 
 const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
@@ -24,12 +24,15 @@ const features: Feature[] = fixture.features.items
 // The real page repeats a title earlier ("Fund what matters. Decide together.
 // Own the infrastructure." heads the band that lists "Decide together."), so
 // the heading goes before the list here to pin that case.
-const featureList = '<h2>Fund what matters. Decide together. Own the infrastructure.</h2>' + features
+// Like the real band, the list sits in a data-claims-exempt section: its
+// titles ("See your group fund.") end before the badge, which the badged-claims
+// rule would otherwise read as an unbadged fund claim.
+const featureList = '<section data-claims-exempt><h2>Fund what matters. Decide together. Own the infrastructure.</h2>' + features
   .map(f => `<li><span>${f.title}</span> <span>Some words about it.</span>${f.status === 'coming' ? ` <span class="chip" data-badge>${f.badge}</span>` : ''}</li>`)
-  .join('\n')
+  .join('\n') + '</section>'
 
 const CLEAN_BODY = `
-  <h1>LocalNodes: your community's library, treasury and decisions, run by its members.</h1>
+  <h1>The second brain for your community.</h1>
   <ul>${featureList}</ul>
   <a href="https://cascadia.localnodes.xyz">Cascadia (demo)</a>
   <a href="/onboarding">Set up your community's site</a>
@@ -281,7 +284,8 @@ describe('voice and product rules (a separate list from the honesty bans)', () =
     ['Voice', 'A revolutionary platform'],
     ['Voice', 'Seamlessly connected'],
     ['Voice', 'An AI-powered library'],
-    ['Voice', 'We empower communities']
+    ['Voice', 'We empower communities'],
+    ['Third-party title', 'Inspired by Building a Second Brain']
   ]
 
   it.each(probes)('%s fires on "%s" and the output names the list', (rule, probe) => {
@@ -301,7 +305,9 @@ describe('voice and product rules (a separate list from the honesty bans)', () =
     'Your area of work',
     'An executive summary',
     'Powered by Gemini',
-    'a member panel settles disputes'
+    'a member panel settles disputes',
+    'The second brain for your community.',
+    'Your community\'s second brain, ready from the first day.'
   ]
 
   it.each(nearMisses)('near miss "%s" fires no voice or product rule', (text) => {
@@ -322,6 +328,73 @@ describe('voice and product rules (a separate list from the honesty bans)', () =
 
   it('the clean page passes both lists', () => {
     const r = run(page(CLEAN_BODY + '<p>Any group that shares a purpose is welcome, online or in one place.</p>'))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+})
+
+describe('badged claims: a fund claim needs a Test network or Coming badge', () => {
+  const tn = '<span class="chip" data-badge>Test network</span>'
+  const coming = '<span class="chip" data-badge>Coming</span>'
+
+  it('passes a fund claim with the Test network chip in its sentence', () => {
+    const r = run(page(CLEAN_BODY + `<p>Keep your minutes in one place, and run your shared money ${tn}, with votes to follow ${coming}.</p>`))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  it('passes a fund claim with a chip straight after its full stop', () => {
+    const r = run(page(CLEAN_BODY + `<li>A group fund that several members must approve. ${coming}</li>`))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  it('passes a fund claim with a Coming chip just before it', () => {
+    const r = run(page(CLEAN_BODY + `<p>Keeps its handbook in one place.</p><div>${coming}<p>Connects the shared account it already uses.</p></div>`))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  it('fails a fund claim with no chip, naming the claim', () => {
+    const r = run(page(CLEAN_BODY + '<p>Keep your minutes in one place, and run your shared money and votes the same way.</p>'))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*shared money \(badged claims: fund claim without/m)
+  })
+
+  it('fails when the only chip is in another sentence', () => {
+    const r = run(page(CLEAN_BODY + `<p>Votes are on the way ${coming}. Your treasury works today.</p>`))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*treasury \(badged claims:/m)
+  })
+
+  it('fails a fund claim whose only badge is some other word', () => {
+    const r = run(page(CLEAN_BODY + '<p>Run your shared money <span data-badge>Live</span>.</p>'))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/badged claims/)
+  })
+
+  it('a Test network badge in a later section is not read as an earlier feature\'s badge', () => {
+    const html = `<section><li>Open source software</li></section><section><p>Run your shared money ${tn}.</p></section>`
+    const items = { window: 400, items: [{ title: 'Open source software', status: 'today' }] }
+    expect(featureProblems(badgedText(html), items)).toEqual([])
+    // Without the section boundary the badge would be read as the feature's.
+    expect(featureProblems(badgedText(html).replace('\u27E6END\u27E7', ''), items)).not.toEqual([])
+  })
+
+  it('fails a fund claim whose only chip belongs to the next clause (votes)', () => {
+    const r = run(page(CLEAN_BODY + `<p>Keep your minutes, and run your shared money, with votes to follow ${coming}.</p>`))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*shared money \(badged claims:/m)
+  })
+
+  it('reads the <title> as meta only, not as an unbadged fund claim', () => {
+    const r = run(page(CLEAN_BODY).replace('<title>LocalNodes</title>', '<title>LocalNodes: library, treasury and decisions</title>'))
+    expect(r.out).not.toMatch(/badged claims/)
+    expect(r.code).toBe(0)
+  })
+
+  it('skips a section marked data-claims-exempt', () => {
+    const r = run(page(CLEAN_BODY + '<section data-claims-exempt><p>LocalNodes keeps your group\'s shared money alongside its library.</p></section>'))
     expect(r.out).toContain('RESULT: PASS')
     expect(r.code).toBe(0)
   })

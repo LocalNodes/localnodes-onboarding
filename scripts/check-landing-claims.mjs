@@ -16,6 +16,8 @@
 //      demo-site link labelled a demo; no frame word;
 //   Plus the voice and product rules (PLACE-01, AI-advisory, voice), a
 //   separate list; every FAIL line names the list a hit came from.
+//   Plus badged claims: a fund claim needs a "Test network" or "Coming"
+//   badge in its sentence (Tom, 2026-11-06, PR #9).
 //   3. the sign-up pages (/onboarding, /success, /cancel) for frame and buyer
 //      words (D-05).
 //
@@ -68,10 +70,14 @@ export function stripCss(src) {
     .replace(/\s:?(class|style)\s*=\s*'[^']*'/gi, ' ')
 }
 
-/** Visible text of an HTML page: no scripts, CSS or tags; whitespace collapsed. */
+/**
+ * Visible text of an HTML page: no scripts, CSS, <title> (metaText reads it)
+ * or tags; whitespace collapsed.
+ */
 export function visibleText(html) {
   const noCss = stripCss(html)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<title[\s\S]*?<\/title>/gi, ' ')
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
     .replace(/<template[\s\S]*?<\/template>/gi, ' ')
   return decodeEntities(noCss.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
@@ -166,10 +172,12 @@ function demoLinkProblems(html, siteHost) {
 /**
  * The page text with each badge element (any tag carrying `data-badge`, as
  * ComingChip renders) replaced by a marker, so the feature check reads badges
- * and never the prose around them (D-16 as revised, Tom 2026-11-06).
+ * and never the prose around them (D-16 as revised, Tom 2026-11-06). Each
+ * section's end is marked too, so a feature's badge window stops at its own
+ * section (Who it's for carries Test network badges).
  */
 export function badgedText(html) {
-  const marked = html.replace(
+  const marked = html.replace(/<\/section>/gi, ' \u27E6END\u27E7 </section>').replace(
     /<([a-z]+)\b[^>]*\sdata-badge\b[^>]*>([\s\S]*?)<\/\1>/gi,
     (_, _tag, inner) => ` \u27E6BADGE:${visibleText(inner)}\u27E7 `
   )
@@ -181,7 +189,7 @@ export function badgedText(html) {
  * each title is searched after the previous match, so an earlier repeat of a
  * title (the band heading "Fund what matters. Decide together. ...") isn't
  * taken for the item. The first badge after the title, up to the next
- * inventory title or `window` characters, is the feature's badge: a today item
+ * inventory title, the end of its section or `window` characters, is the feature's badge: a today item
  * carries none, a coming item's badge must equal `badge` exactly.
  */
 export function featureProblems(text, features) {
@@ -198,6 +206,8 @@ export function featureProblems(text, features) {
     const start = at + f.title.length
     cursor = start
     let end = Math.min(text.length, start + (features.window ?? 400))
+    const sectionEnd = text.indexOf('\u27E6END\u27E7', start)
+    if (sectionEnd >= 0 && sectionEnd < end) end = sectionEnd
     for (const t of titles) {
       if (t === f.title) continue
       const next = text.indexOf(t, start)
@@ -209,6 +219,47 @@ export function featureProblems(text, features) {
       problems.push({ feature: f.title, why: `works today per the inventory, but has the badge "${found}"` })
     } else if (f.status === 'coming' && found !== f.badge) {
       problems.push({ feature: f.title, why: `expected the badge "${f.badge}", found ${found !== null ? `"${found}"` : 'no badge'}` })
+    }
+  }
+  return problems
+}
+
+/** The page without its sections marked `data-claims-exempt`. */
+export function dropExempt(html) {
+  return html.replace(/<section\b[^>]*\sdata-claims-exempt\b[^>]*>[\s\S]*?<\/section>/gi, ' ')
+}
+
+/**
+ * Badged claims (Tom, 2026-11-06, PR #9, option A): each match of a rule's
+ * pattern in `text` (badgedText output) needs one of the rule's badges in its
+ * own clause: the nearest badge after it with no , ; : or sentence end in
+ * between (one full stop allowed, for a badge straight after the sentence),
+ * or else the nearest badge before it with no punctuation in between (a chip
+ * that heads its text). A badge for another clause ("…shared money, with votes
+ * to follow [Coming].") doesn't count for the fund claim.
+ */
+export function badgedClaimProblems(text, cfg) {
+  const problems = []
+  const BADGE = /⟦BADGE:([^⟧]*)⟧/
+  for (const rule of cfg?.rules ?? []) {
+    const re = new RegExp(rule.pattern, (rule.flags ?? '').replace('g', '') + 'g')
+    for (const m of text.matchAll(re)) {
+      const after = text.slice(m.index + m[0].length)
+      const fwd = after.match(BADGE)
+      let found = null
+      if (fwd && /^[^,;:.!?]*(?:[.!?]\s*)?$/.test(after.slice(0, fwd.index))) found = fwd[1].trim()
+      if (found === null) {
+        const before = text.slice(0, m.index)
+        const at = before.lastIndexOf('⟦BADGE:')
+        if (at >= 0) {
+          const close = before.indexOf('⟧', at)
+          if (close >= 0 && !/[,;:.!?]/.test(before.slice(close + 1))) found = before.slice(at + 7, close).trim()
+        }
+      }
+      if (found === null || !rule.badges.includes(found)) {
+        const ctx = text.slice(Math.max(0, m.index - 60), m.index + m[0].length + 60).replace(/\s+/g, ' ').trim()
+        problems.push({ claim: m[0], why: `${rule.reason}${found !== null ? ` (found "${found}")` : ''}: "…${ctx}…"` })
+      }
     }
   }
   return problems
@@ -295,6 +346,9 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     }
     if (fixture.features) {
       for (const p of featureProblems(badgedText(html), fixture.features)) fail(builtRel, p.feature, p.why)
+    }
+    if (fixture.badgedClaims) {
+      for (const p of badgedClaimProblems(badgedText(dropExempt(html)), fixture.badgedClaims)) fail(builtRel, p.claim, `badged claims: ${p.why}`)
     }
     if (!fixture.frameWordAllowed) {
       for (const w of fixture.frameWords) {
