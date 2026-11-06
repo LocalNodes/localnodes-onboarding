@@ -7,9 +7,12 @@ const EMAIL = 'organizer@example.com'
 
 function deps(over: Partial<Deps> = {}) {
   const logs: string[] = []
-  const d: Deps & { logs: string[] } = {
+  const background: Promise<void>[] = []
+  const d: Deps & { logs: string[], background: Promise<void>[] } = {
     configured: true,
     floorMs: 0,
+    keepAlive: (w: Promise<void>) => { background.push(w) },
+    background,
     allow: vi.fn(async () => true),
     addContact: vi.fn(async () => {}),
     log: (m: string) => { logs.push(m) },
@@ -58,6 +61,7 @@ describe('early access: handler', () => {
     const err = vi.spyOn(console, 'error')
     const d = deps({ addContact: vi.fn(async () => { throw Object.assign(new Error(`bad ${EMAIL}`), { statusCode: 422 }) }) })
     await handleEarlyAccess({ email: EMAIL }, '1.2.3.4', d)
+    await Promise.all(d.background) // the error is logged after the reply
     expect(d.logs.join('\n')).not.toContain(EMAIL)
     expect(d.logs.join('\n')).toContain('422')
     expect(spy.mock.calls.flat().join(' ')).not.toContain(EMAIL)
@@ -138,14 +142,39 @@ describe('early access: response-time floor (fake timers)', () => {
     expect(await p).toEqual({ status: 200, body: ACCEPTED })
   })
 
-  it('a call slower than the floor replies when it finishes, not later', async () => {
-    let done = false
-    const p = handleEarlyAccess({ email: EMAIL }, '1.2.3.4', { configured: true, allow: async () => true, addContact: slow(1500) })
-    p.then(() => { done = true })
-    await vi.advanceTimersByTimeAsync(1499)
-    expect(done).toBe(false)
+  it('a 3 s provider still replies at the floor, and the contact call still completes after the reply', async () => {
+    let replied = false
+    let finished = false
+    const kept: Promise<void>[] = []
+    const logs: string[] = []
+    const addContact = vi.fn(() => new Promise<void>(resolve => setTimeout(() => { finished = true; resolve() }, 3000)))
+    const p = handleEarlyAccess({ email: EMAIL }, '1.2.3.4', { configured: true, allow: async () => true, addContact, keepAlive: w => { kept.push(w) }, log: m => { logs.push(m) } })
+    p.then(() => { replied = true })
+    await vi.advanceTimersByTimeAsync(RESPONSE_FLOOR_MS - 1)
+    expect(replied).toBe(false)
     await vi.advanceTimersByTimeAsync(1)
-    expect(done).toBe(true)
+    expect(replied).toBe(true)
+    expect(await p).toEqual({ status: 200, body: ACCEPTED })
+    expect(finished).toBe(false)
+    expect(kept).toHaveLength(1) // handed to waitUntil, not dropped
+    await vi.advanceTimersByTimeAsync(2000)
+    await kept[0]
+    expect(finished).toBe(true)
+    expect(logs).toEqual([])
+  })
+
+  it('a 3 s provider that fails after the reply logs the failure without the email', async () => {
+    const kept: Promise<void>[] = []
+    const logs: string[] = []
+    const addContact = vi.fn(() => new Promise<void>((_, reject) => setTimeout(() => reject(Object.assign(new Error(`${EMAIL} exists`), { statusCode: 409 })), 3000)))
+    const p = handleEarlyAccess({ email: EMAIL }, '1.2.3.4', { configured: true, allow: async () => true, addContact, keepAlive: w => { kept.push(w) }, log: m => { logs.push(m) } })
+    await vi.advanceTimersByTimeAsync(RESPONSE_FLOOR_MS)
+    expect(await p).toEqual({ status: 200, body: ACCEPTED })
+    expect(logs).toEqual([])
+    await vi.advanceTimersByTimeAsync(2000)
+    await kept[0]
+    expect(logs).toEqual(['early-access: contact not added (status 409)'])
+    expect(logs.join(' ')).not.toContain(EMAIL)
   })
 })
 

@@ -25,9 +25,12 @@ export const ACCEPTED = { ok: true, message: 'Thanks. We\'ll email you when Loca
 export const RATE_LIMIT = { max: 5, windowSeconds: 3600 }
 
 /**
- * Every accepted request replies no sooner than this after it arrived, so the
- * reply time doesn't show whether Resend added a contact, refused a duplicate,
- * retried without properties, or was skipped for the honeypot (Codex P2).
+ * Every accepted request replies at this point after it arrived, whatever the
+ * Resend work is doing: the work starts, the reply waits for the floor and
+ * not for the work, and the work finishes in the background (kept alive with
+ * waitUntil). So the reply time doesn't show whether Resend added a contact,
+ * refused a duplicate, retried without properties, took longer than the
+ * floor, or was skipped for the honeypot (Codex P2, twice).
  */
 export const RESPONSE_FLOOR_MS = 1000
 
@@ -79,6 +82,8 @@ export interface Deps {
   log?: (msg: string) => void
   /** Response-time floor for accepted requests (tests may shorten it). */
   floorMs?: number
+  /** Keeps background work alive after the reply (event.waitUntil, Vercel's waitUntil). */
+  keepAlive?: (work: Promise<void>) => void
 }
 
 export function hashIp(ip: string | undefined): string {
@@ -107,13 +112,18 @@ export async function handleEarlyAccess(raw: unknown, ip: string | undefined, de
     // Honeypot filled: answer as if accepted, add nothing.
     return accepted()
   }
-  try {
-    await deps.addContact({ email: input.email, community: input.community, groupKind: input.groupKind })
-  } catch (err) {
-    // Never the address, never the error body: only a status code if any.
-    const status = (err as { statusCode?: number, status?: number })?.statusCode ?? (err as { status?: number })?.status
-    deps.log?.(`early-access: contact not added (status ${status ?? 'unknown'})`)
-  }
+  // Start the Resend work, reply at the floor whatever its state, and let it
+  // finish after the reply. Errors after the reply are logged without the email.
+  const work = (async () => {
+    try {
+      await deps.addContact({ email: input.email, community: input.community, groupKind: input.groupKind })
+    } catch (err) {
+      // Never the address, never the error body: only a status code if any.
+      const status = (err as { statusCode?: number, status?: number })?.statusCode ?? (err as { status?: number })?.status
+      deps.log?.(`early-access: contact not added (status ${status ?? 'unknown'})`)
+    }
+  })()
+  deps.keepAlive?.(work)
   return accepted()
 }
 

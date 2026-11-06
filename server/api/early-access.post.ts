@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { handleEarlyAccess, addResendContact, allowRequest } from '../utils/early-access'
 
 // Early-access list (server/utils/early-access.ts). The rate limit uses the
@@ -19,7 +20,14 @@ export default defineEventHandler(async (event) => {
       }
     },
     addContact: contact => addResendContact(contact, config.resendApiKey, config.resendSegmentId, (url, opts) => $fetch(url, opts)),
-    log: msg => console.warn(msg)
+    log: msg => console.warn(msg),
+    // The reply doesn't wait for Resend. Nitro's event.waitUntil covers
+    // runtimes that wire it; the Vercel node preset doesn't, so Vercel's own
+    // waitUntil keeps the function alive there (a no-op elsewhere).
+    keepAlive: (work) => {
+      event.waitUntil(work)
+      waitUntil(work)
+    }
   })
 
   setResponseStatus(event, outcome.status)
