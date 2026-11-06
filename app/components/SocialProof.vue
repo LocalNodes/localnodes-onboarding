@@ -2,33 +2,28 @@
 // See it in action (fresh3 LANDING.md 3.6 and section 4, approved by Tom
 // 2026-11-06). Example groups are examples, never customers; every demo-site
 // link says "demo" in its visible text (D-16). No testimonials, community
-// list or numbers. Each example's shared-funds and decisions uses carry one
-// small "Coming" badge, no rung wording (D-16 as revised, Tom 2026-11-06).
+// list or numbers. Pre-launch (Tom, 2026-11-06, PR #9): each example reads as
+// the finished product, in the present tense, with no chips.
 const examples = [
   {
     title: 'A housing co-op',
-    today: 'Keeps its bylaws, house rules, minutes and maintenance records in its library; members ask "When was the roof last inspected?" and get the answer with the minutes it came from.',
-    coming: 'Sees its repair fund\'s balance and who approves spending, and votes on a major repair, then carries out the payment once it passes.'
+    body: 'Keeps its bylaws, house rules, minutes and maintenance records in its library; members ask "When was the roof last inspected?" and get the answer with the minutes it came from. Sees its repair fund\'s balance and who approves spending, and votes on a major repair, then carries out the payment once it passes.'
   },
   {
     title: 'An online guild',
-    today: 'Keeps its handbook, past proposals and project write-ups in one place new members can ask about.',
-    coming: 'Connects the shared account and voting it already uses, nothing redeployed, and records members\' contributions.'
+    body: 'Keeps its handbook, past proposals and project write-ups in one place new members can ask about. Connects the shared account and voting it already uses, nothing redeployed, and records members\' contributions.'
   },
   {
     title: 'A land trust',
-    today: 'Holds deeds, stewardship plans, surveys and meeting notes, private to its stewards where it needs to be.',
-    coming: 'Votes on land-use decisions with a public record, and settles disagreements through a member panel.'
+    body: 'Holds deeds, stewardship plans, surveys and meeting notes, private to its stewards where it needs to be. Votes on land-use decisions with a public record, and settles disagreements through a member panel.'
   },
   {
     title: 'A Drupal user group',
-    today: 'Keeps its meetup notes, talk write-ups and organizing handbook in one place; members ask "Who\'s organizing the next contribution day?" and get the answer with the notes it came from.',
-    coming: 'Sees its sponsorship fund\'s balance and who approves spending, and votes on how to spend it.'
+    body: 'Keeps its meetup notes, talk write-ups and organizing handbook in one place; members ask "Who\'s organizing the next contribution day?" and get the answer with the notes it came from. Sees its sponsorship fund\'s balance and who approves spending, and votes on how to spend it.'
   },
   {
     title: 'A bioregional network',
-    today: 'Its member groups each run a group on one site, sharing a library while keeping private pages private.',
-    coming: 'Holds community-wide votes with one vote per member group.'
+    body: 'Its member groups each run a group on one site, sharing a library while keeping private pages private. Holds community-wide votes with one vote per member group.'
   }
 ]
 
@@ -59,14 +54,8 @@ const demos = [
             {{ example.title }}
           </h3>
           <p class="leading-relaxed text-muted">
-            {{ example.today }}
+            {{ example.body }}
           </p>
-          <div class="flex flex-col gap-1.5">
-            <ComingChip />
-            <p class="text-sm leading-relaxed text-muted">
-              {{ example.coming }}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -75,7 +64,7 @@ const demos = [
       </h3>
       <p class="text-muted">
         These are demo sites with sample content, so you can see a LocalNodes
-        community before you start your own.
+        community before launch.
       </p>
       <div class="grid gap-4 md:grid-cols-2">
         <a

@@ -10,30 +10,19 @@ import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 // @ts-expect-error plain .mjs script, no type declarations
-import { findBannedHits, featureProblems, badgedText } from '../../scripts/check-landing-claims.mjs'
+import { findBannedHits, prelaunchProblems } from '../../scripts/check-landing-claims.mjs'
 
 const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
 const fixture = JSON.parse(readFileSync(join(repo, 'tests/fixtures/banned-claims.json'), 'utf8'))
 
-interface Feature { title: string, status: 'today' | 'coming', badge?: string }
-const features: Feature[] = fixture.features.items
-
-// One list item per inventory feature, each with its expected badge, so the
-// clean page always matches the fixture (LANDING.md section 5).
-// The real page repeats a title earlier ("Fund what matters. Decide together.
-// Own the infrastructure." heads the band that lists "Decide together."), so
-// the heading goes before the list here to pin that case.
-// Like the real band, the list sits in a data-claims-exempt section: its
-// titles ("See your group fund.") end before the badge, which the badged-claims
-// rule would otherwise read as an unbadged fund claim.
-const featureList = '<section data-claims-exempt><h2>Fund what matters. Decide together. Own the infrastructure.</h2>' + features
-  .map(f => `<li><span>${f.title}</span> <span>Some words about it.</span>${f.status === 'coming' ? ` <span class="chip" data-badge>${f.badge}</span>` : ''}</li>`)
-  .join('\n') + '</section>'
+// The pre-launch statement every page must carry (Tom, 2026-11-06, PR #9).
+const PRELAUNCH = '<p data-prelaunch class="band"><span>Launching soon.</span> <a href="#demo">See the demo</a> or <a href="#early-access">get early access</a>.</p>'
 
 const CLEAN_BODY = `
-  <h1>The second brain for your community.</h1>
-  <ul>${featureList}</ul>
+  ${PRELAUNCH}
+  <h1>Where your community thinks, decides and funds together.</h1>
+  <p>Share posts, events and conversations, keep a library every member can ask, run a group fund, and vote on what happens next.</p>
   <a href="https://cascadia.localnodes.xyz">Cascadia (demo)</a>
   <a href="/onboarding">Set up your community's site</a>
 `
@@ -116,36 +105,6 @@ describe('check-landing-claims guard fires', () => {
     const r = run(page(CLEAN_BODY + '<p>Join the Network Nations.</p>'))
     expect(r.code).toBe(1)
     expect(r.out).toMatch(/Network Nations/)
-  })
-
-  it('exits 1 when a coming feature is relabelled as available', () => {
-    const r = run(page(CLEAN_BODY.replace('Decide together.</span> <span>Some words about it.</span> <span class="chip" data-badge>Coming</span>', 'Decide together.</span> <span>Some words about it.</span> <span class="chip" data-badge>Available now</span>')))
-    expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*Decide together\..*expected the badge "Coming", found "Available now"/m)
-  })
-
-  it('exits 1 when a coming feature loses its badge', () => {
-    const r = run(page(CLEAN_BODY.replace('Bring in many files at once.</span> <span>Some words about it.</span> <span class="chip" data-badge>Coming</span>', 'Bring in many files at once.</span> <span>Some words about it.</span>')))
-    expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*Bring in many files at once\..*no badge/m)
-  })
-
-  it('exits 1 when a today feature gains a Coming badge', () => {
-    const r = run(page(CLEAN_BODY.replace('Search that finds what you mean.</span> <span>Some words about it.</span>', 'Search that finds what you mean.</span> <span>Some words about it.</span> <span data-badge>Coming</span>')))
-    expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*Search that finds what you mean\..*badge "Coming"/m)
-  })
-
-  it('does not police wording: prose mentioning "coming" or "rung" next to a today feature passes', () => {
-    const r = run(page(CLEAN_BODY.replace('Search that finds what you mean.</span> <span>Some words about it.</span>', 'Search that finds what you mean.</span> <span>Coming up: more filters, in the next rung. Shared funds are on the way.</span>')))
-    expect(r.out).toContain('RESULT: PASS')
-    expect(r.code).toBe(0)
-  })
-
-  it('exits 1 when an inventory feature is missing from the page', () => {
-    const r = run(page(CLEAN_BODY.replace('Leave whenever you want.', 'Take it with you.')))
-    expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*Leave whenever you want\..*missing/m)
   })
 
   it('exits 2 when the built page is missing', () => {
@@ -333,69 +292,49 @@ describe('voice and product rules (a separate list from the honesty bans)', () =
   })
 })
 
-describe('badged claims: a fund claim needs a Test network or Coming badge', () => {
-  const tn = '<span class="chip" data-badge>Test network</span>'
-  const coming = '<span class="chip" data-badge>Coming</span>'
-
-  it('passes a fund claim with the Test network chip in its sentence', () => {
-    const r = run(page(CLEAN_BODY + `<p>Keep your minutes in one place, and run your shared money ${tn}, with votes to follow ${coming}.</p>`))
+describe('pre-launch statement (Tom, 2026-11-06, PR #9)', () => {
+  it('passes a page with the statement', () => {
+    const r = run(page(CLEAN_BODY))
     expect(r.out).toContain('RESULT: PASS')
     expect(r.code).toBe(0)
   })
 
-  it('passes a fund claim with a chip straight after its full stop', () => {
-    const r = run(page(CLEAN_BODY + `<li>A group fund that several members must approve. ${coming}</li>`))
-    expect(r.out).toContain('RESULT: PASS')
-    expect(r.code).toBe(0)
-  })
-
-  it('passes a fund claim with a Coming chip just before it', () => {
-    const r = run(page(CLEAN_BODY + `<p>Keeps its handbook in one place.</p><div>${coming}<p>Connects the shared account it already uses.</p></div>`))
-    expect(r.out).toContain('RESULT: PASS')
-    expect(r.code).toBe(0)
-  })
-
-  it('fails a fund claim with no chip, naming the claim', () => {
-    const r = run(page(CLEAN_BODY + '<p>Keep your minutes in one place, and run your shared money and votes the same way.</p>'))
+  it('fails a page with no pre-launch statement, naming the rule', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '')))
     expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*shared money \(badged claims: fund claim without/m)
+    expect(r.out).toMatch(/^FAIL .*Pre-launch statement \(no pre-launch statement/m)
   })
 
-  it('fails when the only chip is in another sentence', () => {
-    const r = run(page(CLEAN_BODY + `<p>Votes are on the way ${coming}. Your treasury works today.</p>`))
+  it('fails when the words are there but not marked as the statement', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '<p>Launching soon. See the demo.</p>')))
     expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*treasury \(badged claims:/m)
+    expect(r.out).toMatch(/Pre-launch statement/)
   })
 
-  it('fails a fund claim whose only badge is some other word', () => {
-    const r = run(page(CLEAN_BODY + '<p>Run your shared money <span data-badge>Live</span>.</p>'))
+  it('fails when the marked element says something else', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '<p data-prelaunch>Available now.</p>')))
     expect(r.code).toBe(1)
-    expect(r.out).toMatch(/badged claims/)
   })
 
-  it('a Test network badge in a later section is not read as an earlier feature\'s badge', () => {
-    const html = `<section><li>Open source software</li></section><section><p>Run your shared money ${tn}.</p></section>`
-    const items = { window: 400, items: [{ title: 'Open source software', status: 'today' }] }
-    expect(featureProblems(badgedText(html), items)).toEqual([])
-    // Without the section boundary the badge would be read as the feature's.
-    expect(featureProblems(badgedText(html).replace('\u27E6END\u27E7', ''), items)).not.toEqual([])
-  })
-
-  it('fails a fund claim whose only chip belongs to the next clause (votes)', () => {
-    const r = run(page(CLEAN_BODY + `<p>Keep your minutes, and run your shared money, with votes to follow ${coming}.</p>`))
+  it('fails when the statement is only in a hidden template or script', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '<template><p data-prelaunch>Launching soon.</p></template>')))
     expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*shared money \(badged claims:/m)
   })
 
-  it('reads the <title> as meta only, not as an unbadged fund claim', () => {
-    const r = run(page(CLEAN_BODY).replace('<title>LocalNodes</title>', '<title>LocalNodes: library, treasury and decisions</title>'))
-    expect(r.out).not.toMatch(/badged claims/)
-    expect(r.code).toBe(0)
+  it('reads the statement through nested tags and any case', () => {
+    expect(prelaunchProblems('<div data-prelaunch=""><b>LAUNCHING</b> soon.</div>', { attribute: 'data-prelaunch', phrase: 'Launching soon' })).toEqual([])
   })
 
-  it('skips a section marked data-claims-exempt', () => {
-    const r = run(page(CLEAN_BODY + '<section data-claims-exempt><p>LocalNodes keeps your group\'s shared money alongside its library.</p></section>'))
-    expect(r.out).toContain('RESULT: PASS')
-    expect(r.code).toBe(0)
+  it('still bans invented numbers, testimonials, customer names and prices on a pre-launch page', () => {
+    for (const planted of ['<p>Trusted by 127 Communities worldwide.</p>', '<p>Climate Tech Collective</p>', '<p>Only $29/month</p>']) {
+      const r = run(page(CLEAN_BODY + planted))
+      expect(r.code).toBe(1)
+      expect(r.out).toMatch(/honesty bans/)
+    }
+  })
+
+  it('reads the <title> as meta only, not as visible text', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '')).replace('<title>LocalNodes</title>', '<title data-prelaunch>Launching soon</title>'))
+    expect(r.code).toBe(1)
   })
 })

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Landing-page claims check (fresh3 22.1-04, D-16).
 //
-// Every claim on localnodes.xyz must be true on the day it ships. This reads
+// The landing page is pre-launch (Tom, 2026-11-06): it describes the finished
+// product, says plainly that it hasn't launched, and never invents numbers,
+// testimonials, customers or prices. This reads
 // the banned and required claims from tests/fixtures/banned-claims.json (a
 // copy of fresh3 .planning/brand/LANDING.md section 6) and checks:
 //   1. the prerendered landing page (Nitro's node-server output
@@ -11,13 +13,12 @@
 //      and meta tags, plus the landing sources (app/pages/index.vue,
 //      app/components/*.vue, content/**, nuxt.config.ts), for banned claims;
 //   2. the built page for the required claims: both licences named (or
-//      "open source (GPL and AGPL)"), never GPL without AGPL; each inventory
-//      feature's badge (none, or exactly "Coming"; LANDING.md section 5); every
-//      demo-site link labelled a demo; no frame word;
+//      "open source (GPL and AGPL)"), never GPL without AGPL; a visible
+//      pre-launch statement (an element with data-prelaunch saying
+//      "Launching soon"; Tom, 2026-11-06, PR #9); every demo-site link
+//      labelled a demo; no frame word;
 //   Plus the voice and product rules (PLACE-01, AI-advisory, voice), a
 //   separate list; every FAIL line names the list a hit came from.
-//   Plus badged claims: a fund claim needs a "Test network" or "Coming"
-//   badge in its sentence (Tom, 2026-11-06, PR #9).
 //   3. the sign-up pages (/onboarding, /success, /cancel) for frame and buyer
 //      words (D-05).
 //
@@ -170,99 +171,19 @@ function demoLinkProblems(html, siteHost) {
 
 
 /**
- * The page text with each badge element (any tag carrying `data-badge`, as
- * ComingChip renders) replaced by a marker, so the feature check reads badges
- * and never the prose around them (D-16 as revised, Tom 2026-11-06). Each
- * section's end is marked too, so a feature's badge window stops at its own
- * section (Who it's for carries Test network badges).
+ * Pre-launch statement (Tom, 2026-11-06, PR #9): the page describes the
+ * finished product in the present tense, so it must say, visibly, that
+ * LocalNodes hasn't launched. Passes when at least one element carrying the
+ * rule's attribute (`data-prelaunch`) has visible text containing the phrase.
  */
-export function badgedText(html) {
-  const marked = html.replace(/<\/section>/gi, ' \u27E6END\u27E7 </section>').replace(
-    /<([a-z]+)\b[^>]*\sdata-badge\b[^>]*>([\s\S]*?)<\/\1>/gi,
-    (_, _tag, inner) => ` \u27E6BADGE:${visibleText(inner)}\u27E7 `
-  )
-  return visibleText(marked)
-}
-
-/**
- * Per-feature badge check (LANDING.md section 5). Items are in page order;
- * each title is searched after the previous match, so an earlier repeat of a
- * title (the band heading "Fund what matters. Decide together. ...") isn't
- * taken for the item. The first badge after the title, up to the next
- * inventory title, the end of its section or `window` characters, is the feature's badge: a today item
- * carries none, a coming item's badge must equal `badge` exactly.
- */
-export function featureProblems(text, features) {
-  const problems = []
-  const badgeRe = /\u27E6BADGE:([^\u27E7]*)\u27E7/
-  const titles = features.items.map((f) => f.title)
-  let cursor = 0
-  for (const f of features.items) {
-    const at = text.indexOf(f.title, cursor)
-    if (at < 0) {
-      problems.push({ feature: f.title, why: 'feature missing from the page, or out of the inventory\'s page order' })
-      continue
-    }
-    const start = at + f.title.length
-    cursor = start
-    let end = Math.min(text.length, start + (features.window ?? 400))
-    const sectionEnd = text.indexOf('\u27E6END\u27E7', start)
-    if (sectionEnd >= 0 && sectionEnd < end) end = sectionEnd
-    for (const t of titles) {
-      if (t === f.title) continue
-      const next = text.indexOf(t, start)
-      if (next >= 0 && next < end) end = next
-    }
-    const m = text.slice(start, end).match(badgeRe)
-    const found = m ? m[1].trim() : null
-    if (f.status === 'today' && found !== null) {
-      problems.push({ feature: f.title, why: `works today per the inventory, but has the badge "${found}"` })
-    } else if (f.status === 'coming' && found !== f.badge) {
-      problems.push({ feature: f.title, why: `expected the badge "${f.badge}", found ${found !== null ? `"${found}"` : 'no badge'}` })
-    }
+export function prelaunchProblems(html, rule) {
+  const re = new RegExp(`<([a-z][a-z0-9]*)\\b[^>]*\\s${rule.attribute}\\b[^>]*>([\\s\\S]*?)<\\/\\1>`, 'gi')
+  // Only visible markup counts: not scripts, templates, <noscript> or <title>.
+  const shown = html.replace(/<(script|template|noscript|title|style)\b[\s\S]*?<\/\1>/gi, ' ')
+  for (const m of shown.matchAll(re)) {
+    if (visibleText(m[2]).toLowerCase().includes(rule.phrase.toLowerCase())) return []
   }
-  return problems
-}
-
-/** The page without its sections marked `data-claims-exempt`. */
-export function dropExempt(html) {
-  return html.replace(/<section\b[^>]*\sdata-claims-exempt\b[^>]*>[\s\S]*?<\/section>/gi, ' ')
-}
-
-/**
- * Badged claims (Tom, 2026-11-06, PR #9, option A): each match of a rule's
- * pattern in `text` (badgedText output) needs one of the rule's badges in its
- * own clause: the nearest badge after it with no , ; : or sentence end in
- * between (one full stop allowed, for a badge straight after the sentence),
- * or else the nearest badge before it with no punctuation in between (a chip
- * that heads its text). A badge for another clause ("…shared money, with votes
- * to follow [Coming].") doesn't count for the fund claim.
- */
-export function badgedClaimProblems(text, cfg) {
-  const problems = []
-  const BADGE = /⟦BADGE:([^⟧]*)⟧/
-  for (const rule of cfg?.rules ?? []) {
-    const re = new RegExp(rule.pattern, (rule.flags ?? '').replace('g', '') + 'g')
-    for (const m of text.matchAll(re)) {
-      const after = text.slice(m.index + m[0].length)
-      const fwd = after.match(BADGE)
-      let found = null
-      if (fwd && /^[^,;:.!?]*(?:[.!?]\s*)?$/.test(after.slice(0, fwd.index))) found = fwd[1].trim()
-      if (found === null) {
-        const before = text.slice(0, m.index)
-        const at = before.lastIndexOf('⟦BADGE:')
-        if (at >= 0) {
-          const close = before.indexOf('⟧', at)
-          if (close >= 0 && !/[,;:.!?]/.test(before.slice(close + 1))) found = before.slice(at + 7, close).trim()
-        }
-      }
-      if (found === null || !rule.badges.includes(found)) {
-        const ctx = text.slice(Math.max(0, m.index - 60), m.index + m[0].length + 60).replace(/\s+/g, ' ').trim()
-        problems.push({ claim: m[0], why: `${rule.reason}${found !== null ? ` (found "${found}")` : ''}: "…${ctx}…"` })
-      }
-    }
-  }
-  return problems
+  return [`no pre-launch statement: no element with ${rule.attribute} saying "${rule.phrase}"`]
 }
 
 /**
@@ -340,16 +261,13 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     for (const req of fixture.required) {
       if (req.id === 'licence') {
         for (const p of licenceProblems(text, req)) fail(builtRel, req.rule, p)
+      } else if (req.id === 'prelaunch') {
+        for (const p of prelaunchProblems(html, req)) fail(builtRel, req.rule, p)
       } else if (req.id === 'demo-label') {
         for (const p of demoLinkProblems(html, fixture.siteHost)) fail(builtRel, req.rule, p)
       }
     }
-    if (fixture.features) {
-      for (const p of featureProblems(badgedText(html), fixture.features)) fail(builtRel, p.feature, p.why)
-    }
-    if (fixture.badgedClaims) {
-      for (const p of badgedClaimProblems(badgedText(dropExempt(html)), fixture.badgedClaims)) fail(builtRel, p.claim, `badged claims: ${p.why}`)
-    }
+
     if (!fixture.frameWordAllowed) {
       for (const w of fixture.frameWords) {
         const re = compileRow({ pattern: w, regex: false })

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 // The problem (fresh3 LANDING.md 3.2, approved by Tom 2026-11-06). Borrowed
 // from the earlier page's "Communities are getting a bad deal" framing (D-15),
-// without its stats or its third-party fee figure.
+// without its stats or its third-party fee figure. Pre-launch (Tom,
+// 2026-11-06, PR #9): present tense, no chips.
 const rows = [
-  { usually: 'Documents scattered across apps nobody fully controls', could: 'One library your members can search and ask', coming: false },
-  { usually: 'Answers from memory, or from whoever replies first', could: 'Answers that point to the page they came from', coming: false },
-  { usually: 'One person holds the money and the passwords', could: 'A group fund that several members must approve', coming: true },
-  { usually: 'Decisions made by whoever shows up', could: 'Decisions your members make by vote, with a public record', coming: true },
-  { usually: 'Your community lives on someone else\'s platform', could: 'Open source software on your community\'s own site', coming: false }
+  { usually: 'Documents scattered across apps nobody fully controls', could: 'One library your members can search and ask' },
+  { usually: 'Answers from memory, or from whoever replies first', could: 'Answers that point to the page they came from' },
+  { usually: 'One person holds the money and the passwords', could: 'A group fund that several members must approve' },
+  { usually: 'Decisions made by whoever shows up', could: 'Decisions your members make by vote, with a public record' },
+  { usually: 'Your community lives on someone else\'s platform', could: 'Open source software on your community\'s own site' }
 ]
 </script>
 
@@ -43,10 +44,7 @@ const rows = [
           <ul class="flex flex-col gap-3">
             <li v-for="row in rows" :key="row.could" class="flex gap-2">
               <UIcon name="i-lucide-check" class="size-5 shrink-0 mt-0.5 text-primary" aria-hidden="true" />
-              <span class="flex flex-wrap items-center gap-2">
-                <span>{{ row.could }}</span>
-                <ComingChip v-if="row.coming" />
-              </span>
+              <span>{{ row.could }}</span>
             </li>
           </ul>
         </div>
