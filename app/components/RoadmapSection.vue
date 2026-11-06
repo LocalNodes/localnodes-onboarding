@@ -1,34 +1,34 @@
 <script setup lang="ts">
-// What's built, what's next (fresh3 LANDING.md 3.5, approved by Tom
-// 2026-11-06). The page's second and last dark band (card 7), opened by Tom's
-// pan.archi tagline (card T). Every item carries its rung from ROADMAP v4.0.
+// Fund what matters (fresh3 LANDING.md 3.5, Tom 2026-11-06). The page's second
+// and last dark band (card 7): the heading first, then the explanation and the
+// list; Tom's pan.archi line closes the section as a small italic pull-quote,
+// unattributed, so no two slogan lines sit back to back. Pre-launch (Tom,
+// 2026-11-06, PR #9): the finished product in the present tense, no chips.
 // TODO(22.1-08): the exact band colour (palette B brand 950) and its muted
 // role arrive through the Nuxt dark tokens in 22.1-08; the `dark` class scopes
 // them here.
 const items = [
-  { title: 'See your group fund.', body: 'Link the group\'s shared account and see its real balances and who approves payments.', rung: 'Coming, rung 1' },
-  { title: 'Decide together.', body: 'Proposals and votes by your group\'s members, and a passed proposal carried out through the group fund.', rung: 'Coming, rung 2' },
-  { title: 'Rules only your members can change.', body: 'Voting settings change only after a passed vote.', rung: 'Coming, rung 2' },
-  { title: 'Credit for the work people do.', body: 'A public record of members\' contributions.', rung: 'Coming, rung 2' },
-  { title: 'Fair moderation and a way to settle disputes.', body: 'Every step has an end date and an appeal, and disputes go to a panel of members.', rung: 'Coming, rung 2' },
-  { title: 'Bring what you already have.', body: 'Connect an existing shared account, roles or voting space, nothing redeployed.', rung: 'Coming, rung 2' },
-  { title: 'Leave whenever you want.', body: 'Export everything and move your site, tested before it ships.', rung: 'Coming, rung 2' },
-  { title: 'No fees for members.', body: 'Members never pay network fees to vote or approve; the community covers them.', rung: 'Coming with the group fund' }
+  { title: 'See your group fund.', body: 'Link the group\'s shared account and see its real balances and who approves payments.' },
+  { title: 'Decide together.', body: 'Proposals and votes by your group\'s members, and a passed proposal carried out through the group fund.' },
+  { title: 'Rules only your members can change.', body: 'Voting settings change only after a passed vote.' },
+  { title: 'Credit for the work people do.', body: 'A public record of members\' contributions.' },
+  { title: 'Fair moderation and a way to settle disputes.', body: 'Every step has an end date and an appeal, and disputes go to a panel of members.' },
+  { title: 'Bring what you already have.', body: 'Connect an existing shared account, roles or voting space, nothing redeployed.' },
+  { title: 'Leave whenever you want.', body: 'Export everything and move your site.' },
+  { title: 'No fees for members.', body: 'Members never pay network fees to vote or approve; the community covers them.' }
 ]
 </script>
 
 <template>
   <section class="dark bg-default text-default">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
-      <p class="text-2xl leading-snug font-semibold text-muted max-w-3xl">
-        Governance should adapt to people, not people to governance.
-      </p>
       <h2 class="text-3xl font-semibold text-highlighted">
         Fund what matters. Decide together. Own the infrastructure.
       </h2>
       <p class="text-lg text-muted">
-        We're building this one tested step at a time. Here's what's next, and in
-        which step ("rung") it lands.
+        LocalNodes keeps your group's shared money and decisions alongside its
+        library: members see the fund, vote on proposals and keep a public record
+        of what was decided.
       </p>
       <ul class="flex flex-col">
         <li
@@ -41,9 +41,13 @@ const items = [
             {{ ' ' }}
             <span class="text-muted">{{ item.body }}</span>
           </span>
-          <ComingChip :label="item.rung" />
         </li>
       </ul>
+      <blockquote class="mt-4 max-w-3xl">
+        <p class="text-lg italic text-muted">
+          Governance should adapt to people, not people to governance.
+        </p>
+      </blockquote>
     </div>
   </section>
 </template>

@@ -10,27 +10,19 @@ import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 // @ts-expect-error plain .mjs script, no type declarations
-import { findBannedHits } from '../../scripts/check-landing-claims.mjs'
+import { findBannedHits, prelaunchProblems } from '../../scripts/check-landing-claims.mjs'
 
 const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
 const fixture = JSON.parse(readFileSync(join(repo, 'tests/fixtures/banned-claims.json'), 'utf8'))
 
-interface Feature { title: string, status: 'today' | 'coming', chip?: string }
-const features: Feature[] = fixture.features.items
-
-// One list item per inventory feature, each with its expected chip, so the
-// clean page always matches the fixture (LANDING.md section 5).
-// The real page repeats a title earlier ("Fund what matters. Decide together.
-// Own the infrastructure." heads the band that lists "Decide together."), so
-// the heading goes before the list here to pin that case.
-const featureList = '<h2>Fund what matters. Decide together. Own the infrastructure.</h2>' + features
-  .map(f => `<li><span>${f.title}</span> <span>Some words about it.</span>${f.status === 'coming' ? ` <span class="chip">${f.chip}</span>` : ''}</li>`)
-  .join('\n')
+// The pre-launch statement every page must carry (Tom, 2026-11-06, PR #9).
+const PRELAUNCH = '<p data-prelaunch class="band"><span>Launching soon.</span> <a href="#demo">See the demo</a> or <a href="#early-access">get early access</a>.</p>'
 
 const CLEAN_BODY = `
-  <h1>LocalNodes: your community's library, treasury and decisions, run by its members.</h1>
-  <ul>${featureList}</ul>
+  ${PRELAUNCH}
+  <h1>Where your community thinks, decides and funds together.</h1>
+  <p>Share posts, events and conversations, keep a library every member can ask, run a group fund, and vote on what happens next.</p>
   <a href="https://cascadia.localnodes.xyz">Cascadia (demo)</a>
   <a href="/onboarding">Set up your community's site</a>
 `
@@ -115,33 +107,6 @@ describe('check-landing-claims guard fires', () => {
     expect(r.out).toMatch(/Network Nations/)
   })
 
-  it('exits 1 when a coming feature is relabelled as available', () => {
-    const r = run(page(CLEAN_BODY.replace('<span class="chip">Coming, rung 2</span>', '<span class="chip">Available now</span>')))
-    expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*Decide together\./m)
-  })
-
-  it('exits 1 when a coming feature\'s rung changes', () => {
-    const r = run(page(CLEAN_BODY.replace('See your group fund.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 1', 'See your group fund.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 2')))
-    expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*See your group fund\..*expected "Coming, rung 1", found "Coming, rung 2"/m)
-  })
-
-  it('exits 1 when a today feature gains a Coming chip, or a rung 1 (Phase 22) item loses its chip', () => {
-    const marked = run(page(CLEAN_BODY.replace('Search that finds what you mean.</span> <span>Some words about it.</span>', 'Search that finds what you mean.</span> <span>Some words about it.</span> <span>Coming</span>')))
-    expect(marked.code).toBe(1)
-    expect(marked.out).toMatch(/^FAIL .*Search that finds what you mean\./m)
-    const unmarked = run(page(CLEAN_BODY.replace('Bring in many files at once.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 1</span>', 'Bring in many files at once.</span> <span>Some words about it.</span>')))
-    expect(unmarked.code).toBe(1)
-    expect(unmarked.out).toMatch(/^FAIL .*Bring in many files at once\./m)
-  })
-
-  it('exits 1 when an inventory feature is missing from the page', () => {
-    const r = run(page(CLEAN_BODY.replace('Leave whenever you want.', 'Take it with you.')))
-    expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*Leave whenever you want\..*missing/m)
-  })
-
   it('exits 2 when the built page is missing', () => {
     const r = runCli()
     expect(r.code).toBe(2)
@@ -214,6 +179,29 @@ describe('banned-claims.json covers every item D-16 names', () => {
     expect(findBannedHits(probe, fixture.banned).length).toBeGreaterThan(0)
   })
 
+  // Every kept ban still fires (D-16 as revised, Tom 2026-11-06): each row in
+  // the fixture is hit by at least one of these hard-coded probes.
+  const rowProbes = [
+    ...probes,
+    '$3.2M Under Community Control',
+    '€5 a seat',
+    '29 / mo',
+    '290/yr',
+    '29 per month',
+    '290 per year',
+    '29 USD',
+    '29 EUR',
+    'Not GoFundMe taking 8% of every gift',
+    'Built for groups of 10 or 10,000.',
+    'Draft a proposal in 60 seconds',
+    'Trusted by Communities That Build',
+    'Communities Already Building'
+  ]
+
+  it.each(fixture.banned.map((r: { pattern: string }) => [r.pattern, r]))('ban %s still fires on a probe', (_p, row) => {
+    expect(rowProbes.some(probe => findBannedHits(probe, [row]).length > 0)).toBe(true)
+  })
+
   const nearMisses = [
     'Submit',
     'emit',
@@ -221,10 +209,171 @@ describe('banned-claims.json covers every item D-16 names', () => {
     'a community land trust',
     'an online guild or DAO',
     'a housing co-op',
-    'open source (GPL and AGPL)'
+    'open source (GPL and AGPL)',
+    // Not honesty bans since D-16 as revised (Tom, 2026-11-06); these are in
+    // the separate voice and product rules list (tested below).
+    'a passed proposal can execute automatically',
+    'Immutable, censorship-resistant records',
+    'Find groups near you'
   ]
 
   it.each(nearMisses)('near miss "%s" hits nothing', (word) => {
     expect(findBannedHits(word, fixture.banned)).toEqual([])
+  })
+})
+
+describe('voice and product rules (a separate list from the honesty bans)', () => {
+  const rules = fixture.voiceRules.rules as { pattern: string, rule: string }[]
+
+  // Hard-coded probes, one or more per rule list entry.
+  const probes: [string, string][] = [
+    ['PLACE-01', 'Find groups near you'],
+    ['PLACE-01', 'Meet the people near me'],
+    ['PLACE-01', 'Everything happening in your town'],
+    ['PLACE-01', 'Groups in your area'],
+    ['PLACE-01', 'Built for local residents'],
+    ['AI-advisory', 'Passed proposals execute automatically'],
+    ['AI-advisory', 'The treasury executes automatically'],
+    ['AI-advisory', 'Payments automatically execute once approved'],
+    ['AI-advisory', 'Proposals auto-execute'],
+    ['AI-advisory', 'with autoexecution'],
+    ['Voice', 'A censorship-resistant record'],
+    ['Voice', 'Immutable history'],
+    ['Voice', 'An unstoppable community'],
+    ['Voice', 'A revolutionary platform'],
+    ['Voice', 'Seamlessly connected'],
+    ['Voice', 'An AI-powered library'],
+    ['Voice', 'We empower communities'],
+    ['Third-party title', 'Inspired by Building a Second Brain']
+  ]
+
+  it.each(probes)('%s fires on "%s" and the output names the list', (rule, probe) => {
+    const hits = findBannedHits(probe, rules)
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.every((h: { rule: string }) => h.rule === rule)).toBe(true)
+    expect(findBannedHits(probe, fixture.banned)).toEqual([])
+  })
+
+  it.each(rules.map(r => [r.pattern, r]))('rule %s fires on a probe', (_p, row) => {
+    expect(probes.some(([, probe]) => findBannedHits(probe, [row]).length > 0)).toBe(true)
+  })
+
+  const nearMisses = [
+    'Any group that shares a purpose is welcome, online or in one place.',
+    'Meet near the river',
+    'Your area of work',
+    'An executive summary',
+    'Powered by Gemini',
+    'a member panel settles disputes',
+    'The second brain for your community.',
+    'Your community\'s second brain, ready from the first day.'
+  ]
+
+  it.each(nearMisses)('near miss "%s" fires no voice or product rule', (text) => {
+    expect(findBannedHits(text, rules)).toEqual([])
+  })
+
+  it('a planted voice-rule hit fails the CLI and names the list and rule', () => {
+    const r = run(page(CLEAN_BODY + '<p>Find groups near you, with seamless sync.</p>'))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*near \(\?:you\|me\).*voice and product rules, PLACE-01/m)
+    expect(r.out).toMatch(/^FAIL .*seamless.*voice and product rules, Voice/m)
+  })
+
+  it('an honesty hit names the honesty list', () => {
+    const r = run(page(CLEAN_BODY + '<p>127 Communities</p>'))
+    expect(r.out).toMatch(/^FAIL .*127 Communities \(honesty bans:/m)
+  })
+
+  it('the clean page passes both lists', () => {
+    const r = run(page(CLEAN_BODY + '<p>Any group that shares a purpose is welcome, online or in one place.</p>'))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+})
+
+describe('pre-launch statement (Tom, 2026-11-06, PR #9)', () => {
+  it('passes a page with the statement', () => {
+    const r = run(page(CLEAN_BODY))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  it('fails a page with no pre-launch statement, naming the rule', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '')))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*Pre-launch statement \(no pre-launch statement/m)
+  })
+
+  it('fails when the words are there but not marked as the statement', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '<p>Launching soon. See the demo.</p>')))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/Pre-launch statement/)
+  })
+
+  it('fails when the marked element says something else', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '<p data-prelaunch>Available now.</p>')))
+    expect(r.code).toBe(1)
+  })
+
+  it('fails when the statement is only in a hidden template or script', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '<template><p data-prelaunch>Launching soon.</p></template>')))
+    expect(r.code).toBe(1)
+  })
+
+  // Codex P2: each way a statement can be in the HTML but not seen.
+  const rule = { attribute: 'data-prelaunch', phrase: 'Launching soon' }
+  it.each([
+    ['an HTML comment', '<!-- <p data-prelaunch>Launching soon.</p> -->'],
+    ['the hidden attribute', '<p data-prelaunch hidden>Launching soon.</p>'],
+    ['aria-hidden', '<p data-prelaunch aria-hidden="true">Launching soon.</p>'],
+    ['a hidden ancestor', '<div hidden><section><p data-prelaunch>Launching soon.</p></section></div>'],
+    ['an aria-hidden ancestor', '<div aria-hidden="true"><p data-prelaunch>Launching soon.</p></div>'],
+    ['inline display:none', '<p data-prelaunch style="display: none">Launching soon.</p>'],
+    ['inline visibility:hidden on an ancestor', '<div style="color:red;visibility:hidden"><p data-prelaunch>Launching soon.</p></div>'],
+    ['the hidden class', '<p data-prelaunch class="text-sm hidden">Launching soon.</p>'],
+    ['the sr-only class', '<p data-prelaunch class="sr-only">Launching soon.</p>'],
+    ['the invisible class on an ancestor', '<div class="invisible"><p data-prelaunch>Launching soon.</p></div>'],
+    ['a hidden child holding the phrase', '<p data-prelaunch>Welcome. <span class="sr-only">Launching soon.</span></p>'],
+    ['a responsive md:hidden ancestor', '<div class="md:hidden"><p data-prelaunch>Launching soon.</p></div>'],
+    ['inline opacity:0', '<p data-prelaunch style="opacity: 0">Launching soon.</p>'],
+    ['inline opacity:0.0 on an ancestor', '<div style="color:red; opacity:0.0;"><p data-prelaunch>Launching soon.</p></div>'],
+    ['inline opacity:0%', '<p data-prelaunch style="opacity:0%">Launching soon.</p>'],
+    ['the opacity-0 class', '<p data-prelaunch class="text-sm opacity-0">Launching soon.</p>'],
+    ['a responsive md:opacity-0 class', '<p data-prelaunch class="md:opacity-0">Launching soon.</p>'],
+    ['an opacity-0 ancestor', '<div class="opacity-0"><section><p data-prelaunch>Launching soon.</p></section></div>']
+  ])('fails a statement hidden by %s', (_why, html) => {
+    expect(prelaunchProblems(`<body>${html}</body>`, rule)).not.toEqual([])
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, html)))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/Pre-launch statement/)
+  })
+
+  it('does not take opacity 0.5, opacity-50 or hover:opacity-100 for hidden', () => {
+    for (const html of ['<p data-prelaunch style="opacity: 0.5">Launching soon.</p>', '<p data-prelaunch class="opacity-50 hover:opacity-100">Launching soon.</p>', '<p data-prelaunch style="opacity:1">Launching soon.</p>']) {
+      expect(prelaunchProblems(`<body>${html}</body>`, rule)).toEqual([])
+    }
+  })
+
+  it('passes a visible statement next to hidden siblings and void tags', () => {
+    const html = '<div class="flex"><p data-prelaunch class="inline-flex">Launching <b>soon</b>.<span class="sr-only">(banner)</span></p></div><div hidden>x</div><img src="a.png"><br>'
+    expect(prelaunchProblems(`<body>${html}</body>`, rule)).toEqual([])
+  })
+
+  it('reads the statement through nested tags and any case', () => {
+    expect(prelaunchProblems('<div data-prelaunch=""><b>LAUNCHING</b> soon.</div>', { attribute: 'data-prelaunch', phrase: 'Launching soon' })).toEqual([])
+  })
+
+  it('still bans invented numbers, testimonials, customer names and prices on a pre-launch page', () => {
+    for (const planted of ['<p>Trusted by 127 Communities worldwide.</p>', '<p>Climate Tech Collective</p>', '<p>Only $29/month</p>']) {
+      const r = run(page(CLEAN_BODY + planted))
+      expect(r.code).toBe(1)
+      expect(r.out).toMatch(/honesty bans/)
+    }
+  })
+
+  it('reads the <title> as meta only, not as visible text', () => {
+    const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '')).replace('<title>LocalNodes</title>', '<title data-prelaunch>Launching soon</title>'))
+    expect(r.code).toBe(1)
   })
 })

@@ -10,7 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '~': resolve(__dirname, 'app'),
-      '#app': resolve(__dirname, '.nuxt/imports')
+      '#app': resolve(__dirname, '.nuxt/imports'),
+      '#shared': resolve(__dirname, 'shared')
     }
   }
 })

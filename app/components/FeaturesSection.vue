@@ -1,12 +1,16 @@
 <script setup lang="ts">
-// What you get today (fresh3 LANDING.md 3.4, approved by Tom 2026-11-06).
-// Each item matches a claims-inventory row (LANDING.md section 5).
-// Status per LANDING.md section 5 (Codex review, 2026-11-06): the cited
-// assistant, the site, hybrid search and hosting work today on the demos
-// (cascadia, boulder; checked 2026-11-06). Bulk import and permission-aware
-// answers are Phase 22, built but not deployed yet, so they carry
-// "Coming, rung 1" until Phase 22 is deployed and verified on the demos.
-const features: { title: string, icon: string, body: string, chip?: string }[] = [
+// What you get (fresh3 LANDING.md 3.4, approved by Tom 2026-11-06). Pre-launch
+// (Tom, 2026-11-06, PR #9): the finished product in the present tense, no
+// chips; the trust point "Every answer shows the page it came from" leads, and
+// "second brain" describes the library here, never as the headline. Sharing
+// (posts, events, groups, conversations: Open Social underneath) gets its own
+// item, since it's what members do every day.
+const features: { title: string, icon: string, body: string }[] = [
+  {
+    title: 'Share what\'s happening.',
+    icon: 'i-lucide-messages-square',
+    body: 'Posts, events, groups and conversations in one activity stream your members follow.'
+  },
   {
     title: 'Ask your library a question.',
     icon: 'i-lucide-message-circle',
@@ -15,29 +19,22 @@ const features: { title: string, icon: string, body: string, chip?: string }[] =
   {
     title: 'Bring in many files at once.',
     icon: 'i-lucide-file-text',
-    body: 'Upload a batch of your group\'s documents or import web pages, and each becomes a page members can search and ask about.',
-    chip: 'Coming, rung 1'
+    body: 'Upload a batch of your group\'s documents or import web pages, and each becomes a page members can search and ask about.'
   },
   {
     title: 'Answers that respect who can see what.',
     icon: 'i-lucide-lock',
-    body: 'A member\'s answers draw only on pages that member is allowed to see. Private group pages stay private.',
-    chip: 'Coming, rung 1'
+    body: 'A member\'s answers draw only on pages that member is allowed to see. Private group pages stay private.'
   },
   {
-    title: 'Your community\'s own site.',
+    title: 'Your community\'s own site, hosted for you.',
     icon: 'i-lucide-globe',
-    body: 'Groups, events, topics and member profiles, on your own address: yourname.localnodes.xyz.'
+    body: 'Groups, events, topics and member profiles on your own address, yourname.localnodes.xyz. We run it and keep it updated.'
   },
   {
     title: 'Search that finds what you mean.',
     icon: 'i-lucide-search',
     body: 'Keyword search and meaning-based search work together.'
-  },
-  {
-    title: 'Hosting and updates handled.',
-    icon: 'i-lucide-server',
-    body: 'We run the site and keep it updated, so you can get on with your community.'
   }
 ]
 </script>
@@ -46,11 +43,14 @@ const features: { title: string, icon: string, body: string, chip?: string }[] =
   <section class="bg-default">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
       <h2 class="text-3xl font-semibold text-highlighted">
-        What you get today
+        What you get
       </h2>
-      <p class="text-lg text-muted">
-        Everything here works today unless it's marked Coming. You can try it on a
-        demo site.
+      <p class="text-lg text-muted max-w-3xl">
+        Your library is your community's second brain: every document, minute and
+        decision in one place, ready for any member to ask.
+      </p>
+      <p class="text-lg font-semibold text-highlighted">
+        Every answer shows the page it came from.
       </p>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div
@@ -65,7 +65,6 @@ const features: { title: string, icon: string, body: string, chip?: string }[] =
           <p class="leading-relaxed text-muted">
             {{ feature.body }}
           </p>
-          <ComingChip v-if="feature.chip" :label="feature.chip" />
         </div>
       </div>
     </div>

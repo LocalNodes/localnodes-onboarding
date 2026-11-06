@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Landing-page claims check (fresh3 22.1-04, D-16).
 //
-// Every claim on localnodes.xyz must be true on the day it ships. This reads
+// The landing page is pre-launch (Tom, 2026-11-06): it describes the finished
+// product, says plainly that it hasn't launched, and never invents numbers,
+// testimonials, customers or prices. This reads
 // the banned and required claims from tests/fixtures/banned-claims.json (a
 // copy of fresh3 .planning/brand/LANDING.md section 6) and checks:
 //   1. the prerendered landing page (Nitro's node-server output
@@ -11,9 +13,12 @@
 //      and meta tags, plus the landing sources (app/pages/index.vue,
 //      app/components/*.vue, content/**, nuxt.config.ts), for banned claims;
 //   2. the built page for the required claims: both licences named (or
-//      "open source (GPL and AGPL)"), never GPL without AGPL; each inventory
-//      feature with its exact status and chip (LANDING.md section 5); every
-//      demo-site link labelled a demo; no frame word;
+//      "open source (GPL and AGPL)"), never GPL without AGPL; a visible
+//      pre-launch statement (an element with data-prelaunch saying
+//      "Launching soon"; Tom, 2026-11-06, PR #9); every demo-site link
+//      labelled a demo; no frame word;
+//   Plus the voice and product rules (PLACE-01, AI-advisory, voice), a
+//   separate list; every FAIL line names the list a hit came from.
 //   3. the sign-up pages (/onboarding, /success, /cancel) for frame and buyer
 //      words (D-05).
 //
@@ -66,10 +71,14 @@ export function stripCss(src) {
     .replace(/\s:?(class|style)\s*=\s*'[^']*'/gi, ' ')
 }
 
-/** Visible text of an HTML page: no scripts, CSS or tags; whitespace collapsed. */
+/**
+ * Visible text of an HTML page: no scripts, CSS, <title> (metaText reads it)
+ * or tags; whitespace collapsed.
+ */
 export function visibleText(html) {
   const noCss = stripCss(html)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<title[\s\S]*?<\/title>/gi, ' ')
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
     .replace(/<template[\s\S]*?<\/template>/gi, ' ')
   return decodeEntities(noCss.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
@@ -161,44 +170,78 @@ function demoLinkProblems(html, siteHost) {
 }
 
 
+const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
+const HIDDEN_CLASSES = new Set(['hidden', 'sr-only', 'invisible', 'opacity-0'])
+
 /**
- * Per-feature status check (LANDING.md section 5). For each inventory item,
- * find its title in the visible text (in page order, after the previous
- * item) and read the first chip in the segment
- * that follows it (up to the next inventory title or `window` characters).
- * A today item must carry no chip; a coming item's chip must equal `chip`.
+ * Whether a tag's own attributes hide it: hidden, aria-hidden, an inline
+ * display:none, visibility:hidden or opacity:0, or a hiding utility class
+ * (hidden, sr-only, invisible, opacity-0, and their variants like md:opacity-0).
  */
-export function featureProblems(text, features) {
-  const problems = []
-  const chipRe = new RegExp(features.chipPattern)
-  const titles = features.items.map((f) => f.title)
-  // Items are listed in page order, and each title is searched after the
-  // previous match, so an earlier repeat of a title (the band heading "Fund
-  // what matters. Decide together. ...") isn't taken for the item itself.
-  let cursor = 0
-  for (const f of features.items) {
-    const at = text.indexOf(f.title, cursor)
-    if (at < 0) {
-      problems.push({ feature: f.title, why: 'feature missing from the page, or out of the inventory\'s page order' })
+export function hidesElement(attrs) {
+  if (/(^|\s)hidden(\s|=|$)/i.test(attrs)) return true
+  if (/\saria-hidden\s*=\s*["']?true/i.test(attrs)) return true
+  const style = (attrs.match(/\sstyle\s*=\s*"([^"]*)"/i) || attrs.match(/\sstyle\s*=\s*'([^']*)'/i) || [])[1] || ''
+  if (/display\s*:\s*none|visibility\s*:\s*hidden|(^|;|\s)opacity\s*:\s*0*(\.0*)?(%)?\s*(;|!|$)/i.test(style)) return true
+  const cls = (attrs.match(/\sclass\s*=\s*"([^"]*)"/i) || attrs.match(/\sclass\s*=\s*'([^']*)'/i) || [])[1] || ''
+  // Responsive variants count too (md:hidden hides it on wider screens).
+  return cls.split(/\s+/).some((c) => HIDDEN_CLASSES.has(c.split(':').pop()))
+}
+
+/**
+ * Each element carrying `attribute`, with the text a reader can see in it:
+ * text inside a hidden descendant is left out, and an element inside a hidden
+ * ancestor (or hidden itself) has no visible text at all. Comments, scripts,
+ * templates, <noscript>, <style> and <title> never count.
+ */
+export function visibleMarked(html, attribute) {
+  const src = html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|template|noscript|title|style)\b[\s\S]*?<\/\1>/gi, ' ')
+  const marker = new RegExp(`\\s${attribute}(\\s|=|/|$)`, 'i')
+  const stack = [] // { tag, hidden, mark }
+  const out = []
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*)>/g
+  let last = 0
+  const addText = (text) => {
+    if (!text.trim()) return
+    const hidden = stack.some((e) => e.hidden)
+    for (const e of stack) if (e.mark && !hidden) e.mark.text += text
+  }
+  for (const m of src.matchAll(tagRe)) {
+    addText(src.slice(last, m.index))
+    last = m.index + m[0].length
+    const tag = m[1].toLowerCase()
+    const attrs = m[2] || ''
+    if (m[0].startsWith('</')) {
+      const i = stack.map((e) => e.tag).lastIndexOf(tag)
+      if (i >= 0) stack.length = i
       continue
     }
-    cursor = at + f.title.length
-    const start = at + f.title.length
-    let end = Math.min(text.length, start + (features.window ?? 400))
-    for (const t of titles) {
-      if (t === f.title) continue
-      const next = text.indexOf(t, start)
-      if (next >= 0 && next < end) end = next
+    if (VOID_TAGS.has(tag) || /\/\s*$/.test(attrs)) continue
+    const entry = { tag, hidden: hidesElement(attrs), mark: null }
+    if (marker.test(attrs)) {
+      entry.mark = { text: '' }
+      out.push(entry.mark)
     }
-    const m = text.slice(start, end).match(chipRe)
-    const found = m ? m[0] : null
-    if (f.status === 'today' && found) {
-      problems.push({ feature: f.title, why: `works today per the inventory, but shows "${found}"` })
-    } else if (f.status === 'coming' && found !== f.chip) {
-      problems.push({ feature: f.title, why: `expected "${f.chip}", found ${found ? `"${found}"` : 'no Coming chip'}` })
-    }
+    stack.push(entry)
   }
-  return problems
+  addText(src.slice(last))
+  return out.map((o) => decodeEntities(o.text).replace(/\s+/g, ' ').trim())
+}
+
+/**
+ * Pre-launch statement (Tom, 2026-11-06, PR #9): the page describes the
+ * finished product in the present tense, so it must say, visibly, that
+ * LocalNodes hasn't launched. Passes when at least one element carrying the
+ * rule's attribute (`data-prelaunch`) shows the phrase to a reader: not in a
+ * comment, not hidden by an attribute, aria-hidden, an inline style or a
+ * hiding utility class, on it or on any ancestor (Codex P2).
+ */
+export function prelaunchProblems(html, rule) {
+  const phrase = rule.phrase.toLowerCase()
+  if (visibleMarked(html, rule.attribute).some((t) => t.toLowerCase().includes(phrase))) return []
+  return [`no pre-launch statement: no visible element with ${rule.attribute} saying "${rule.phrase}"`]
 }
 
 /**
@@ -248,10 +291,13 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     lines.push(`FAIL ${file}: ${what} (${why})`)
   }
 
-  // 1. Banned claims in the landing sources.
+  const voiceRules = fixture.voiceRules?.rules ?? []
+
+  // 1. Honesty bans and voice and product rules in the landing sources.
   for (const file of landingSources(root)) {
     const src = stripCss(readFileSync(file, 'utf8'))
-    for (const row of findBannedHits(src, fixture.banned)) fail(relative(root, file), row.pattern, row.reason)
+    for (const row of findBannedHits(src, fixture.banned)) fail(relative(root, file), row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(src, voiceRules)) fail(relative(root, file), row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
   }
 
   const builtDirs = []
@@ -264,20 +310,22 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     lines.push(`CHECK ${builtRel}`)
 
     // Banned claims on the built page (visible text, meta).
-    for (const row of findBannedHits(text, fixture.banned)) fail(builtRel, row.pattern, row.reason)
-    for (const row of findBannedHits(meta, fixture.banned)) fail(`${builtRel}: meta`, row.pattern, row.reason)
+    for (const row of findBannedHits(text, fixture.banned)) fail(builtRel, row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(meta, fixture.banned)) fail(`${builtRel}: meta`, row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(text, voiceRules)) fail(builtRel, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
+    for (const row of findBannedHits(meta, voiceRules)) fail(`${builtRel}: meta`, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
 
     // 2. Required claims on the built page.
     for (const req of fixture.required) {
       if (req.id === 'licence') {
         for (const p of licenceProblems(text, req)) fail(builtRel, req.rule, p)
+      } else if (req.id === 'prelaunch') {
+        for (const p of prelaunchProblems(html, req)) fail(builtRel, req.rule, p)
       } else if (req.id === 'demo-label') {
         for (const p of demoLinkProblems(html, fixture.siteHost)) fail(builtRel, req.rule, p)
       }
     }
-    if (fixture.features) {
-      for (const p of featureProblems(text, fixture.features)) fail(builtRel, p.feature, p.why)
-    }
+
     if (!fixture.frameWordAllowed) {
       for (const w of fixture.frameWords) {
         const re = compileRow({ pattern: w, regex: false })

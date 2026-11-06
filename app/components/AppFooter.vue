@@ -24,8 +24,11 @@ const year = new Date().getFullYear()
           <a href="https://github.com/LocalNodes" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-primary underline-offset-2 hover:underline">
             Code on GitHub<span class="sr-only"> (opens in a new tab)</span>
           </a>
-          <NuxtLink to="/onboarding" class="text-muted hover:text-primary underline-offset-2 hover:underline">
-            Set up your site
+          <NuxtLink to="/#privacy" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Privacy
+          </NuxtLink>
+          <NuxtLink to="/#early-access" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Get early access
           </NuxtLink>
         </nav>
       </div>

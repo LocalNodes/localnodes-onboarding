@@ -30,8 +30,8 @@ const navItems: NavigationMenuItem[] = [
 
     <template #right>
       <UButton
-        label="Set up your site"
-        to="/onboarding"
+        label="Get early access"
+        to="/#early-access"
         color="primary"
       />
     </template>

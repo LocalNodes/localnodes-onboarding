@@ -4,18 +4,20 @@
 // readers get question 1 and answer 1 as plain text; the animation is
 // aria-hidden. Under prefers-reduced-motion: reduce it shows question 1, still,
 // and it follows changes to that setting while the page is open.
-// Chips: questions 1-3 cite a demo page; 4 is "Coming, rung 1"; 5 and 6 are
-// "Coming" with no rung (orchestrator ruling, 2026-11-06).
+// Every answer comes from a page a community wrote, never from site settings
+// (Tom, 2026-11-06). Every answer cites the page it came from. Pre-launch
+// (Tom, 2026-11-06, PR #9): questions 4 to 6 describe the finished product in
+// the present tense, like 1 to 3, with no "Coming" chip.
 
 import { useHeroDemo, type DemoQA } from '~/composables/useHeroDemo'
 
 const items: DemoQA[] = [
   { q: 'What did we decide about the roof repair?', a: 'Members agreed to get three quotes before the spring meeting.', chip: '[1] Meeting notes, 12 March', coming: false },
-  { q: 'How does a new member join?', a: 'An organizer invites them, and they confirm by email.', chip: '[1] Membership policy', coming: false },
+  { q: 'Can members bring guests to work days?', a: 'Yes. Members sign their guests in at the front table.', chip: '[1] Member handbook', coming: false },
   { q: 'Where do our bylaws say how votes work?', a: 'Section 4: a vote passes with a majority of members present.', chip: '[1] Bylaws', coming: false },
-  { q: 'Draft a proposal to buy shared garden tools.', a: 'The assistant will draft it for you to check and submit.', chip: 'Coming, rung 1', coming: true },
-  { q: 'Which projects in our network need funding right now?', a: 'Groups will be able to show what they need and fund each other.', chip: 'Coming', coming: true },
-  { q: 'How did another community structure its governance?', a: 'You\'ll be able to ask other communities\' public pages, with their name on every source.', chip: 'Coming', coming: true }
+  { q: 'Draft a proposal to buy shared garden tools.', a: 'Here\'s a draft from last month\'s tool list, for you to check and submit to a vote.', chip: '[1] Work day notes, October', coming: false },
+  { q: 'Which projects in our network need funding right now?', a: 'Two groups have posted what they need: the seed library and the repair café.', chip: '[1] Seed library page · [2] Repair café page', coming: false },
+  { q: 'How did another community structure its governance?', a: 'Their public bylaws give each working group a small budget and one vote at the general meeting.', chip: '[1] Another community’s public bylaws', coming: false }
 ]
 
 const first = items[0]!
@@ -56,9 +58,7 @@ onBeforeUnmount(unmount)
         <p class="text-highlighted leading-normal">
           {{ current.a }}
         </p>
-        <ComingChip v-if="current.coming" :label="current.chip" />
         <span
-          v-else
           class="self-start bg-inverted text-inverted rounded-full px-3 py-1 text-sm font-semibold"
         >{{ current.chip }}</span>
       </div>

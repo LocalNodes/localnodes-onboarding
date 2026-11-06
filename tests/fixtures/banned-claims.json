@@ -1,5 +1,5 @@
 {
-  "source": "fresh3 .planning/brand/LANDING.md section 6 (Banned claims), approved by Tom 2026-11-06; D-16 (Tom, 2026-11-05)",
+  "source": "fresh3 .planning/brand/LANDING.md section 6 (Banned claims). Pre-launch (Tom, 2026-11-06, PR #9): the page describes the finished product in the present tense and must carry a visible pre-launch statement (required rule 'prelaunch'). Still banned: invented numbers and stats, testimonials, customer or community names presented as customers, prices, and false technology or licence claims.",
   "banned": [
     {
       "pattern": "Climate Tech Collective",
@@ -195,16 +195,6 @@
       "reason": "Feature doesn't exist"
     },
     {
-      "pattern": "execute automatically",
-      "regex": false,
-      "reason": "Not built; proposals are coming, rung 2"
-    },
-    {
-      "pattern": "Immutable, censorship-resistant",
-      "regex": false,
-      "reason": "Unprovable, and hype"
-    },
-    {
       "pattern": "Trusted by Communities",
       "regex": false,
       "reason": "No customers to cite"
@@ -213,11 +203,6 @@
       "pattern": "Communities Already Building",
       "regex": false,
       "reason": "No community list"
-    },
-    {
-      "pattern": "Find groups near you",
-      "regex": false,
-      "reason": "Feature doesn't exist; place wording (PLACE-01)"
     }
   ],
   "required": [
@@ -232,6 +217,13 @@
       "short": "open source (GPL and AGPL)",
       "gplMention": "\\bGPL\\b|General Public License",
       "agplMention": "AGPL|Affero"
+    },
+    {
+      "id": "prelaunch",
+      "rule": "Pre-launch statement",
+      "description": "The built page has at least one element with the data-prelaunch attribute whose visible text says \"Launching soon\" (Tom, 2026-11-06, PR #9: LocalNodes launches only when funds and votes are complete). No statement fails.",
+      "attribute": "data-prelaunch",
+      "phrase": "Launching soon"
     },
     {
       "id": "demo-label",
@@ -265,126 +257,129 @@
     "app/layouts/default.vue"
   ],
   "siteHost": "localnodes.xyz",
-  "features": {
-    "description": "Each feature's status and chip, from fresh3 LANDING.md section 5 (claims inventory). Items are in page order. The check finds each title in the built page's visible text, after the previous item, and reads the chip that follows it, up to the next feature title or 400 characters. A 'today' feature must carry no Coming chip; a 'coming' feature's first chip must equal `chip` exactly. Flip a Phase 22 row to today only once Phase 22 is deployed and verified on the demos (LANDING.md section 5).",
-    "chipPattern": "Coming(?:, rung \\d+| with the group fund)?",
-    "window": 400,
-    "items": [
-      {
-        "title": "One library your members can search and ask",
-        "status": "today",
-        "source": "3.2; v1.0"
-      },
-      {
-        "title": "Answers that point to the page they came from",
-        "status": "today",
-        "source": "3.2; v1.0 cited answers"
-      },
-      {
-        "title": "A group fund that several members must approve",
-        "status": "coming",
-        "chip": "Coming",
-        "source": "3.2; Phase 21, rung 1"
-      },
-      {
-        "title": "Decisions your members make by vote, with a public record",
-        "status": "coming",
-        "chip": "Coming",
-        "source": "3.2; Phase 25, rung 2"
-      },
-      {
-        "title": "Open source software on your community's own site",
-        "status": "today",
-        "source": "3.2; licence rows"
-      },
-      {
-        "title": "Ask your library a question.",
-        "status": "today",
-        "source": "3.4; v1.0 group assistant with sources"
-      },
-      {
-        "title": "Bring in many files at once.",
-        "status": "coming",
-        "chip": "Coming, rung 1",
-        "source": "3.4; Phase 22 criteria 1, 2 (live check 22-26)"
-      },
-      {
-        "title": "Answers that respect who can see what.",
-        "status": "coming",
-        "chip": "Coming, rung 1",
-        "source": "3.4; Phase 22 criterion 3 (live check 22-27)"
-      },
-      {
-        "title": "Your community's own site.",
-        "status": "today",
-        "source": "3.4; Open Social, Phase 13/15"
-      },
-      {
-        "title": "Search that finds what you mean.",
-        "status": "today",
-        "source": "3.4; v1.0 hybrid search"
-      },
-      {
-        "title": "Hosting and updates handled.",
-        "status": "today",
-        "source": "3.4; Coolify + CI image"
-      },
-      {
-        "title": "See your group fund.",
-        "status": "coming",
-        "chip": "Coming, rung 1",
-        "source": "3.5; Phase 21"
-      },
-      {
-        "title": "Decide together.",
-        "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 25"
-      },
-      {
-        "title": "Rules only your members can change.",
-        "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 26"
-      },
-      {
-        "title": "Credit for the work people do.",
-        "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 27"
-      },
-      {
-        "title": "Fair moderation and a way to settle disputes.",
-        "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phases 29, 30"
-      },
-      {
-        "title": "Bring what you already have.",
-        "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 31"
-      },
-      {
-        "title": "Leave whenever you want.",
-        "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 32"
-      },
-      {
-        "title": "No fees for members.",
-        "status": "coming",
-        "chip": "Coming with the group fund",
-        "source": "3.5; v4.0 gas rule with Phases 21, 25"
-      }
-    ]
-  },
   "buildOutputs": {
     "description": "Prerendered landing page per Nitro preset. With a build-start stamp (written by prebuild), only candidates written during this build count; none fresh fails.",
     "stampFile": ".claims-build-start",
     "candidates": [
       ".output/public/index.html",
       ".vercel/output/static/index.html"
+    ]
+  },
+  "voiceRules": {
+    "description": "Voice and product rules, separate from the honesty bans (orchestrator, 2026-11-06). Same matching as `banned`; a hit fails the build and names this list and its rule.",
+    "rules": [
+      {
+        "pattern": "find groups near you",
+        "regex": false,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "\\bnear (?:you|me)\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "your town",
+        "regex": false,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "\\byour area\\b(?!\\s+of\\b)",
+        "regex": true,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "local residents",
+        "regex": false,
+        "flags": "i",
+        "rule": "PLACE-01",
+        "reason": "PLACE-01 (product rule): a community is never a place"
+      },
+      {
+        "pattern": "\\bexecut(?:e|es|ed|ing|ion)\\s+automatically\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "AI-advisory",
+        "reason": "AI-advisory / governance rule: nothing executes without members' votes or signatures (pan.archi lineage)"
+      },
+      {
+        "pattern": "\\bautomatically\\s+execut\\w*",
+        "regex": true,
+        "flags": "i",
+        "rule": "AI-advisory",
+        "reason": "AI-advisory / governance rule: nothing executes without members' votes or signatures (pan.archi lineage)"
+      },
+      {
+        "pattern": "\\bauto-?execut\\w*",
+        "regex": true,
+        "flags": "i",
+        "rule": "AI-advisory",
+        "reason": "AI-advisory / governance rule: nothing executes without members' votes or signatures (pan.archi lineage)"
+      },
+      {
+        "pattern": "censorship-resistant",
+        "regex": false,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\bimmutable\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\bunstoppable\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\brevolutionary\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\bseamless(?:ly)?\\b",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "AI-powered",
+        "regex": false,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "\\bempower\\w*",
+        "regex": true,
+        "flags": "i",
+        "rule": "Voice",
+        "reason": "Voice rule (BRAND.md section 3): hype words; say what it does"
+      },
+      {
+        "pattern": "Building a Second Brain",
+        "regex": false,
+        "flags": "i",
+        "rule": "Third-party title",
+        "reason": "Someone else's book and course title; \"second brain\" alone is fine (orchestrator for Tom, 2026-11-06)"
+      }
     ]
   }
 }

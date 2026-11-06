@@ -1,17 +1,18 @@
 <script setup lang="ts">
 // Who it's for (fresh3 LANDING.md 3.3, approved by Tom 2026-11-06). The buyer
 // words (co-ops, guilds and DAOs, land trusts) are allowed here and in the
-// example groups only (D-14); never in the sign-up flow (D-05).
+// example groups only (D-14); never in the sign-up flow (D-05). Pre-launch
+// (Tom, 2026-11-06, PR #9): present tense, the finished product, no chips.
 const groups = [
   {
     title: 'Co-ops',
     icon: 'i-lucide-house',
-    body: 'Housing, food, energy or worker co-ops: keep your bylaws, minutes and policies in one place members can ask about, and get ready to run your shared money and votes the same way.'
+    body: 'Housing, food, energy or worker co-ops: keep your bylaws, minutes and policies in one place members can ask about, and run your shared money and votes the same way.'
   },
   {
     title: 'Guilds and DAOs',
     icon: 'i-lucide-users',
-    body: 'Online guilds and DAOs that already make decisions together: a library for your proposals, docs and history, with a way to connect the shared accounts and voting you already use, nothing redeployed (coming).'
+    body: 'Online guilds and DAOs that already make decisions together: a library for your proposals, docs and history, connected to the shared accounts and voting you already use, nothing redeployed.'
   },
   {
     title: 'Land trusts',
