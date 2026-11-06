@@ -16,16 +16,16 @@ const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
 const fixture = JSON.parse(readFileSync(join(repo, 'tests/fixtures/banned-claims.json'), 'utf8'))
 
-interface Feature { title: string, status: 'today' | 'coming', chip?: string }
+interface Feature { title: string, status: 'today' | 'coming', badge?: string }
 const features: Feature[] = fixture.features.items
 
-// One list item per inventory feature, each with its expected chip, so the
+// One list item per inventory feature, each with its expected badge, so the
 // clean page always matches the fixture (LANDING.md section 5).
 // The real page repeats a title earlier ("Fund what matters. Decide together.
 // Own the infrastructure." heads the band that lists "Decide together."), so
 // the heading goes before the list here to pin that case.
 const featureList = '<h2>Fund what matters. Decide together. Own the infrastructure.</h2>' + features
-  .map(f => `<li><span>${f.title}</span> <span>Some words about it.</span>${f.status === 'coming' ? ` <span class="chip">${f.chip}</span>` : ''}</li>`)
+  .map(f => `<li><span>${f.title}</span> <span>Some words about it.</span>${f.status === 'coming' ? ` <span class="chip" data-badge>${f.badge}</span>` : ''}</li>`)
   .join('\n')
 
 const CLEAN_BODY = `
@@ -116,24 +116,27 @@ describe('check-landing-claims guard fires', () => {
   })
 
   it('exits 1 when a coming feature is relabelled as available', () => {
-    const r = run(page(CLEAN_BODY.replace('<span class="chip">Coming, rung 2</span>', '<span class="chip">Available now</span>')))
+    const r = run(page(CLEAN_BODY.replace('Decide together.</span> <span>Some words about it.</span> <span class="chip" data-badge>Coming</span>', 'Decide together.</span> <span>Some words about it.</span> <span class="chip" data-badge>Available now</span>')))
     expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*Decide together\./m)
+    expect(r.out).toMatch(/^FAIL .*Decide together\..*expected the badge "Coming", found "Available now"/m)
   })
 
-  it('exits 1 when a coming feature\'s rung changes', () => {
-    const r = run(page(CLEAN_BODY.replace('See your group fund.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 1', 'See your group fund.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 2')))
+  it('exits 1 when a coming feature loses its badge', () => {
+    const r = run(page(CLEAN_BODY.replace('Bring in many files at once.</span> <span>Some words about it.</span> <span class="chip" data-badge>Coming</span>', 'Bring in many files at once.</span> <span>Some words about it.</span>')))
     expect(r.code).toBe(1)
-    expect(r.out).toMatch(/^FAIL .*See your group fund\..*expected "Coming, rung 1", found "Coming, rung 2"/m)
+    expect(r.out).toMatch(/^FAIL .*Bring in many files at once\..*no badge/m)
   })
 
-  it('exits 1 when a today feature gains a Coming chip, or a rung 1 (Phase 22) item loses its chip', () => {
-    const marked = run(page(CLEAN_BODY.replace('Search that finds what you mean.</span> <span>Some words about it.</span>', 'Search that finds what you mean.</span> <span>Some words about it.</span> <span>Coming</span>')))
-    expect(marked.code).toBe(1)
-    expect(marked.out).toMatch(/^FAIL .*Search that finds what you mean\./m)
-    const unmarked = run(page(CLEAN_BODY.replace('Bring in many files at once.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 1</span>', 'Bring in many files at once.</span> <span>Some words about it.</span>')))
-    expect(unmarked.code).toBe(1)
-    expect(unmarked.out).toMatch(/^FAIL .*Bring in many files at once\./m)
+  it('exits 1 when a today feature gains a Coming badge', () => {
+    const r = run(page(CLEAN_BODY.replace('Search that finds what you mean.</span> <span>Some words about it.</span>', 'Search that finds what you mean.</span> <span>Some words about it.</span> <span data-badge>Coming</span>')))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*Search that finds what you mean\..*badge "Coming"/m)
+  })
+
+  it('does not police wording: prose mentioning "coming" or "rung" next to a today feature passes', () => {
+    const r = run(page(CLEAN_BODY.replace('Search that finds what you mean.</span> <span>Some words about it.</span>', 'Search that finds what you mean.</span> <span>Coming up: more filters, in the next rung. Shared funds are on the way.</span>')))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
   })
 
   it('exits 1 when an inventory feature is missing from the page', () => {
@@ -214,6 +217,29 @@ describe('banned-claims.json covers every item D-16 names', () => {
     expect(findBannedHits(probe, fixture.banned).length).toBeGreaterThan(0)
   })
 
+  // Every kept ban still fires (D-16 as revised, Tom 2026-11-06): each row in
+  // the fixture is hit by at least one of these hard-coded probes.
+  const rowProbes = [
+    ...probes,
+    '$3.2M Under Community Control',
+    '€5 a seat',
+    '29 / mo',
+    '290/yr',
+    '29 per month',
+    '290 per year',
+    '29 USD',
+    '29 EUR',
+    'Not GoFundMe taking 8% of every gift',
+    'Built for groups of 10 or 10,000.',
+    'Draft a proposal in 60 seconds',
+    'Trusted by Communities That Build',
+    'Communities Already Building'
+  ]
+
+  it.each(fixture.banned.map((r: { pattern: string }) => [r.pattern, r]))('ban %s still fires on a probe', (_p, row) => {
+    expect(rowProbes.some(probe => findBannedHits(probe, [row]).length > 0)).toBe(true)
+  })
+
   const nearMisses = [
     'Submit',
     'emit',
@@ -221,7 +247,11 @@ describe('banned-claims.json covers every item D-16 names', () => {
     'a community land trust',
     'an online guild or DAO',
     'a housing co-op',
-    'open source (GPL and AGPL)'
+    'open source (GPL and AGPL)',
+    // Feature wording is no longer policed (D-16 as revised, Tom 2026-11-06).
+    'a passed proposal can execute automatically',
+    'Immutable, censorship-resistant records',
+    'Find groups near you'
   ]
 
   it.each(nearMisses)('near miss "%s" hits nothing', (word) => {

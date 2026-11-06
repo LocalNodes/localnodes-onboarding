@@ -5,8 +5,9 @@
 // assistant, the site, hybrid search and hosting work today on the demos
 // (cascadia, boulder; checked 2026-11-06). Bulk import and permission-aware
 // answers are Phase 22, built but not deployed yet, so they carry
-// "Coming, rung 1" until Phase 22 is deployed and verified on the demos.
-const features: { title: string, icon: string, body: string, chip?: string }[] = [
+// a "Coming" badge until Phase 22 is deployed and verified on the demos
+// (22-26 and 22-27 pass on a demo).
+const features: { title: string, icon: string, body: string, coming?: boolean }[] = [
   {
     title: 'Ask your library a question.',
     icon: 'i-lucide-message-circle',
@@ -16,13 +17,13 @@ const features: { title: string, icon: string, body: string, chip?: string }[] =
     title: 'Bring in many files at once.',
     icon: 'i-lucide-file-text',
     body: 'Upload a batch of your group\'s documents or import web pages, and each becomes a page members can search and ask about.',
-    chip: 'Coming, rung 1'
+    coming: true
   },
   {
     title: 'Answers that respect who can see what.',
     icon: 'i-lucide-lock',
     body: 'A member\'s answers draw only on pages that member is allowed to see. Private group pages stay private.',
-    chip: 'Coming, rung 1'
+    coming: true
   },
   {
     title: 'Your community\'s own site.',
@@ -65,7 +66,7 @@ const features: { title: string, icon: string, body: string, chip?: string }[] =
           <p class="leading-relaxed text-muted">
             {{ feature.body }}
           </p>
-          <ComingChip v-if="feature.chip" :label="feature.chip" />
+          <ComingChip v-if="feature.coming" />
         </div>
       </div>
     </div>

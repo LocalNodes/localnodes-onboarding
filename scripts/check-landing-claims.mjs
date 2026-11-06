@@ -12,7 +12,7 @@
 //      app/components/*.vue, content/**, nuxt.config.ts), for banned claims;
 //   2. the built page for the required claims: both licences named (or
 //      "open source (GPL and AGPL)"), never GPL without AGPL; each inventory
-//      feature with its exact status and chip (LANDING.md section 5); every
+//      feature's badge (none, or exactly "Coming"; LANDING.md section 5); every
 //      demo-site link labelled a demo; no frame word;
 //   3. the sign-up pages (/onboarding, /success, /cancel) for frame and buyer
 //      words (D-05).
@@ -162,19 +162,30 @@ function demoLinkProblems(html, siteHost) {
 
 
 /**
- * Per-feature status check (LANDING.md section 5). For each inventory item,
- * find its title in the visible text (in page order, after the previous
- * item) and read the first chip in the segment
- * that follows it (up to the next inventory title or `window` characters).
- * A today item must carry no chip; a coming item's chip must equal `chip`.
+ * The page text with each badge element (any tag carrying `data-badge`, as
+ * ComingChip renders) replaced by a marker, so the feature check reads badges
+ * and never the prose around them (D-16 as revised, Tom 2026-11-06).
+ */
+export function badgedText(html) {
+  const marked = html.replace(
+    /<([a-z]+)\b[^>]*\sdata-badge\b[^>]*>([\s\S]*?)<\/\1>/gi,
+    (_, _tag, inner) => ` \u27E6BADGE:${visibleText(inner)}\u27E7 `
+  )
+  return visibleText(marked)
+}
+
+/**
+ * Per-feature badge check (LANDING.md section 5). Items are in page order;
+ * each title is searched after the previous match, so an earlier repeat of a
+ * title (the band heading "Fund what matters. Decide together. ...") isn't
+ * taken for the item. The first badge after the title, up to the next
+ * inventory title or `window` characters, is the feature's badge: a today item
+ * carries none, a coming item's badge must equal `badge` exactly.
  */
 export function featureProblems(text, features) {
   const problems = []
-  const chipRe = new RegExp(features.chipPattern)
+  const badgeRe = /\u27E6BADGE:([^\u27E7]*)\u27E7/
   const titles = features.items.map((f) => f.title)
-  // Items are listed in page order, and each title is searched after the
-  // previous match, so an earlier repeat of a title (the band heading "Fund
-  // what matters. Decide together. ...") isn't taken for the item itself.
   let cursor = 0
   for (const f of features.items) {
     const at = text.indexOf(f.title, cursor)
@@ -182,20 +193,20 @@ export function featureProblems(text, features) {
       problems.push({ feature: f.title, why: 'feature missing from the page, or out of the inventory\'s page order' })
       continue
     }
-    cursor = at + f.title.length
     const start = at + f.title.length
+    cursor = start
     let end = Math.min(text.length, start + (features.window ?? 400))
     for (const t of titles) {
       if (t === f.title) continue
       const next = text.indexOf(t, start)
       if (next >= 0 && next < end) end = next
     }
-    const m = text.slice(start, end).match(chipRe)
-    const found = m ? m[0] : null
-    if (f.status === 'today' && found) {
-      problems.push({ feature: f.title, why: `works today per the inventory, but shows "${found}"` })
-    } else if (f.status === 'coming' && found !== f.chip) {
-      problems.push({ feature: f.title, why: `expected "${f.chip}", found ${found ? `"${found}"` : 'no Coming chip'}` })
+    const m = text.slice(start, end).match(badgeRe)
+    const found = m ? m[1].trim() : null
+    if (f.status === 'today' && found !== null) {
+      problems.push({ feature: f.title, why: `works today per the inventory, but has the badge "${found}"` })
+    } else if (f.status === 'coming' && found !== f.badge) {
+      problems.push({ feature: f.title, why: `expected the badge "${f.badge}", found ${found !== null ? `"${found}"` : 'no badge'}` })
     }
   }
   return problems
@@ -276,7 +287,7 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
       }
     }
     if (fixture.features) {
-      for (const p of featureProblems(text, fixture.features)) fail(builtRel, p.feature, p.why)
+      for (const p of featureProblems(badgedText(html), fixture.features)) fail(builtRel, p.feature, p.why)
     }
     if (!fixture.frameWordAllowed) {
       for (const w of fixture.frameWords) {

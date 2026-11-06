@@ -2,32 +2,33 @@
 // See it in action (fresh3 LANDING.md 3.6 and section 4, approved by Tom
 // 2026-11-06). Example groups are examples, never customers; every demo-site
 // link says "demo" in its visible text (D-16). No testimonials, community
-// list or numbers.
+// list or numbers. Each example's shared-funds and decisions uses carry one
+// small "Coming" badge, no rung wording (D-16 as revised, Tom 2026-11-06).
 const examples = [
   {
     title: 'A housing co-op',
     today: 'Keeps its bylaws, house rules, minutes and maintenance records in its library; members ask "When was the roof last inspected?" and get the answer with the minutes it came from.',
-    next: 'sees its repair fund\'s balance and who approves spending (rung 1); votes on a major repair and carries out the payment once it passes (rung 2).'
+    coming: 'Sees its repair fund\'s balance and who approves spending, and votes on a major repair, then carries out the payment once it passes.'
   },
   {
     title: 'An online guild',
     today: 'Keeps its handbook, past proposals and project write-ups in one place new members can ask about.',
-    next: 'connects the shared account and voting it already uses, nothing redeployed (rung 2); records members\' contributions (rung 2).'
+    coming: 'Connects the shared account and voting it already uses, nothing redeployed, and records members\' contributions.'
   },
   {
     title: 'A land trust',
     today: 'Holds deeds, stewardship plans, surveys and meeting notes, private to its stewards where it needs to be.',
-    next: 'votes on land-use decisions with a public record (rung 2); settles disagreements through a member panel (rung 2).'
+    coming: 'Votes on land-use decisions with a public record, and settles disagreements through a member panel.'
   },
   {
     title: 'A Drupal user group',
     today: 'Keeps its meetup notes, talk write-ups and organizing handbook in one place; members ask "Who\'s organizing the next contribution day?" and get the answer with the notes it came from.',
-    next: 'sees its sponsorship fund\'s balance and who approves spending (rung 1); votes on how to spend it (rung 2).'
+    coming: 'Sees its sponsorship fund\'s balance and who approves spending, and votes on how to spend it.'
   },
   {
     title: 'A bioregional network',
     today: 'Its member groups each run a group on one site, sharing a library while keeping private pages private.',
-    next: 'community-wide votes with one vote per member group (rung 2).'
+    coming: 'Holds community-wide votes with one vote per member group.'
   }
 ]
 
@@ -60,11 +61,12 @@ const demos = [
           <p class="leading-relaxed text-muted">
             {{ example.today }}
           </p>
-          <p class="text-sm leading-relaxed">
-            <span class="font-semibold text-primary">Next:</span>
-            {{ ' ' }}
-            <span class="text-muted">{{ example.next }}</span>
-          </p>
+          <div class="flex flex-col gap-1.5">
+            <ComingChip />
+            <p class="text-sm leading-relaxed text-muted">
+              {{ example.coming }}
+            </p>
+          </div>
         </div>
       </div>
 

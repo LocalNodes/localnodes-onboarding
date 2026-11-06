@@ -1,19 +1,20 @@
 <script setup lang="ts">
 // What's built, what's next (fresh3 LANDING.md 3.5, approved by Tom
 // 2026-11-06). The page's second and last dark band (card 7), opened by Tom's
-// pan.archi tagline (card T). Every item carries its rung from ROADMAP v4.0.
+// pan.archi line (card T). Every item is coming, so each carries one small
+// "Coming" badge; no rung wording (D-16 as revised, Tom 2026-11-06).
 // TODO(22.1-08): the exact band colour (palette B brand 950) and its muted
 // role arrive through the Nuxt dark tokens in 22.1-08; the `dark` class scopes
 // them here.
 const items = [
-  { title: 'See your group fund.', body: 'Link the group\'s shared account and see its real balances and who approves payments.', rung: 'Coming, rung 1' },
-  { title: 'Decide together.', body: 'Proposals and votes by your group\'s members, and a passed proposal carried out through the group fund.', rung: 'Coming, rung 2' },
-  { title: 'Rules only your members can change.', body: 'Voting settings change only after a passed vote.', rung: 'Coming, rung 2' },
-  { title: 'Credit for the work people do.', body: 'A public record of members\' contributions.', rung: 'Coming, rung 2' },
-  { title: 'Fair moderation and a way to settle disputes.', body: 'Every step has an end date and an appeal, and disputes go to a panel of members.', rung: 'Coming, rung 2' },
-  { title: 'Bring what you already have.', body: 'Connect an existing shared account, roles or voting space, nothing redeployed.', rung: 'Coming, rung 2' },
-  { title: 'Leave whenever you want.', body: 'Export everything and move your site.', rung: 'Coming, rung 2' },
-  { title: 'No fees for members.', body: 'Members never pay network fees to vote or approve; the community covers them.', rung: 'Coming with the group fund' }
+  { title: 'See your group fund.', body: 'Link the group\'s shared account and see its real balances and who approves payments.' },
+  { title: 'Decide together.', body: 'Proposals and votes by your group\'s members, and a passed proposal carried out through the group fund.' },
+  { title: 'Rules only your members can change.', body: 'Voting settings change only after a passed vote.' },
+  { title: 'Credit for the work people do.', body: 'A public record of members\' contributions.' },
+  { title: 'Fair moderation and a way to settle disputes.', body: 'Every step has an end date and an appeal, and disputes go to a panel of members.' },
+  { title: 'Bring what you already have.', body: 'Connect an existing shared account, roles or voting space, nothing redeployed.' },
+  { title: 'Leave whenever you want.', body: 'Export everything and move your site.' },
+  { title: 'No fees for members.', body: 'Members never pay network fees to vote or approve; the community covers them.' }
 ]
 </script>
 
@@ -42,7 +43,7 @@ const items = [
             {{ ' ' }}
             <span class="text-muted">{{ item.body }}</span>
           </span>
-          <ComingChip :label="item.rung" />
+          <ComingChip />
         </li>
       </ul>
     </div>

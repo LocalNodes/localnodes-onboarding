@@ -1,5 +1,5 @@
 {
-  "source": "fresh3 .planning/brand/LANDING.md section 6 (Banned claims), approved by Tom 2026-11-06; D-16 (Tom, 2026-11-05)",
+  "source": "fresh3 .planning/brand/LANDING.md section 6 (Banned claims), D-16 as revised (Tom, 2026-11-06): bans invented numbers and stats, testimonials, customer or community names presented as customers, prices, and false technology or licence claims. Sentence wording about features is not policed.",
   "banned": [
     {
       "pattern": "Climate Tech Collective",
@@ -195,16 +195,6 @@
       "reason": "Feature doesn't exist"
     },
     {
-      "pattern": "execute automatically",
-      "regex": false,
-      "reason": "Not built; proposals are coming, rung 2"
-    },
-    {
-      "pattern": "Immutable, censorship-resistant",
-      "regex": false,
-      "reason": "Unprovable, and hype"
-    },
-    {
       "pattern": "Trusted by Communities",
       "regex": false,
       "reason": "No customers to cite"
@@ -213,11 +203,6 @@
       "pattern": "Communities Already Building",
       "regex": false,
       "reason": "No community list"
-    },
-    {
-      "pattern": "Find groups near you",
-      "regex": false,
-      "reason": "Feature doesn't exist; place wording (PLACE-01)"
     }
   ],
   "required": [
@@ -266,8 +251,7 @@
   ],
   "siteHost": "localnodes.xyz",
   "features": {
-    "description": "Each feature's status and chip, from fresh3 LANDING.md section 5 (claims inventory). Items are in page order. The check finds each title in the built page's visible text, after the previous item, and reads the chip that follows it, up to the next feature title or 400 characters. A 'today' feature must carry no Coming chip; a 'coming' feature's first chip must equal `chip` exactly. Flip a Phase 22 row to today only once Phase 22 is deployed and verified on the demos (LANDING.md section 5).",
-    "chipPattern": "Coming(?:, rung \\d+| with the group fund)?",
+    "description": "Each feature's badge, from fresh3 LANDING.md section 5 (D-16 as revised, Tom 2026-11-06: one small \"Coming\" badge per feature, no rung wording). Items are in page order. The check finds each title in the built page's visible text, after the previous item, and reads the first badge element (data-badge, as ComingChip renders) that follows it, up to the next feature title or `window` characters. A 'today' feature carries no badge; a 'coming' feature's badge must equal `badge` exactly. The two Phase 22 rows ('Bring in many files at once.', 'Answers that respect who can see what.') flip to today when 22-26 and 22-27 pass on a demo (LANDING.md section 5).",
     "window": 400,
     "items": [
       {
@@ -283,14 +267,14 @@
       {
         "title": "A group fund that several members must approve",
         "status": "coming",
-        "chip": "Coming",
-        "source": "3.2; Phase 21, rung 1"
+        "source": "3.2; Phase 21, rung 1",
+        "badge": "Coming"
       },
       {
         "title": "Decisions your members make by vote, with a public record",
         "status": "coming",
-        "chip": "Coming",
-        "source": "3.2; Phase 25, rung 2"
+        "source": "3.2; Phase 25, rung 2",
+        "badge": "Coming"
       },
       {
         "title": "Open source software on your community's own site",
@@ -305,14 +289,14 @@
       {
         "title": "Bring in many files at once.",
         "status": "coming",
-        "chip": "Coming, rung 1",
-        "source": "3.4; Phase 22 criteria 1, 2 (live check 22-26)"
+        "source": "3.4; Phase 22 criteria 1, 2 (live check 22-26)",
+        "badge": "Coming"
       },
       {
         "title": "Answers that respect who can see what.",
         "status": "coming",
-        "chip": "Coming, rung 1",
-        "source": "3.4; Phase 22 criterion 3 (live check 22-27)"
+        "source": "3.4; Phase 22 criterion 3 (live check 22-27)",
+        "badge": "Coming"
       },
       {
         "title": "Your community's own site.",
@@ -332,50 +316,50 @@
       {
         "title": "See your group fund.",
         "status": "coming",
-        "chip": "Coming, rung 1",
-        "source": "3.5; Phase 21"
+        "source": "3.5; Phase 21",
+        "badge": "Coming"
       },
       {
         "title": "Decide together.",
         "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 25"
+        "source": "3.5; Phase 25",
+        "badge": "Coming"
       },
       {
         "title": "Rules only your members can change.",
         "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 26"
+        "source": "3.5; Phase 26",
+        "badge": "Coming"
       },
       {
         "title": "Credit for the work people do.",
         "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 27"
+        "source": "3.5; Phase 27",
+        "badge": "Coming"
       },
       {
         "title": "Fair moderation and a way to settle disputes.",
         "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phases 29, 30"
+        "source": "3.5; Phases 29, 30",
+        "badge": "Coming"
       },
       {
         "title": "Bring what you already have.",
         "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 31"
+        "source": "3.5; Phase 31",
+        "badge": "Coming"
       },
       {
         "title": "Leave whenever you want.",
         "status": "coming",
-        "chip": "Coming, rung 2",
-        "source": "3.5; Phase 32"
+        "source": "3.5; Phase 32",
+        "badge": "Coming"
       },
       {
         "title": "No fees for members.",
         "status": "coming",
-        "chip": "Coming with the group fund",
-        "source": "3.5; v4.0 gas rule with Phases 21, 25"
+        "source": "3.5; v4.0 gas rule with Phases 21, 25",
+        "badge": "Coming"
       }
     ]
   },
