@@ -1,8 +1,10 @@
 <script setup lang="ts">
-// What's built, what's next (fresh3 LANDING.md 3.5, approved by Tom
-// 2026-11-06). The page's second and last dark band (card 7), opened by Tom's
-// pan.archi line (card T). Every item is coming, so each carries one small
-// "Coming" badge; no rung wording (D-16 as revised, Tom 2026-11-06).
+// Fund what matters (fresh3 LANDING.md 3.5, Tom 2026-11-06). The page's second
+// and last dark band (card 7): the heading first, then the explanation and the
+// list; Tom's pan.archi line closes the section as a small italic pull-quote,
+// unattributed, so no two slogan lines sit back to back. Every item is
+// coming, so each carries one small "Coming" badge; no rung wording (D-16 as
+// revised, Tom 2026-11-06).
 // TODO(22.1-08): the exact band colour (palette B brand 950) and its muted
 // role arrive through the Nuxt dark tokens in 22.1-08; the `dark` class scopes
 // them here.
@@ -21,9 +23,6 @@ const items = [
 <template>
   <section class="dark bg-default text-default">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
-      <p class="text-2xl leading-snug font-semibold text-muted max-w-3xl">
-        Governance should adapt to people, not people to governance.
-      </p>
       <h2 class="text-3xl font-semibold text-highlighted">
         Fund what matters. Decide together. Own the infrastructure.
       </h2>
@@ -46,6 +45,11 @@ const items = [
           <ComingChip />
         </li>
       </ul>
+      <blockquote class="mt-4 max-w-3xl">
+        <p class="text-lg italic text-muted">
+          Governance should adapt to people, not people to governance.
+        </p>
+      </blockquote>
     </div>
   </section>
 </template>
