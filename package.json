@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "prebuild": "node scripts/check-landing-claims.mjs --stamp",
     "build": "nuxt build",
     "postbuild": "node scripts/check-landing-claims.mjs",
     "dev": "nuxt dev",

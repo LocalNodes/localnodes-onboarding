@@ -5,9 +5,9 @@
 // D-16 names them), not read from LANDING.md or the fixture, so it isn't
 // circular.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, resolve, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 // @ts-expect-error plain .mjs script, no type declarations
 import { findBannedHits } from '../../scripts/check-landing-claims.mjs'
@@ -16,10 +16,18 @@ const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
 const fixture = JSON.parse(readFileSync(join(repo, 'tests/fixtures/banned-claims.json'), 'utf8'))
 
+interface Feature { title: string, status: 'today' | 'coming', chip?: string }
+const features: Feature[] = fixture.features.items
+
+// One list item per inventory feature, each with its expected chip, so the
+// clean page always matches the fixture (LANDING.md section 5).
+const featureList = features
+  .map(f => `<li><span>${f.title}</span> <span>Some words about it.</span>${f.status === 'coming' ? ` <span class="chip">${f.chip}</span>` : ''}</li>`)
+  .join('\n')
+
 const CLEAN_BODY = `
   <h1>LocalNodes: your community's library, treasury and decisions, run by its members.</h1>
-  <p>See your group fund. <span>Coming, rung 1</span></p>
-  <p>Decide together. <span>Coming, rung 2</span></p>
+  <ul>${featureList}</ul>
   <a href="https://cascadia.localnodes.xyz">Cascadia (demo)</a>
   <a href="/onboarding">Set up your community's site</a>
 `
@@ -33,9 +41,22 @@ function page(body: string, licence = '<p>LocalNodes is open source (GPL and AGP
 
 let root: string
 
-function run(html: string) {
-  mkdirSync(join(root, '.output/public'), { recursive: true })
-  writeFileSync(join(root, '.output/public/index.html'), html)
+const STAMP = '.claims-build-start'
+
+/** Write the page at `at` (default the node-server output) and run the CLI. */
+function run(html: string, opts: { at?: string, stamp?: boolean, stale?: boolean } = {}) {
+  const at = opts.at ?? '.output/public/index.html'
+  if (opts.stamp) writeFileSync(join(root, STAMP), String(Date.now()))
+  mkdirSync(join(root, dirname(at)), { recursive: true })
+  writeFileSync(join(root, at), html)
+  if (opts.stale) {
+    const old = new Date(Date.now() - 10 * 60 * 1000)
+    utimesSync(join(root, at), old, old)
+  }
+  return runCli()
+}
+
+function runCli() {
   const r = spawnSync(process.execPath, [script, '--root', root], { encoding: 'utf8' })
   return { code: r.status, out: r.stdout + r.stderr }
 }
@@ -91,16 +112,60 @@ describe('check-landing-claims guard fires', () => {
     expect(r.out).toMatch(/Network Nations/)
   })
 
-  it('exits 1 when a coming feature loses its rung', () => {
-    const r = run(page(CLEAN_BODY.replace('Coming, rung 2', 'Coming soon')))
+  it('exits 1 when a coming feature is relabelled as available', () => {
+    const r = run(page(CLEAN_BODY.replace('<span class="chip">Coming, rung 2</span>', '<span class="chip">Available now</span>')))
     expect(r.code).toBe(1)
-    expect(r.out).toMatch(/Coming, rung 2/)
+    expect(r.out).toMatch(/^FAIL .*Decide together\./m)
+  })
+
+  it('exits 1 when a coming feature\'s rung changes', () => {
+    const r = run(page(CLEAN_BODY.replace('See your group fund.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 1', 'See your group fund.</span> <span>Some words about it.</span> <span class="chip">Coming, rung 2')))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*See your group fund\..*expected "Coming, rung 1", found "Coming, rung 2"/m)
+  })
+
+  it('exits 1 when a today feature gains a Coming chip, or a Phase 22 item loses its chip', () => {
+    const marked = run(page(CLEAN_BODY.replace('Search that finds what you mean.</span> <span>Some words about it.</span>', 'Search that finds what you mean.</span> <span>Some words about it.</span> <span>Coming</span>')))
+    expect(marked.code).toBe(1)
+    expect(marked.out).toMatch(/^FAIL .*Search that finds what you mean\./m)
+    const unmarked = run(page(CLEAN_BODY.replace('Bring in many files at once.</span> <span>Some words about it.</span> <span class="chip">Coming, Phase 22</span>', 'Bring in many files at once.</span> <span>Some words about it.</span>')))
+    expect(unmarked.code).toBe(1)
+    expect(unmarked.out).toMatch(/^FAIL .*Bring in many files at once\./m)
+  })
+
+  it('exits 1 when an inventory feature is missing from the page', () => {
+    const r = run(page(CLEAN_BODY.replace('Leave whenever you want.', 'Take it with you.')))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL .*Leave whenever you want\..*missing/m)
   })
 
   it('exits 2 when the built page is missing', () => {
-    const r = spawnSync(process.execPath, [script, '--root', root], { encoding: 'utf8' })
-    expect(r.status).toBe(2)
-    expect(r.stdout).toMatch(/run npm run build first/)
+    const r = runCli()
+    expect(r.code).toBe(2)
+    expect(r.out).toMatch(/run npm run build first/)
+  })
+
+  it('checks the Vercel preset output (.vercel/output/static)', () => {
+    const clean = run(page(CLEAN_BODY), { at: '.vercel/output/static/index.html', stamp: true })
+    expect(clean.out).toContain('RESULT: PASS')
+    expect(clean.code).toBe(0)
+    const dirty = run(page(CLEAN_BODY + '<p>127 Communities</p>'), { at: '.vercel/output/static/index.html', stamp: true })
+    expect(dirty.code).toBe(1)
+    expect(dirty.out).toMatch(/^FAIL \.vercel\/output\/static\/index\.html: 127 Communities/m)
+  })
+
+  it('exits 2 when the only built page is older than this build (stale)', () => {
+    const r = run(page(CLEAN_BODY), { stamp: true, stale: true })
+    expect(r.code).toBe(2)
+    expect(r.out).toMatch(/not written during this build/)
+  })
+
+  it('checks the fresh output, not a stale one from another preset', () => {
+    // A stale node-server page with a banned claim, and a fresh Vercel page.
+    run(page(CLEAN_BODY + '<p>127 Communities</p>'), { stale: true })
+    const r = run(page(CLEAN_BODY), { at: '.vercel/output/static/index.html', stamp: true })
+    expect(r.out).not.toMatch(/127 Communities/)
+    expect(r.code).toBe(0)
   })
 
   it('ignores CSS percentages in classes, styles and <style> blocks', () => {

@@ -23,3 +23,6 @@ logs
 .env.*
 !.env.example
 .vercel
+
+# Claims check build-start stamp (scripts/check-landing-claims.mjs --stamp)
+.claims-build-start
