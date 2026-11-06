@@ -2,16 +2,12 @@
 // The hero's typing search box (fresh3 LANDING.md 3.1, Tom 2026-11-06, card 8).
 // A picture of the library, not a live search: it accepts no input. Screen
 // readers get question 1 and answer 1 as plain text; the animation is
-// aria-hidden. Under prefers-reduced-motion: reduce it shows question 1, still.
+// aria-hidden. Under prefers-reduced-motion: reduce it shows question 1, still,
+// and it follows changes to that setting while the page is open.
 // Chips: questions 1-3 cite a demo page; 4 is "Coming, rung 1"; 5 and 6 are
 // "Coming" with no rung (orchestrator ruling, 2026-11-06).
 
-interface DemoQA {
-  q: string
-  a: string
-  chip: string
-  coming: boolean
-}
+import { useHeroDemo, type DemoQA } from '~/composables/useHeroDemo'
 
 const items: DemoQA[] = [
   { q: 'What did we decide about the roof repair?', a: 'Members agreed to get three quotes before the spring meeting.', chip: '[1] Meeting notes, 12 March', coming: false },
@@ -23,70 +19,12 @@ const items: DemoQA[] = [
 ]
 
 const first = items[0]!
-const index = ref(0)
-// SSR and reduced motion render question 1 in full, answer shown.
-const typed = ref(first.q)
-const showAnswer = ref(true)
-const animating = ref(false)
-const paused = ref(false)
+// Reduced motion is followed live (on: question 1, still, no pause button;
+// off: the cycle resumes); see useHeroDemo.
+const { typed, showAnswer, animating, paused, current, togglePause, mount, unmount } = useHeroDemo(items)
 
-const current = computed(() => items[index.value]!)
-
-let timer: ReturnType<typeof setTimeout> | undefined
-const TYPE_MS = 45
-const HOLD_MS = 3800
-const BEFORE_ANSWER_MS = 500
-
-function clear() {
-  if (timer) clearTimeout(timer)
-  timer = undefined
-}
-
-function typeNext(pos: number) {
-  const q = current.value.q
-  if (pos <= q.length) {
-    typed.value = q.slice(0, pos)
-    timer = setTimeout(() => typeNext(pos + 1), TYPE_MS)
-    return
-  }
-  timer = setTimeout(() => {
-    showAnswer.value = true
-    timer = setTimeout(advance, HOLD_MS)
-  }, BEFORE_ANSWER_MS)
-}
-
-function advance() {
-  index.value = (index.value + 1) % items.length
-  start()
-}
-
-function start() {
-  clear()
-  showAnswer.value = false
-  typed.value = ''
-  typeNext(0)
-}
-
-function togglePause() {
-  if (paused.value) {
-    paused.value = false
-    start()
-  } else {
-    paused.value = true
-    clear()
-    typed.value = current.value.q
-    showAnswer.value = true
-  }
-}
-
-onMounted(() => {
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduce) return
-  animating.value = true
-  timer = setTimeout(advance, HOLD_MS)
-})
-
-onBeforeUnmount(clear)
+onMounted(mount)
+onBeforeUnmount(unmount)
 </script>
 
 <template>
