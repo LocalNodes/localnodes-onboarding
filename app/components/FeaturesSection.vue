@@ -1,16 +1,28 @@
 <script setup lang="ts">
 // What you get today (fresh3 LANDING.md 3.4, approved by Tom 2026-11-06).
 // Each item matches a claims-inventory row (LANDING.md section 5).
-const features = [
+// Status per LANDING.md section 5 (Codex review, 2026-11-06): the cited
+// assistant, the site, hybrid search and hosting work today on the demos
+// (cascadia, boulder; checked 2026-11-06). Bulk import and permission-aware
+// answers are Phase 22, built but not deployed yet, so they carry
+// "Coming, Phase 22" until Phase 22 is deployed and verified on the demos.
+const features: { title: string, icon: string, body: string, chip?: string }[] = [
   {
-    title: 'A library your members can ask.',
+    title: 'Ask your library a question.',
+    icon: 'i-lucide-message-circle',
+    body: 'Ask the AI assistant and it answers from your group\'s pages, with numbered sources that link to each one.'
+  },
+  {
+    title: 'Bring in many files at once.',
     icon: 'i-lucide-file-text',
-    body: 'Bring in your group\'s documents, many files at once, and each becomes a page members can search. Ask the AI assistant a question and it answers from your pages, with numbered sources that link to each one.'
+    body: 'Upload a batch of your group\'s documents or import web pages, and each becomes a page members can search and ask about.',
+    chip: 'Coming, Phase 22'
   },
   {
     title: 'Answers that respect who can see what.',
     icon: 'i-lucide-lock',
-    body: 'A member\'s answers draw only on pages that member is allowed to see. Private group pages stay private.'
+    body: 'A member\'s answers draw only on pages that member is allowed to see. Private group pages stay private.',
+    chip: 'Coming, Phase 22'
   },
   {
     title: 'Your community\'s own site.',
@@ -37,7 +49,8 @@ const features = [
         What you get today
       </h2>
       <p class="text-lg text-muted">
-        Everything here works now. You can try it on a demo site.
+        Everything here works today unless it's marked Coming. You can try it on a
+        demo site.
       </p>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div
@@ -52,6 +65,7 @@ const features = [
           <p class="leading-relaxed text-muted">
             {{ feature.body }}
           </p>
+          <ComingChip v-if="feature.chip" :label="feature.chip" />
         </div>
       </div>
     </div>
