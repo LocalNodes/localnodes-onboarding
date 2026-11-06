@@ -21,7 +21,10 @@ const features: Feature[] = fixture.features.items
 
 // One list item per inventory feature, each with its expected chip, so the
 // clean page always matches the fixture (LANDING.md section 5).
-const featureList = features
+// The real page repeats a title earlier ("Fund what matters. Decide together.
+// Own the infrastructure." heads the band that lists "Decide together."), so
+// the heading goes before the list here to pin that case.
+const featureList = '<h2>Fund what matters. Decide together. Own the infrastructure.</h2>' + features
   .map(f => `<li><span>${f.title}</span> <span>Some words about it.</span>${f.status === 'coming' ? ` <span class="chip">${f.chip}</span>` : ''}</li>`)
   .join('\n')
 

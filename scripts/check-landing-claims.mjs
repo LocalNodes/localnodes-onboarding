@@ -163,7 +163,8 @@ function demoLinkProblems(html, siteHost) {
 
 /**
  * Per-feature status check (LANDING.md section 5). For each inventory item,
- * find its title in the visible text and read the first chip in the segment
+ * find its title in the visible text (in page order, after the previous
+ * item) and read the first chip in the segment
  * that follows it (up to the next inventory title or `window` characters).
  * A today item must carry no chip; a coming item's chip must equal `chip`.
  */
@@ -171,12 +172,17 @@ export function featureProblems(text, features) {
   const problems = []
   const chipRe = new RegExp(features.chipPattern)
   const titles = features.items.map((f) => f.title)
+  // Items are listed in page order, and each title is searched after the
+  // previous match, so an earlier repeat of a title (the band heading "Fund
+  // what matters. Decide together. ...") isn't taken for the item itself.
+  let cursor = 0
   for (const f of features.items) {
-    const at = text.indexOf(f.title)
+    const at = text.indexOf(f.title, cursor)
     if (at < 0) {
-      problems.push({ feature: f.title, why: 'feature missing from the page' })
+      problems.push({ feature: f.title, why: 'feature missing from the page, or out of the inventory\'s page order' })
       continue
     }
+    cursor = at + f.title.length
     const start = at + f.title.length
     let end = Math.min(text.length, start + (features.window ?? 400))
     for (const t of titles) {
