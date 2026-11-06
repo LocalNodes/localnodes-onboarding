@@ -171,14 +171,18 @@ function demoLinkProblems(html, siteHost) {
 
 
 const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
-const HIDDEN_CLASSES = new Set(['hidden', 'sr-only', 'invisible'])
+const HIDDEN_CLASSES = new Set(['hidden', 'sr-only', 'invisible', 'opacity-0'])
 
-/** Whether a tag's own attributes hide it: hidden, aria-hidden, inline style, or a hiding utility class. */
+/**
+ * Whether a tag's own attributes hide it: hidden, aria-hidden, an inline
+ * display:none, visibility:hidden or opacity:0, or a hiding utility class
+ * (hidden, sr-only, invisible, opacity-0, and their variants like md:opacity-0).
+ */
 export function hidesElement(attrs) {
   if (/(^|\s)hidden(\s|=|$)/i.test(attrs)) return true
   if (/\saria-hidden\s*=\s*["']?true/i.test(attrs)) return true
   const style = (attrs.match(/\sstyle\s*=\s*"([^"]*)"/i) || attrs.match(/\sstyle\s*=\s*'([^']*)'/i) || [])[1] || ''
-  if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(style)) return true
+  if (/display\s*:\s*none|visibility\s*:\s*hidden|(^|;|\s)opacity\s*:\s*0*(\.0*)?(%)?\s*(;|!|$)/i.test(style)) return true
   const cls = (attrs.match(/\sclass\s*=\s*"([^"]*)"/i) || attrs.match(/\sclass\s*=\s*'([^']*)'/i) || [])[1] || ''
   // Responsive variants count too (md:hidden hides it on wider screens).
   return cls.split(/\s+/).some((c) => HIDDEN_CLASSES.has(c.split(':').pop()))

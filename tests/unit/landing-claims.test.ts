@@ -335,12 +335,24 @@ describe('pre-launch statement (Tom, 2026-11-06, PR #9)', () => {
     ['the sr-only class', '<p data-prelaunch class="sr-only">Launching soon.</p>'],
     ['the invisible class on an ancestor', '<div class="invisible"><p data-prelaunch>Launching soon.</p></div>'],
     ['a hidden child holding the phrase', '<p data-prelaunch>Welcome. <span class="sr-only">Launching soon.</span></p>'],
-    ['a responsive md:hidden ancestor', '<div class="md:hidden"><p data-prelaunch>Launching soon.</p></div>']
+    ['a responsive md:hidden ancestor', '<div class="md:hidden"><p data-prelaunch>Launching soon.</p></div>'],
+    ['inline opacity:0', '<p data-prelaunch style="opacity: 0">Launching soon.</p>'],
+    ['inline opacity:0.0 on an ancestor', '<div style="color:red; opacity:0.0;"><p data-prelaunch>Launching soon.</p></div>'],
+    ['inline opacity:0%', '<p data-prelaunch style="opacity:0%">Launching soon.</p>'],
+    ['the opacity-0 class', '<p data-prelaunch class="text-sm opacity-0">Launching soon.</p>'],
+    ['a responsive md:opacity-0 class', '<p data-prelaunch class="md:opacity-0">Launching soon.</p>'],
+    ['an opacity-0 ancestor', '<div class="opacity-0"><section><p data-prelaunch>Launching soon.</p></section></div>']
   ])('fails a statement hidden by %s', (_why, html) => {
     expect(prelaunchProblems(`<body>${html}</body>`, rule)).not.toEqual([])
     const r = run(page(CLEAN_BODY.replace(PRELAUNCH, html)))
     expect(r.code).toBe(1)
     expect(r.out).toMatch(/Pre-launch statement/)
+  })
+
+  it('does not take opacity 0.5, opacity-50 or hover:opacity-100 for hidden', () => {
+    for (const html of ['<p data-prelaunch style="opacity: 0.5">Launching soon.</p>', '<p data-prelaunch class="opacity-50 hover:opacity-100">Launching soon.</p>', '<p data-prelaunch style="opacity:1">Launching soon.</p>']) {
+      expect(prelaunchProblems(`<body>${html}</body>`, rule)).toEqual([])
+    }
   })
 
   it('passes a visible statement next to hidden siblings and void tags', () => {
