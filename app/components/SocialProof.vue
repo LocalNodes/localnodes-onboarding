@@ -24,7 +24,7 @@ const examples = [
   },
   {
     title: 'A bioregional network',
-    body: 'Its member groups each run a group on one site, sharing a library while keeping private pages private. Holds community-wide votes with one vote per member group.'
+    body: 'Watershed councils, farms and restoration crews across one bioregion each run a group on one site. They share a library of land plans, water data and seasonal calendars while keeping private pages private, pool a fund for restoration projects, and hold network-wide votes with one vote per member group.'
   }
 ]
 
