@@ -20,9 +20,9 @@
         </h1>
 
         <p class="text-lg leading-relaxed text-muted max-w-2xl">
-          Start with the library: a home for your group's documents that members can
-          search and ask, with every answer pointing to the page it came from. The
-          treasury and shared decisions come next, each one tested before it ships.
+          A home for your group's documents that members can search and ask, with
+          every answer pointing to the page it came from. It starts with your
+          library. Shared funds and group decisions are on the way.
         </p>
 
         <div class="flex flex-wrap gap-3">

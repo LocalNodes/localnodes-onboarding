@@ -12,7 +12,7 @@ const items = [
   { title: 'Credit for the work people do.', body: 'A public record of members\' contributions.', rung: 'Coming, rung 2' },
   { title: 'Fair moderation and a way to settle disputes.', body: 'Every step has an end date and an appeal, and disputes go to a panel of members.', rung: 'Coming, rung 2' },
   { title: 'Bring what you already have.', body: 'Connect an existing shared account, roles or voting space, nothing redeployed.', rung: 'Coming, rung 2' },
-  { title: 'Leave whenever you want.', body: 'Export everything and move your site, tested before it ships.', rung: 'Coming, rung 2' },
+  { title: 'Leave whenever you want.', body: 'Export everything and move your site.', rung: 'Coming, rung 2' },
   { title: 'No fees for members.', body: 'Members never pay network fees to vote or approve; the community covers them.', rung: 'Coming with the group fund' }
 ]
 </script>
@@ -27,8 +27,9 @@ const items = [
         Fund what matters. Decide together. Own the infrastructure.
       </h2>
       <p class="text-lg text-muted">
-        We're building this one tested step at a time. Here's what's next, and in
-        which step ("rung") it lands.
+        LocalNodes keeps your group's shared money and decisions alongside its
+        library: members see the fund, vote on proposals and keep a public record
+        of what was decided. Features marked Coming are still being built.
       </p>
       <ul class="flex flex-col">
         <li

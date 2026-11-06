@@ -18,7 +18,7 @@
 definePageMeta({ colorMode: 'light' })
 
 const title = 'LocalNodes: your community\'s library, treasury and decisions, run by its members'
-const description = 'Start with the library: a home for your group\'s documents that members can search and ask, with every answer pointing to the page it came from. The treasury and shared decisions come next.'
+const description = 'A home for your group\'s documents that members can search and ask, with every answer pointing to the page it came from. It starts with your library. Shared funds and group decisions are on the way.'
 
 useSeoMeta({
   title,

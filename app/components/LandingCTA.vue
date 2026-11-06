@@ -9,7 +9,7 @@
         Give your community a home base
       </h2>
       <p class="text-lg text-muted">
-        Start with the library today. The rest arrives one tested step at a time.
+        Your library is ready from the first day, and shared funds and group decisions are on the way.
       </p>
       <div class="flex flex-wrap justify-center gap-3">
         <UButton
