@@ -18,6 +18,7 @@ import {
   buildDeclinedMail,
   buildHeldMail,
   buildInviteMail,
+  buildPilotEndMail,
   buildRefundMail,
   buildRemovedMail,
   buildRenewalMail,
@@ -278,5 +279,14 @@ describe('the renewal card mails (23-32)', () => {
       expect(m.parts.button?.url).toBe(link)
       expect(m.html).toContain(`href="${link}"`)
     }
+  })
+})
+
+describe('the pilot end notice: a lapsed site stays 30 days, with a written notice before removal (project rule)', () => {
+  it('says the site stays open 30 days after the end and that we write at least a week before removing it', () => {
+    const m = buildPilotEndMail({ date: 'March 12, 2027', price: '$49 a month', link: 'https://localnodes.xyz/pilot/continue?t=x' })
+    expect(m.text).toContain('If you do nothing, we won\'t charge you anything.')
+    expect(m.text).toContain('Your site stays open for 30 days after that')
+    expect(m.text).toContain('we\'ll write to you at least a week before we remove it')
   })
 })
