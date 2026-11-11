@@ -1,5 +1,14 @@
 <script setup lang="ts">
-// Route rules for /success (ssr: true) are defined in nuxt.config.ts
+// /success: progress, failure and retry, stopped, the first payment's held
+// and declined screens (23-37, B-1), and welcome (fresh3 23-20; ONB-01,
+// ONB-02, D-13, D-15, T-3; 23-UI-SPEC.md sections 4 to 7), and the refund and
+// removal screens (23-43 Task 7: removing, refunding, refunded). Route rules
+// for /success (ssr: true) are in nuxt.config.ts. Every word comes from
+// app/utils/reason-copy.ts. There is no sign-in link anywhere on this page
+// (D-13): the sign-in link only ever goes by email.
+import { computed, ref, watch } from 'vue'
+import { SUCCESS_COPY, pageTitle } from '~/utils/reason-copy'
+
 // Task page: forced light (fresh3 22-UI-SPEC Part 1, "Dark mode (Nuxt only)").
 definePageMeta({ colorMode: 'light' })
 
@@ -8,110 +17,183 @@ const sessionId = route.query.session_id as string | undefined
 
 const {
   stages,
+  activeStageLabel,
   isComplete,
   isFailed,
+  isHeld,
+  isDeclined,
+  heldUntil,
+  canConfirm,
+  heldExpired,
+  removed,
+  noCapture,
+  refundProven,
+  lateActivation,
+  isRefunding,
+  isRefunded,
+  notFound,
   siteUrl,
-  loginUrl,
-  error,
-  timeRemaining
+  reason,
+  canRetry,
+  stopped,
+  attempt,
+  readError,
+  retrying,
+  retryFailed,
+  retried,
+  retry,
+  minutesLine
 } = useProvisioningStatus(sessionId)
 
-useSeoMeta({
-  title: 'Setting Up Your Garden - LocalNodes',
-  description: 'Your knowledge garden is being prepared. This takes about 4 minutes.',
-  ogTitle: 'Setting Up Your Garden - LocalNodes',
-  ogDescription: 'Your knowledge garden is being prepared. This takes about 4 minutes.'
+const progress = SUCCESS_COPY.progress
+
+/** A declined card (6b). A 3DS hold that ran out has its own screen (Q-held-expiry). */
+const showDeclined = computed(() => isDeclined.value && !heldExpired.value)
+
+/** A 3DS hold that ran out whose delete is not yet confirmed (23-43 Task 7, P3). */
+const removing = computed(() => isDeclined.value && heldExpired.value && !removed.value)
+
+/**
+ * The empty state: no session id, or one the server does not know (a typo, an
+ * old link, an expired sign-up; 23-20 follow-up). Never the build steps.
+ */
+const empty = computed(() => !sessionId || notFound.value)
+
+const title = computed(() => {
+  if (empty.value) return pageTitle(progress.emptyTitle)
+  if (showDeclined.value) return pageTitle(SUCCESS_COPY.declined.title)
+  if (removing.value) return pageTitle(SUCCESS_COPY.removing.title)
+  if (isDeclined.value && heldExpired.value) return pageTitle(SUCCESS_COPY.notConfirmed.title)
+  if (isRefunding.value) return pageTitle(SUCCESS_COPY.refunding.title)
+  if (isRefunded.value) return pageTitle(SUCCESS_COPY.refunded.title)
+  if (isHeld.value) return pageTitle(SUCCESS_COPY.held.title)
+  if (stopped.value) return pageTitle(SUCCESS_COPY.stopped.title)
+  if (isComplete.value) return pageTitle(SUCCESS_COPY.welcome.title)
+  return pageTitle(progress.title)
+})
+useSeoMeta({ title, ogTitle: title })
+
+// The one polite live region: the step name when it changes ("Setting up your
+// server."), and "Retrying site setup." when the retry is pressed. Never the
+// time line or a percentage (23-UI-SPEC section 4). The payment outcomes
+// (declined, refunding, refunded) are no step: nothing is announced for them.
+const announcement = ref('')
+watch(activeStageLabel, (label) => {
+  if (!isFailed.value && !isDeclined.value && !isRefunding.value && !isRefunded.value) announcement.value = `${label}.`
+})
+watch(retrying, (now) => {
+  if (now) announcement.value = SUCCESS_COPY.failed.retryingAnnouncement
 })
 </script>
 
 <template>
-  <UPageSection>
-    <div class="max-w-md mx-auto text-center">
+  <UContainer class="max-w-2xl py-16">
+    <p aria-live="polite" class="sr-only">
+      {{ announcement }}
+    </p>
 
-      <!-- Branches are ordered so each only assumes what its predecessors ruled
-           out, making them trivially mutually exclusive. The else-chain is also
-           exhaustive: every {sessionId?, isFailed, isComplete, siteUrl?} combo
-           lands in exactly one branch, and any terminal `complete` resolves to a
-           success state (never the perpetual spinner). -->
+    <!-- Each branch only assumes what the ones before it ruled out. The first
+         payment's screens come first (23-37): declined, removing, removed (not
+         confirmed), refunding, refunded (23-43 Task 7), then held. Then a
+         stopped sign-up; a failure comes before complete; any complete lands
+         on the welcome, with or without a site address. -->
 
-      <!-- NO SESSION STATE -->
-      <template v-if="!sessionId">
-        <UIcon name="i-lucide-compass" class="text-(--ui-text-muted) mb-6 mx-auto" size="64" />
+    <!-- No session, or a session id the server does not know -->
+    <!-- Written out, not through empty, so the branches below see sessionId as a string. -->
+    <template v-if="!sessionId || notFound">
+      <h1 class="text-[28px] leading-tight font-semibold text-highlighted mb-2">
+        {{ progress.emptyTitle }}
+      </h1>
+      <p class="text-base text-muted mb-8">
+        {{ progress.emptyBody }}
+      </p>
+      <ULink to="/" class="text-primary underline underline-offset-2">{{ progress.emptyLink }}</ULink>
+    </template>
 
-        <h1 class="text-2xl font-bold mb-2">Nothing to show here</h1>
+    <!-- The first payment was declined (6b) -->
+    <PaymentDeclined v-else-if="showDeclined" />
 
-        <p class="text-(--ui-text-muted) mb-8">
-          No active session -- looks like you reached this page without completing checkout.
-        </p>
+    <!-- The 3DS hold ran out unconfirmed: the delete is not yet confirmed (23-43, P3) -->
+    <PaymentNotConfirmed
+      v-else-if="removing"
+      :removed="false"
+      :no-capture="noCapture"
+      :refund-proven="refundProven"
+    />
 
-        <UButton to="/" variant="outline">Back to Home</UButton>
-      </template>
+    <!-- The 3DS hold ran out unconfirmed and the site was removed (Q-held-expiry) -->
+    <PaymentNotConfirmed
+      v-else-if="isDeclined && heldExpired"
+      :removed="true"
+      :no-capture="noCapture"
+      :refund-proven="refundProven"
+    />
 
-      <!-- FAILURE STATE (Phase 17 will expand this) -->
-      <template v-else-if="isFailed">
-        <UIcon name="i-lucide-alert-circle" class="text-error mb-6 mx-auto" size="64" />
+    <!-- The automatic refund is in progress (23-43, P6) -->
+    <PaymentRefunded
+      v-else-if="isRefunding"
+      :refunded="false"
+      :late-activation="lateActivation"
+    />
 
-        <h1 class="text-2xl font-bold mb-2">Something went wrong</h1>
+    <!-- The refund succeeded for the amount captured (23-43, P2) -->
+    <PaymentRefunded
+      v-else-if="isRefunded"
+      :refunded="true"
+      :late-activation="lateActivation"
+    />
 
-        <p class="text-(--ui-text-muted) mb-8">
-          {{ error || 'Provisioning failed. Please contact support.' }}
-        </p>
+    <!-- The bank asks for confirmation (6a); the form only for the browser that made the sign-up -->
+    <PaymentHeld
+      v-else-if="isHeld"
+      :held-until="heldUntil"
+      :can-confirm="canConfirm"
+      :session-id="sessionId"
+    />
 
-        <UButton to="/" variant="outline">Back to Home</UButton>
-      </template>
+    <!-- Failed, retrying or stopped -->
+    <ProvisioningFailed
+      v-else-if="stopped || isFailed"
+      :reason="reason"
+      :can-retry="canRetry"
+      :stopped="stopped"
+      :attempt="attempt"
+      :retrying="retrying"
+      :retry-failed="retryFailed"
+      @retry="retry"
+    />
 
-      <!-- SUCCESS STATE (with site URL) -->
-      <ProvisioningComplete
-        v-else-if="isComplete && siteUrl"
-        :site-url="siteUrl"
-        :login-url="loginUrl"
+    <!-- Welcome -->
+    <ProvisioningComplete v-else-if="isComplete" :site-url="siteUrl" />
+
+    <!-- Waiting -->
+    <template v-else>
+      <GardenAnimation class="mb-8" />
+
+      <h1 class="text-[28px] leading-tight font-semibold text-highlighted mb-2">
+        {{ progress.title }}
+      </h1>
+      <p class="text-base text-muted mb-2">
+        {{ retried ? progress.retriedIntro : progress.intro }}
+      </p>
+      <p v-if="minutesLine" class="text-base text-default mb-8">
+        {{ minutesLine }}
+      </p>
+
+      <UAlert
+        v-if="readError"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-info"
+        :description="progress.readError"
+        class="mb-8 border-l-4 border-l-accented bg-default"
       />
 
-      <!-- SUCCESS STATE (complete, but the callback never sent a site_url).
-           Graceful terminal success so a finished customer is never stranded on
-           the "growing..." spinner -- polling has already stopped on `complete`. -->
-      <template v-else-if="isComplete">
-        <div
-          v-motion
-          :initial="{ opacity: 0, y: 20 }"
-          :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
-        >
-          <UIcon name="i-lucide-sprout" class="text-primary mb-6 mx-auto" size="64" />
+      <ProvisioningProgress :stages="stages" class="mb-8" />
 
-          <h1 class="text-2xl font-bold mb-2">Your garden is ready!</h1>
-
-          <p class="text-(--ui-text-muted) mb-8">
-            Check your email for your login link to get started.
-          </p>
-
-          <div class="flex flex-col sm:flex-row gap-3 justify-center">
-            <UButton to="/" size="xl" color="primary">Back to Home</UButton>
-            <UButton v-if="loginUrl" :to="loginUrl" target="_blank" size="xl" variant="outline">
-              Set Your Password
-            </UButton>
-          </div>
-        </div>
-      </template>
-
-      <!-- WAITING STATE -->
-      <template v-else>
-        <GardenAnimation class="mb-8" />
-
-        <h1 class="text-2xl font-bold mb-2">Growing your garden...</h1>
-
-        <p class="text-(--ui-text-muted) mb-2">
-          This usually takes about 4 minutes.
-        </p>
-
-        <p class="text-xl font-mono text-primary mb-8">{{ timeRemaining }}</p>
-
-        <ProvisioningProgress :stages="stages" class="text-left mb-8" />
-
-        <p class="text-xs text-(--ui-text-muted)">
-          You'll receive a welcome email when everything is ready.
-        </p>
-      </template>
-
-    </div>
-  </UPageSection>
+      <p class="text-sm text-muted">
+        {{ progress.underSteps }}
+      </p>
+    </template>
+  </UContainer>
 </template>

@@ -61,7 +61,7 @@ async function submit() {
       v-if="state === 'done'"
       ref="confirmation"
       tabindex="-1"
-      class="rounded-lg border border-default bg-elevated p-5 text-lg text-highlighted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      class="rounded-lg border border-default bg-elevated p-5 text-base text-highlighted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       {{ message }}
     </p>

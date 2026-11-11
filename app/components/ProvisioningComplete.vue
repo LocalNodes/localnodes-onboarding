@@ -1,37 +1,82 @@
 <script setup lang="ts">
-defineProps<{
-  siteUrl: string
-  loginUrl: string | null
+// The /success page when the site is ready (fresh3 23-20; ONB-01, D-13;
+// 23-UI-SPEC.md section 7). There is no sign-in link and no password button
+// here (D-13, T-23-01): the sign-in link only ever goes by email. With no site
+// address from the callback, the address line and "Open your site" give way to
+// "Back to the LocalNodes home page" (the existing fallback, reworded).
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { SUCCESS_COPY } from '~/utils/reason-copy'
+
+const props = defineProps<{
+  siteUrl: string | null
 }>()
+
+const copy = SUCCESS_COPY.welcome
+
+/** The address as the person reads it: "repair.localnodes.xyz". */
+const host = computed(() => {
+  if (!props.siteUrl) return null
+  try {
+    return new URL(props.siteUrl).host
+  } catch {
+    return null
+  }
+})
+const guideUrl = computed(() => (host.value ? `${props.siteUrl!.replace(/\/+$/, '')}/guide` : null))
+
+// Focus moves to the h1 when this screen replaces the progress screen.
+const heading = ref<HTMLElement | null>(null)
+onMounted(async () => {
+  await nextTick()
+  heading.value?.focus()
+})
 </script>
 
 <template>
-  <div
-    v-motion
-    :initial="{ opacity: 0, y: 20 }"
-    :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
-  >
-    <UIcon name="i-lucide-sprout" class="text-primary mb-6 mx-auto" size="64" />
+  <div>
+    <h1
+      ref="heading"
+      tabindex="-1"
+      class="text-[28px] leading-tight font-semibold text-highlighted mb-4 focus:outline-none"
+    >
+      {{ copy.title }}
+    </h1>
 
-    <h1 class="text-2xl font-bold mb-2">Your garden is ready!</h1>
-
-    <p class="text-(--ui-text-muted) mb-4">
-      Your knowledge garden at
-      <a :href="siteUrl" class="text-primary underline" target="_blank">{{ siteUrl }}</a>
-      is live.
+    <p v-if="host" class="text-base text-default mb-2">
+      {{ copy.siteLine }} {{ host }}
+    </p>
+    <p class="text-base text-muted mb-8">
+      {{ copy.signIn }}
     </p>
 
-    <p class="text-sm text-(--ui-text-muted) mb-8">
-      Check your email for a login link to set your password.
+    <UButton
+      v-if="host"
+      :to="siteUrl!"
+      external
+      size="xl"
+      color="primary"
+      trailing-icon="i-lucide-external-link"
+    >
+      {{ copy.open }} <span class="sr-only">{{ copy.opensAnotherSite }}</span>
+    </UButton>
+    <p v-else>
+      <ULink to="/" class="text-primary underline underline-offset-2">{{ copy.home }}</ULink>
     </p>
 
-    <div class="flex flex-col sm:flex-row gap-3 justify-center">
-      <UButton :to="siteUrl" target="_blank" size="xl" color="primary">
-        Visit Your Garden
-      </UButton>
-      <UButton v-if="loginUrl" :to="loginUrl" target="_blank" size="xl" variant="outline">
-        Set Your Password
-      </UButton>
-    </div>
+    <h2 class="text-xl font-semibold text-highlighted mt-12 mb-4">
+      {{ copy.stepsHeading }}
+    </h2>
+    <ol class="list-decimal pl-6 space-y-2 text-base text-default">
+      <li v-for="step in copy.steps" :key="step">
+        {{ step }}
+      </li>
+    </ol>
+
+    <p v-if="guideUrl" class="mt-8">
+      <ULink :to="guideUrl" external class="inline-flex items-center gap-1 text-primary underline underline-offset-2">
+        {{ copy.guide }} <span class="sr-only">{{ copy.opensAnotherSite }}</span>
+        <UIcon name="i-lucide-external-link" class="size-4" aria-hidden="true" />
+      </ULink>
+    </p>
   </div>
 </template>

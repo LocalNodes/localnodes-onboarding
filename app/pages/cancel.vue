@@ -12,21 +12,17 @@ useSeoMeta({
 </script>
 
 <template>
-  <UPageSection>
-    <div class="max-w-md mx-auto text-center">
-      <UIcon name="i-lucide-arrow-left" class="text-(--ui-text-muted) mb-6 mx-auto" size="64" />
+  <UContainer class="max-w-2xl py-16">
+    <h1 class="text-[28px] leading-tight font-semibold text-highlighted mb-2">
+      Payment cancelled
+    </h1>
 
-      <h1 class="text-2xl font-bold mb-2">
-        Payment cancelled
-      </h1>
+    <p class="text-base text-muted mb-8">
+      No charges were made. You can try again whenever you're ready.
+    </p>
 
-      <p class="text-(--ui-text-muted) mb-8">
-        No charges were made. You can try again whenever you're ready.
-      </p>
-
-      <UButton to="/onboarding" color="primary">
-        Try Again
-      </UButton>
-    </div>
-  </UPageSection>
+    <UButton to="/onboarding" color="primary">
+      Try Again
+    </UButton>
+  </UContainer>
 </template>

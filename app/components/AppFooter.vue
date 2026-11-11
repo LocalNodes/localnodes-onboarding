@@ -3,6 +3,9 @@
 // short form "Open source (GPL and AGPL)", never a GPL-only line; demo links
 // labelled demos; no stats or community list. Shared with the sign-up pages,
 // so it carries no frame or buyer words (D-05).
+// "Open source" goes to the public repository (T-5, 2026-11-08). "Get help"
+// (T-1, 2026-11-08) is a mailto: to hello@localnodes.xyz, in the same place on
+// every screen, which is what WCAG 3.2.6 asks of a help link.
 const year = new Date().getFullYear()
 </script>
 
@@ -21,12 +24,15 @@ const year = new Date().getFullYear()
           <a href="https://cascadia.localnodes.xyz" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-primary underline-offset-2 hover:underline">
             Cascadia demo<span class="sr-only"> (opens in a new tab)</span>
           </a>
-          <a href="https://github.com/LocalNodes" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-primary underline-offset-2 hover:underline">
-            Code on GitHub<span class="sr-only"> (opens in a new tab)</span>
+          <a href="https://github.com/LocalNodes/os-knowledge-garden" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Open source<span class="sr-only"> (opens in a new tab)</span>
           </a>
           <NuxtLink to="/#privacy" class="text-muted hover:text-primary underline-offset-2 hover:underline">
             Privacy
           </NuxtLink>
+          <a href="mailto:hello@localnodes.xyz" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Get help
+          </a>
           <NuxtLink to="/#early-access" class="text-muted hover:text-primary underline-offset-2 hover:underline">
             Get early access
           </NuxtLink>

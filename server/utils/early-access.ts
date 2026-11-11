@@ -1,13 +1,15 @@
 // Early-access list (Tom, 2026-11-06, PR #9). Plain module, no Nitro globals,
 // so tests import it directly; server/api/early-access.post.ts wires it up.
 //
-// Protection: server-side validation; a honeypot field; a per-IP rate limit;
-// no CAPTCHA. Every accepted request gets the same reply, whether the email is
+// Protection: server-side validation; a honeypot field; a per-IP rate limit
+// that fails closed (Redis down or not configured: a generic 503, nothing
+// sent); no CAPTCHA. Every accepted request gets the same reply, whether the email is
 // new, already on the list, caught by the honeypot or refused by Resend, so
 // the reply never reveals who is on the list. The email address is never
 // logged, never put in an error message and never used as a key.
 import * as v from 'valibot'
 import { createHash } from 'node:crypto'
+import { SERVER_ERROR_MESSAGE } from '../../shared/ai-choice'
 
 export const earlyAccessSchema = v.object({
   email: v.pipe(v.string(), v.trim(), v.toLowerCase(), v.maxLength(254), v.email()),
@@ -59,6 +61,16 @@ export async function allowRequest(redis: LimiterRedis, ipHash: string, limit = 
   return count <= limit.max
 }
 
+/**
+ * The early-access limiter, failing closed (security follow-up, 2026-11-09).
+ * getRedis is useRedis() in the route; it throws when Redis isn't configured,
+ * and the client throws when Redis can't be reached. Either way the returned
+ * promise rejects and handleEarlyAccess refuses: the limit never fails open.
+ */
+export function earlyAccessLimiter(getRedis: () => LimiterRedis, limit = RATE_LIMIT): (ipHash: string) => Promise<boolean> {
+  return async ipHash => allowRequest(getRedis(), ipHash, limit)
+}
+
 export type Outcome =
   | { status: 200, body: typeof ACCEPTED }
   | { status: 400, body: { ok: false, message: string } }
@@ -69,10 +81,12 @@ export interface Contact {
   email: string
   community: string
   groupKind: string
+  /** More contact properties, as strings: Resend properties are String or Number only (TA-8). */
+  properties?: Record<string, string>
 }
 
 export interface Deps {
-  /** Count this request for the IP; returns false when over the limit. */
+  /** Count this request for the IP; returns false when over the limit. If it throws, the request is refused. */
   allow: (ipHash: string) => Promise<boolean>
   /** Add the contact to the list. May throw; the error is swallowed. */
   addContact: (contact: Contact) => Promise<void>
@@ -104,7 +118,17 @@ export async function handleEarlyAccess(raw: unknown, ip: string | undefined, de
   if (!parsed.success) {
     return { status: 400, body: { ok: false, message: 'Please enter a valid email address.' } }
   }
-  if (!(await deps.allow(hashIp(ip)))) {
+  // Count this request for the IP before anything else. If the limiter can't
+  // answer (Redis down or not configured), refuse and send nothing: unbounded
+  // sends cost money and reputation, a refused sign-up only costs a retry.
+  let allowed: boolean
+  try {
+    allowed = await deps.allow(hashIp(ip))
+  } catch {
+    deps.log?.('early-access: rate limit unavailable, nothing sent')
+    return { status: 503, body: { ok: false, message: SERVER_ERROR_MESSAGE } }
+  }
+  if (!allowed) {
     return { status: 429, body: { ok: false, message: 'Too many tries. Please wait a while and try again.' } }
   }
   const input = parsed.output
@@ -144,6 +168,7 @@ export async function addResendContact(contact: Contact, apiKey: string, segment
   const properties: Record<string, string> = {}
   if (contact.community) properties.community_name = contact.community
   if (contact.groupKind) properties.group_kind = contact.groupKind
+  Object.assign(properties, contact.properties)
   if (Object.keys(properties).length) {
     try {
       await fetcher('https://api.resend.com/contacts', { method: 'POST', headers, body: { ...base, properties } })

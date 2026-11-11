@@ -247,6 +247,8 @@
     "app/pages/onboarding.vue",
     "app/pages/success.vue",
     "app/pages/cancel.vue",
+    "app/pages/invite/index.vue",
+    "app/pages/invite/verify.vue",
     "app/components/OnboardingForm.vue",
     "app/components/SubdomainPreview.vue",
     "app/components/ProvisioningProgress.vue",
@@ -254,7 +256,20 @@
     "app/components/GardenAnimation.vue",
     "app/components/AppHeader.vue",
     "app/components/AppFooter.vue",
-    "app/layouts/default.vue"
+    "app/layouts/default.vue",
+    "shared/ai-choice.ts",
+    "app/components/TopicTypesEditor.vue",
+    "app/components/AiChoiceField.vue",
+    "app/components/PromoCodeField.vue",
+    "app/utils/onboarding-flow.ts",
+    "app/components/ProvisioningFailed.vue",
+    "app/utils/reason-copy.ts",
+    "app/pages/unsubscribe.vue",
+    "app/components/UnsubscribePanel.vue",
+    "app/utils/unsubscribe-flow.ts"
+  ],
+  "mailSources": [
+    "server/utils/mail-copy.ts"
   ],
   "siteHost": "localnodes.xyz",
   "buildOutputs": {

@@ -6,21 +6,26 @@
 // the finished product, in the present tense, with no chips.
 const examples = [
   {
+    // Replaces the Drupal user group example (Tom, 2026-11-06: too niche).
+    title: 'A neighborhood association',
+    body: 'Shares news and events as posts on its own site instead of a social media group, and keeps its minutes and bylaws where members can ask "When is the next block cleanup?" and get the answer with the minutes it came from. Collects dues or runs a mutual aid fund that several members approve, and votes on which neighborhood projects to take on.'
+  },
+  {
+    // Tom's positioning ruling of 2026-11-09 (tests/unit/homepage-copy.test.ts holds the order and this text).
+    title: 'A pop-up village',
+    body: 'Residents share talks and session notes as they happen, ask the assistant what was decided last week, pool a fund for village projects, and keep all of it (knowledge, money and votes) when the village ends.'
+  },
+  {
     title: 'A housing co-op',
     body: 'Keeps its bylaws, house rules, minutes and maintenance records in its library; members ask "When was the roof last inspected?" and get the answer with the minutes it came from. Sees its repair fund\'s balance and who approves spending, and votes on a major repair, then carries out the payment once it passes.'
   },
   {
     title: 'An online guild',
-    body: 'Keeps its handbook, past proposals and project write-ups in one place new members can ask about. Connects the shared account and voting it already uses, nothing redeployed, and records members\' contributions.'
+    body: 'Keeps its handbook, past proposals and project write-ups in one place new members can ask about. Runs a shared fund and votes alongside, and records members\' contributions.'
   },
   {
     title: 'A land trust',
     body: 'Holds deeds, stewardship plans, surveys and meeting notes, private to its stewards where it needs to be. Votes on land-use decisions with a public record, and settles disagreements through a member panel.'
-  },
-  {
-    // Replaces the Drupal user group example (Tom, 2026-11-06: too niche).
-    title: 'A neighborhood association',
-    body: 'Shares news and events as posts on its own site instead of a social media group, and keeps its minutes and bylaws where members can ask "When is the next block cleanup?" and get the answer with the minutes it came from. Collects dues or runs a mutual aid fund that several members approve, and votes on which neighborhood projects to take on.'
   },
   {
     title: 'A bioregional network',
@@ -38,10 +43,10 @@ const demos = [
 <template>
   <section class="bg-muted">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
-      <h2 class="text-3xl font-semibold text-highlighted">
+      <h2 class="text-[28px] leading-tight font-semibold text-highlighted">
         See it in action
       </h2>
-      <p class="text-lg text-muted">
+      <p class="text-base text-muted">
         Here's how a few kinds of groups would use it. These are examples, not customers.
       </p>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -50,8 +55,8 @@ const demos = [
           :key="example.title"
           class="bg-default rounded-lg border border-default p-5 flex flex-col gap-2.5"
         >
-          <span class="self-start rounded-full border border-accented px-2.5 py-0.5 text-xs text-muted">Example</span>
-          <h3 class="text-lg font-semibold text-highlighted">
+          <span class="self-start rounded-full border border-accented px-2.5 py-0.5 text-sm text-muted">Example</span>
+          <h3 class="text-xl font-semibold text-highlighted">
             {{ example.title }}
           </h3>
           <p class="leading-relaxed text-muted">

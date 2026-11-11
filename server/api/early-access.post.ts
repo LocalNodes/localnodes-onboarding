@@ -1,24 +1,20 @@
 import { waitUntil } from '@vercel/functions'
-import { handleEarlyAccess, addResendContact, allowRequest } from '../utils/early-access'
+import { handleEarlyAccess, addResendContact, earlyAccessLimiter } from '../utils/early-access'
+import { trustedClientIp } from '../utils/client-ip'
 
 // Early-access list (server/utils/early-access.ts). The rate limit uses the
-// Upstash Redis already wired for provisioning; if Redis isn't configured or
-// fails, the limit fails open (the sign-up still works) and says so in the log.
+// Upstash Redis already wired for provisioning. It fails closed: if Redis isn't
+// configured or can't be reached, the request gets the generic 503 and nothing
+// goes to Resend (security follow-up, 2026-11-09). The limit keys on the IP
+// Vercel's proxy sets (server/utils/client-ip.ts), not on X-Forwarded-For.
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   const raw = await readBody(event).catch(() => null)
-  const ip = getRequestIP(event, { xForwardedFor: true })
+  const ip = trustedClientIp(event.headers, event.node.req.socket?.remoteAddress)
 
   const outcome = await handleEarlyAccess(raw, ip, {
     configured: Boolean(config.resendApiKey && config.resendSegmentId),
-    allow: async (ipHash) => {
-      try {
-        return await allowRequest(useRedis(), ipHash)
-      } catch {
-        console.warn('early-access: rate limit unavailable, allowing the request')
-        return true
-      }
-    },
+    allow: earlyAccessLimiter(() => useRedis()),
     addContact: contact => addResendContact(contact, config.resendApiKey, config.resendSegmentId, (url, opts) => $fetch(url, opts)),
     log: msg => console.warn(msg),
     // The reply doesn't wait for Resend. Nitro's event.waitUntil covers

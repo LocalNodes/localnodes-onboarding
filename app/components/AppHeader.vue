@@ -4,10 +4,12 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 // On the landing page the header sits on the dark hero band, so it takes the
 // `dark` context and the reversed lock-up (fresh3 BRAND.md section 4). The
 // sign-up task pages (/onboarding, /success, /cancel) stay light.
-// TODO(22.1-08): the exact band colour (palette B brand 950, BRAND.md section 5)
-// arrives through the Nuxt dark tokens.
+// The band colour (palette B brand 950, BRAND.md section 5) comes from the Nuxt
+// dark tokens (ln-tokens.css).
 const route = useRoute()
 const onLanding = computed(() => route.path === '/')
+// Off the landing page the button is outlined: those pages carry their own
+// primary action (BRAND.md section 5: one primary button per screen).
 
 // active: false — hash links all match the / route, which would mark every
 // item active at once.
@@ -19,11 +21,13 @@ const navItems: NavigationMenuItem[] = [
 </script>
 
 <template>
-  <UHeader :class="onLanding ? 'dark bg-default border-default' : ''">
+  <!-- UHeader makes the title its own link to "/", named by `title` when the
+       slot has no text (the logo is an image). A link of ours inside it made a
+       link inside a link: two Tab stops, the first named "Nuxt UI" (fresh3
+       23-29, second-model review C1). -->
+  <UHeader title="LocalNodes home" to="/" :class="onLanding ? 'dark bg-default border-default' : ''">
     <template #title>
-      <NuxtLink to="/" aria-label="LocalNodes home">
-        <AppLogo :reversed="onLanding" />
-      </NuxtLink>
+      <AppLogo :reversed="onLanding" />
     </template>
 
     <UNavigationMenu :items="navItems" />
@@ -32,7 +36,8 @@ const navItems: NavigationMenuItem[] = [
       <UButton
         label="Get early access"
         to="/#early-access"
-        color="primary"
+        :color="onLanding ? 'primary' : 'neutral'"
+        :variant="onLanding ? 'solid' : 'outline'"
       />
     </template>
 

@@ -3,10 +3,11 @@
 // LocalNodes launches only when funds and votes are complete, so the page
 // describes the finished product in the present tense and carries one honest
 // pre-launch statement (`data-prelaunch`, read by the claims check). Headline
-// chosen by Tom, 2026-11-06. The first dark band: the `dark` class scopes
+// chosen by Tom, 2026-11-06; the subline is the positioning ruling of
+// 2026-11-09 (tests/unit/homepage-copy.test.ts holds it). The first dark band: the `dark` class scopes
 // var(--ui-*) to the dark roles.
-// TODO(22.1-08): the exact band colour (palette B brand 950) and its roles
-// arrive through the Nuxt dark tokens in 22.1-08; nothing here hard-codes them.
+// The band colour (palette B brand 950) and its roles come from the Nuxt dark
+// tokens (ln-tokens.css, 22.1-08 and 22.1-12); nothing here hard-codes them.
 </script>
 
 <template>
@@ -26,9 +27,10 @@
           Where your community thinks, decides and funds together.
         </h1>
 
-        <p class="text-lg leading-relaxed text-muted max-w-2xl">
-          Share posts, events and conversations, keep a library every member can
-          ask, run a group fund, and vote on what happens next.
+        <p class="text-base leading-relaxed text-muted max-w-xl">
+          A shared memory with an assistant that knows your group's history, a
+          shared fund, and a fair way to decide how it's spent. Your community
+          owns it, not a platform.
         </p>
 
         <div class="flex flex-wrap gap-3">

@@ -10,16 +10,38 @@
 /** Sign-up pages: redirect to the early-access form while closed. */
 export const GATED_PAGES = ['/onboarding', '/success', '/cancel']
 
-/** Sign-up API routes: 404 while closed. */
+/** Sign-up API routes: 404 while closed, unless the request has a live invited session. */
 export const GATED_API = [
   '/api/create-checkout',
   '/api/check-subdomain',
   '/api/provision-status',
-  '/api/provision-callback'
+  '/api/check-code',
+  '/api/capacity',
+  '/api/suggest-topic-types',
+  '/api/ai-key',
+  '/api/retry-provisioning',
+  '/api/price',
+  // The owner-only redirect to Stripe's payment page for a held sign-up (23-37).
+  '/api/confirm-payment'
 ]
-// Not gated: /api/stripe-webhook stays reachable while closed, verifies the
-// signature and takes no action (server/utils/stripe-webhook.ts), so Stripe
-// never logs failures against a live endpoint.
+// Not gated, on purpose:
+// - /api/stripe-webhook stays reachable while closed, verifies the signature
+//   and takes no action (server/utils/stripe-webhook.ts), so Stripe never logs
+//   failures against a live endpoint.
+// - /api/provision-callback must reach the app while closed: a provisioning
+//   run started before the gate closed has to report back, or its buyer is
+//   stuck. It proves itself with its own per-provision bearer check (23-11),
+//   not with the gate (Phase 23 research, Pitfall 3).
+// - /api/provision-manifest, /api/provision-manifest/ack and /api/capacity-report
+//   are called by the server side (workflow, VPS) with their own bearer secrets.
+// - /api/invite/request, /api/invite/verify and /api/early-access are how a
+//   person gets in or onto the list, so they stay open.
+// - /api/cron/sweep is posted by the QStash schedule every 5 minutes (23-38). It
+//   proves itself with QStash's signature (server/utils/cron-sweep.ts), and it
+//   must run while closed, because invited sign-ups happen then.
+// - /api/teardown-check and /api/teardown-result are called by
+//   teardown-instance.yml (23-36, 23-37) with the per-provision bearer, which
+//   they check before any read; a teardown must finish while closed.
 
 export const EARLY_ACCESS_URL = '/#early-access'
 
@@ -32,9 +54,14 @@ function matches(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(prefix + '/') || path.startsWith(prefix + '?')
 }
 
-/** What the gate does with a request path. */
-export function gateDecision(path: string, open: boolean): 'pass' | 'redirect' | 'not-found' {
-  if (open) return 'pass'
+/**
+ * What the gate does with a request path. `invited` is true only when the
+ * server found a live invited session for the request (Phase 23, D-03): the
+ * server middleware sets it from the ln_invite cookie. Left out, it is false,
+ * so the two-argument call decides exactly as it did before invites.
+ */
+export function gateDecision(path: string, open: boolean, invited = false): 'pass' | 'redirect' | 'not-found' {
+  if (open || invited) return 'pass'
   const p = path.replace(/\/+$/, '') || '/'
   const lower = p.toLowerCase()
   if (GATED_API.some(a => matches(lower, a))) return 'not-found'

@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis'
+import type { ProvisioningState } from '../../shared/provisioning'
 
 let _redis: Redis | null = null
 
@@ -16,20 +17,8 @@ export function useRedis(): Redis {
   return _redis
 }
 
-export interface ProvisioningState {
-  status: 'triggered' | 'provisioning' | 'installing' | 'creating_user' | 'sending_email' | 'complete' | 'failed'
-  subdomain: string
-  email: string
-  siteName: string
-  stripeSessionId: string
-  githubRunId?: string
-  githubRunUrl?: string
-  siteUrl?: string
-  loginUrl?: string
-  error?: string
-  startedAt: string
-  updatedAt: string
-}
+// The state shape and the status and reason lists live once in shared/provisioning.ts.
+export type { ProvisioningState } from '../../shared/provisioning'
 
 const PROVISION_TTL = 86400 // 24 hours
 

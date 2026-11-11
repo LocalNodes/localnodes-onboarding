@@ -15,10 +15,10 @@ const rows = [
 <template>
   <section class="bg-default">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
-      <h2 class="text-3xl font-semibold text-highlighted">
+      <h2 class="text-[28px] leading-tight font-semibold text-highlighted">
         Communities are getting a bad deal
       </h2>
-      <p class="text-lg leading-relaxed text-muted max-w-3xl">
+      <p class="text-base leading-relaxed text-muted max-w-xl">
         Your group's knowledge is spread across chat threads, shared drives and
         someone's inbox. The money sits in one person's account. And the tools you
         rely on belong to someone else, who can change the rules whenever they like.
@@ -26,7 +26,7 @@ const rows = [
 
       <div class="grid gap-4 md:grid-cols-2">
         <div class="rounded-lg border border-default p-5 flex flex-col gap-3">
-          <h3 class="text-lg font-semibold text-muted">
+          <h3 class="text-xl font-semibold text-muted">
             How it usually works
           </h3>
           <ul class="flex flex-col gap-3">
@@ -38,7 +38,7 @@ const rows = [
         </div>
 
         <div class="rounded-lg border-2 border-primary p-5 flex flex-col gap-3">
-          <h3 class="text-lg font-semibold text-highlighted">
+          <h3 class="text-xl font-semibold text-highlighted">
             How it could work
           </h3>
           <ul class="flex flex-col gap-3">
