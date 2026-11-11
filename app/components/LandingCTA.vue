@@ -1,25 +1,31 @@
 <script setup lang="ts">
-// Early access (fresh3 LANDING.md 3.9). Pre-launch (Tom, 2026-11-06, PR #9):
-// the closing section repeats the pre-launch statement (`data-prelaunch`) and
-// holds the early-access form and the privacy note it links to.
+// The closing band: a dark band with the early-access form, a link
+// to the Boulder demo site, and the privacy note the form links to. The page's launching-soon
+// statement is in the hero, so this band does not repeat it.
 // The sentence about sign-in links, Upstash and Stripe in the "Where" item is
 // Tom's own text (TA-2, 2026-11-08), with "encrypted" corrected to "a scrambled
 // form" because the invite list is a keyed hash. Change it only with Tom.
 </script>
 
 <template>
-  <section class="bg-default">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex flex-col items-center gap-6 text-center">
-      <h2 class="text-[28px] leading-tight font-semibold text-highlighted text-balance">
-        Give your community a home base
+  <section id="early-access" class="home-close home-dark dark bg-default">
+    <div class="home-wrap">
+      <h2 class="home-h2">
+        Be one of the first communities in.
       </h2>
-      <p data-prelaunch class="text-base text-muted">
-        <span class="font-semibold text-highlighted">Launching soon.</span>{{ ' ' }}
-        <ULink to="#see-it-in-action" class="text-primary underline underline-offset-2">See the demo</ULink>
-        or <ULink to="#early-access" class="text-primary underline underline-offset-2">get early access</ULink>.
+      <p class="home-sub">
+        Leave an email address and we'll write when sign-up opens. You can also look around a demo site first.
       </p>
 
-      <EarlyAccessForm />
+      <EarlyAccessForm popup-class="dark home-dark" />
+
+      <a
+        id="demo"
+        href="https://boulder.localnodes.xyz"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="home-link scroll-mt-20"
+      >Look around the Boulder demo site (a demo)<span class="sr-only"> (opens in a new tab)</span></a>
 
       <div id="privacy" class="w-full max-w-xl mt-6 flex flex-col gap-3 text-left scroll-mt-20">
         <h3 class="text-xl font-semibold text-highlighted">
@@ -37,8 +43,10 @@
           <li>
             <span class="font-semibold text-default">Where:</span> on our list at Resend, the email
             service we use to send launch news. When you ask for a sign-in link, we keep your email on
-            Upstash for up to two hours so the link only works for you. Our invite list keeps only a
-            scrambled form of each address. Stripe handles your card details at checkout; LocalNodes
+            Upstash so the link only works for you: the link lasts 15 minutes, and once you sign in, you
+            stay signed in for two hours. Our invite list keeps only a scrambled form of each address. If you
+            set up a site, its setup and payment records are kept separately, with us and with Stripe.
+            Stripe handles your card details at checkout; LocalNodes
             never sees or stores them.
           </li>
           <li>

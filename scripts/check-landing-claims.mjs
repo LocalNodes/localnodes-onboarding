@@ -191,6 +191,69 @@ export function hidesElement(attrs) {
 }
 
 /**
+ * The attribute names a tag carries, with quoted values left out, so a word inside
+ * a value (title="a hidden example") is never read as an attribute.
+ */
+function attrNames(attrs) {
+  return attrs
+    .replace(/=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/g, ' ')
+    .split(/[\s/]+/)
+    .filter(Boolean)
+    .map((n) => n.toLowerCase())
+}
+
+const OUT_OF_VIEW_CLASSES = ['hidden', 'invisible', 'opacity-0']
+
+/**
+ * Whether a tag's attributes take it out of the text, for the demo-amount orphan
+ * checks. Two readings, both checked, so text hidden from one cannot mask a word in the other:
+ * - 'seen': what a sighted reader sees. The hidden attribute, an inline display:none /
+ *   visibility:hidden / opacity:0, or a hiding utility class, sr-only included.
+ *   aria-hidden does not count: the demo windows are aria-hidden pictures, and their
+ *   text is seen.
+ * - 'heard': what a screen reader reads out. The same, except sr-only text is read.
+ */
+function takenOutOfView(attrs, reading) {
+  if (attrNames(attrs).includes('hidden')) return true
+  const style = (attrs.match(/\sstyle\s*=\s*"([^"]*)"/i) || attrs.match(/\sstyle\s*=\s*'([^']*)'/i) || [])[1] || ''
+  if (/display\s*:\s*none|visibility\s*:\s*hidden|(^|;|\s)opacity\s*:\s*0*(\.0*)?(%)?\s*(;|!|$)/i.test(style)) return true
+  const cls = (attrs.match(/\sclass\s*=\s*"([^"]*)"/i) || attrs.match(/\sclass\s*=\s*'([^']*)'/i) || [])[1] || ''
+  const hiding = reading === 'seen' ? [...OUT_OF_VIEW_CLASSES, 'sr-only'] : OUT_OF_VIEW_CLASSES
+  return cls.split(/\s+/).some((c) => hiding.includes(c.split(':').pop()))
+}
+
+/**
+ * The text nodes of a built page as { start, end, text }, in source order, with text
+ * inside an element taken out of the given reading left out (see takenOutOfView).
+ * Positions are in `src`, so the text before and after a box can be taken from it.
+ */
+function renderedTextNodes(src, reading) {
+  const stack = []
+  const nodes = []
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*)>/g
+  let last = 0
+  const add = (from, to) => {
+    if (to <= from || stack.some((e) => e.out)) return
+    nodes.push({ start: from, end: to, text: src.slice(from, to) })
+  }
+  for (const m of src.matchAll(tagRe)) {
+    add(last, m.index)
+    last = m.index + m[0].length
+    const tag = m[1].toLowerCase()
+    const attrs = m[2] || ''
+    if (m[0].startsWith('</')) {
+      const i = stack.map((e) => e.tag).lastIndexOf(tag)
+      if (i >= 0) stack.length = i
+      continue
+    }
+    if (VOID_TAGS.has(tag) || /\/\s*$/.test(attrs)) continue
+    stack.push({ tag, out: takenOutOfView(attrs, reading) })
+  }
+  add(last, src.length)
+  return nodes
+}
+
+/**
  * Each element carrying `attribute`, with the text a reader can see in it:
  * text inside a hidden descendant is left out, and an element inside a hidden
  * ancestor (or hidden itself) has no visible text at all. Comments, scripts,
@@ -244,6 +307,163 @@ export function prelaunchProblems(html, rule) {
   const phrase = rule.phrase.toLowerCase()
   if (visibleMarked(html, rule.attribute).some((t) => t.toLowerCase().includes(phrase))) return []
   return [`no pre-launch statement: no visible element with ${rule.attribute} saying "${rule.phrase}"`]
+}
+
+// Scripted example amounts in the home page's fund window.
+// The price rule is the one rule these amounts are exempt from, and only when
+// each amount is a slot (data-demo-amount) alone in a box (data-demo-amount-box,
+// a div, p, dd, td, li or output) inside the section with id="fund", the path
+// is one of the three below, the field is a number in app/data/home-demo.json,
+// and the slot text is "$" plus that number grouped the en-US way. Everything
+// else (a price anywhere else, a rate word next to a box, a changed amount)
+// still fails. Meta tags get no exemption.
+export const DEMO_AMOUNT_PATHS = ['fund.balanceBefore', 'fund.balanceAfter', 'fund.payment']
+export const DEMO_DATA_FILE = 'app/data/home-demo.json'
+const BOX_TAGS = new Set(['div', 'p', 'dd', 'td', 'li', 'output'])
+const PRICE_PATTERN = '[$€£]\\s?\\d'
+const ORPHAN_AFTER = /^\s*(\/|per\b|a month|monthly|\/mo|each)/i
+const ORPHAN_BEFORE = /(price|cost|from|only)\s*:?\s*$/i
+
+function plainText(s) {
+  return decodeEntities(s.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
+}
+
+/** Elements with their source ranges and ancestors (built page markup). */
+function parseElements(src) {
+  const stack = []
+  const els = []
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*)>/g
+  for (const m of src.matchAll(tagRe)) {
+    const tag = m[1].toLowerCase()
+    const attrs = m[2] || ''
+    if (m[0].startsWith('</')) {
+      const i = stack.map((e) => e.tag).lastIndexOf(tag)
+      if (i < 0) continue
+      for (let j = stack.length - 1; j > i; j--) {
+        stack[j].closeStart = m.index
+        stack[j].closeEnd = m.index
+      }
+      stack[i].closeStart = m.index
+      stack[i].closeEnd = m.index + m[0].length
+      stack.length = i
+      continue
+    }
+    if (VOID_TAGS.has(tag) || /\/\s*$/.test(attrs)) continue
+    const el = { tag, attrs, start: m.index, openEnd: m.index + m[0].length, closeStart: src.length, closeEnd: src.length, ancestors: stack.slice() }
+    els.push(el)
+    stack.push(el)
+  }
+  return els
+}
+
+function demoData(root) {
+  const p = join(root, DEMO_DATA_FILE)
+  if (!existsSync(p)) return { error: `${DEMO_DATA_FILE} is missing` }
+  try {
+    return { data: JSON.parse(readFileSync(p, 'utf8')) }
+  } catch {
+    return { error: `${DEMO_DATA_FILE} is not valid JSON` }
+  }
+}
+
+function pathValue(data, path) {
+  return path.split('.').reduce((o, k) => (o !== null && typeof o === 'object' ? o[k] : undefined), data)
+}
+
+/**
+ * Check the demo amount slots in a built page. Returns { problems, stripped }:
+ * the problems (each a string), and the page markup with every valid box
+ * removed, for the price rule only.
+ */
+export function demoAmountCheck(html, root) {
+  const src = html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|template|noscript|title|style)\b[\s\S]*?<\/\1>/gi, ' ')
+  const slotAttr = /\sdata-demo-amount\s*=\s*"([^"]*)"/i
+  const boxAttr = /\sdata-demo-amount-box(\s|=|\/|$)/i
+  const els = parseElements(src)
+  const slots = els.filter((e) => slotAttr.test(e.attrs))
+  if (!slots.length) return { problems: [], stripped: html }
+
+  const problems = []
+  const loaded = demoData(root)
+  if (loaded.error) problems.push(`demo amounts on the page but ${loaded.error}`)
+
+  const readings = [renderedTextNodes(src, 'seen'), renderedTextNodes(src, 'heard')]
+  const valid = []
+  const contains = (outer, inner) => inner.start >= outer.openEnd && inner.start < outer.closeStart
+  for (const s of slots) {
+    const path = s.attrs.match(slotAttr)[1]
+    const slotText = plainText(src.slice(s.openEnd, s.closeStart))
+    const label = `demo amount "${path}" ("${slotText}")`
+    const b = [...s.ancestors].reverse().find((a) => boxAttr.test(a.attrs))
+    if (!b) {
+      problems.push(`${label}: not alone in a data-demo-amount-box`)
+      continue
+    }
+    if (!BOX_TAGS.has(b.tag)) {
+      problems.push(`${label}: the box is a <${b.tag}>, not a div, p, dd, td, li or output`)
+      continue
+    }
+    if (!b.ancestors.some((a) => /\sid\s*=\s*"fund"/i.test(a.attrs))) {
+      problems.push(`${label}: not inside the section with id="fund"`)
+      continue
+    }
+    if (slots.filter((o) => contains(b, o)).length !== 1) {
+      problems.push(`${label}: the box holds more than one amount`)
+      continue
+    }
+    const boxText = plainText(src.slice(b.openEnd, b.closeStart))
+    if (boxText !== slotText) {
+      problems.push(`${label}: the box text is "${boxText}", not only the amount`)
+      continue
+    }
+    if (!DEMO_AMOUNT_PATHS.includes(path)) {
+      problems.push(`${label}: ${path} is not one of ${DEMO_AMOUNT_PATHS.join(', ')}`)
+      continue
+    }
+    if (loaded.error) continue
+    const v = pathValue(loaded.data, path)
+    if (typeof v !== 'number' || !Number.isFinite(v)) {
+      problems.push(`${label}: ${path} is not a number in ${DEMO_DATA_FILE}`)
+      continue
+    }
+    const expected = `$${new Intl.NumberFormat('en-US').format(v)}`
+    if (slotText !== expected) {
+      problems.push(`${label}: the data says ${expected}`)
+      continue
+    }
+    const orphan = readings.some((rendered) => {
+      const before = plainText(rendered.filter((n) => n.end <= b.start).map((n) => n.text).join(' '))
+      const after = plainText(rendered.filter((n) => n.start >= b.closeEnd).map((n) => n.text).join(' '))
+      return ORPHAN_AFTER.test(after) || ORPHAN_BEFORE.test(before)
+    })
+    if (orphan) {
+      problems.push(`${label}: a rate or price word sits next to the amount`)
+      continue
+    }
+    valid.push(b)
+  }
+
+  // Remove each valid box by position.
+  valid.sort((a, b) => a.start - b.start)
+  let stripped = ''
+  let at = 0
+  for (const b of valid) {
+    if (b.start < at) continue
+    stripped += src.slice(at, b.start) + ' '
+    at = b.closeEnd
+  }
+  stripped += src.slice(at)
+  return { problems, stripped }
+}
+
+/** Every string value in a parsed JSON value. */
+function jsonStrings(v, out = []) {
+  if (typeof v === 'string') out.push(v)
+  else if (Array.isArray(v)) v.forEach((x) => jsonStrings(x, out))
+  else if (v && typeof v === 'object') Object.values(v).forEach((x) => jsonStrings(x, out))
+  return out
 }
 
 /**
@@ -302,6 +522,19 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     for (const row of findBannedHits(src, voiceRules)) fail(relative(root, file), row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
   }
 
+  // 1b. The scripted demo strings: every string value in
+  //     app/data/home-demo.json gets the honesty bans and the voice rules, with
+  //     no exemption, whether or not the page has amount slots.
+  const demo = demoData(root)
+  if (demo.data) {
+    for (const str of jsonStrings(demo.data)) {
+      for (const row of findBannedHits(str, fixture.banned)) fail(DEMO_DATA_FILE, row.pattern, `honesty bans: ${row.reason}`)
+      for (const row of findBannedHits(str, voiceRules)) fail(DEMO_DATA_FILE, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
+    }
+  } else if (existsSync(join(root, DEMO_DATA_FILE))) {
+    fail(DEMO_DATA_FILE, 'invalid', 'the demo data file is not valid JSON')
+  }
+
   const builtDirs = []
   for (const builtPath of resolved.paths) {
     builtDirs.push(dirname(builtPath))
@@ -311,8 +544,15 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     const builtRel = relative(root, builtPath)
     lines.push(`CHECK ${builtRel}`)
 
-    // Banned claims on the built page (visible text, meta).
-    for (const row of findBannedHits(text, fixture.banned)) fail(builtRel, row.pattern, `honesty bans: ${row.reason}`)
+    // Banned claims on the built page (visible text, meta). Boxed demo amounts
+    // are taken out of the text for the price rule only.
+    const amounts = demoAmountCheck(html, root)
+    for (const p of amounts.problems) fail(builtRel, 'demo amount', p)
+    const priceText = amounts.stripped === html ? text : visibleText(amounts.stripped)
+    for (const row of fixture.banned) {
+      const subject = row.pattern === PRICE_PATTERN ? priceText : text
+      if (compileRow(row).test(subject)) fail(builtRel, row.pattern, `honesty bans: ${row.reason}`)
+    }
     for (const row of findBannedHits(meta, fixture.banned)) fail(`${builtRel}: meta`, row.pattern, `honesty bans: ${row.reason}`)
     for (const row of findBannedHits(text, voiceRules)) fail(builtRel, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
     for (const row of findBannedHits(meta, voiceRules)) fail(`${builtRel}: meta`, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)

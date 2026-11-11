@@ -14,9 +14,9 @@ const onLanding = computed(() => route.path === '/')
 // active: false — hash links all match the / route, which would mark every
 // item active at once.
 const navItems: NavigationMenuItem[] = [
-  { label: 'Who it\'s for', to: '/#who-its-for', active: false },
-  { label: 'Demos', to: '/#see-it-in-action', active: false },
-  { label: 'Open source', to: '/#open-source', active: false }
+  { label: 'How it works', to: '/#decide', active: false },
+  { label: 'Open source', to: '/#yours', active: false },
+  { label: 'Demo sites', to: '/#demo', active: false }
 ]
 </script>
 
@@ -25,14 +25,23 @@ const navItems: NavigationMenuItem[] = [
        slot has no text (the logo is an image). A link of ours inside it made a
        link inside a link: two Tab stops, the first named "Nuxt UI" (fresh3
        23-29, second-model review C1). -->
-  <UHeader title="LocalNodes home" to="/" :class="onLanding ? 'dark bg-default border-default' : ''">
+  <!-- On the home page the logo sits left and the links and the button sit together on the
+       right; elsewhere the links stay in the centre. The mobile menu opens on <body>, so it
+       takes the dark context itself. -->
+  <UHeader
+    title="LocalNodes home"
+    to="/"
+    :class="onLanding ? 'dark home-dark home-header bg-default border-default' : ''"
+    :ui="onLanding ? { left: 'lg:flex-none', right: 'lg:flex-1 lg:justify-end', content: 'dark home-dark' } : undefined"
+  >
     <template #title>
       <AppLogo :reversed="onLanding" />
     </template>
 
-    <UNavigationMenu :items="navItems" />
+    <UNavigationMenu v-if="!onLanding" :items="navItems" />
 
     <template #right>
+      <UNavigationMenu v-if="onLanding" :items="navItems" class="hidden lg:flex" />
       <UButton
         label="Get early access"
         to="/#early-access"

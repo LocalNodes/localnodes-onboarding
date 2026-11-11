@@ -1,0 +1,91 @@
+{
+  "hero": {
+    "composerPlaceholder": "Ask your library",
+    "statusReading": "Reading 6 documents",
+    "statusRead": "Read 6 documents",
+    "examples": [
+      {
+        "switcher": "neighborhood group",
+        "name": "Maple Street Neighbors",
+        "docs": ["Meeting notes", "Garden plan", "Member handbook", "Tool list", "Budget", "Work day notes"],
+        "read": 1,
+        "hit": 0,
+        "q": "What did we decide about the garden?",
+        "a": "Four new raised beds along the south fence. The water question goes to the spring meeting.",
+        "cite": "[1] Meeting notes, 12 March",
+        "k": "Meeting notes · 12 March",
+        "p": ["Garden. ", "Agreed: four new raised beds along the south fence. Water access goes to the spring meeting.", " Tools stay in the shed."]
+      },
+      {
+        "switcher": "pop-up village",
+        "name": "Juniper Village",
+        "docs": ["Kitchen handover", "Lessons learned", "Arrival guide", "Site map", "Session schedule", "Budget"],
+        "read": 1,
+        "hit": 0,
+        "q": "Who ran the kitchen rota last year?",
+        "a": "Three volunteers shared it in week-long shifts. Their handover notes list what they would change.",
+        "cite": "[1] Kitchen handover notes",
+        "k": "Kitchen handover · last season",
+        "p": ["Rota. ", "Three of us shared the rota, one week each. Next time, start the sign-up sheet before arrival day.", " Order oats early."]
+      },
+      {
+        "switcher": "housing co-op",
+        "name": "Willow House",
+        "docs": ["House minutes", "Repair log", "Bylaws", "House rules", "Budget", "Handbook"],
+        "read": 1,
+        "hit": 0,
+        "q": "Has anyone looked at the back steps?",
+        "a": "Yes. The March meeting agreed to get three quotes before the spring meeting.",
+        "cite": "[1] House minutes, 12 March",
+        "k": "House minutes · 12 March",
+        "p": ["Back steps. ", "Two treads are loose. Agreed to get three quotes before the spring meeting.", " Ana will call round."]
+      },
+      {
+        "switcher": "guild",
+        "name": "Open Docs Guild",
+        "docs": ["Contributor handbook", "Call notes", "Past proposals", "Project write-ups", "Roadmap", "Code of conduct"],
+        "read": 1,
+        "hit": 0,
+        "q": "How do new members get review rights?",
+        "a": "After two merged contributions, any maintainer can propose you. The guild confirms at its monthly call.",
+        "cite": "[1] Contributor handbook, Joining",
+        "k": "Contributor handbook · Joining",
+        "p": ["Review rights. ", "After two merged contributions any maintainer may propose a member. The monthly call confirms.", " Rights lapse after a quiet year."]
+      }
+    ]
+  },
+  "decide": {
+    "pillOpen": "Open · closes Friday",
+    "pillDone": "Agreed · 11 of 12 responded, no blocks",
+    "dots": ["agree", "agree", "aside", "agree", "agree", "agree", "agree", "aside", "agree", "agree", "agree", ""],
+    "agree": 9,
+    "aside": 2,
+    "block": 0
+  },
+  "fund": {
+    "balanceBefore": 12400,
+    "balanceAfter": 10600,
+    "payment": 1800,
+    "steps": 12,
+    "signers": ["AK", "JS", "RM"],
+    "approved": 2,
+    "need": ["needs 2 of 3 approvers", "1 of 3 approved", "2 of 3 approved"],
+    "pillWaiting": "Waiting for approval",
+    "pillPaid": "Paid",
+    "note": "Approved by AK and JS, payment sent"
+  },
+  "export": {
+    "pillLocked": "Site owners only",
+    "pillReady": "Ready",
+    "buttonIdle": "Export site",
+    "buttonBusy": "Preparing",
+    "buttonDone": "Download",
+    "file": "willow-house-export.tar.gz",
+    "rows": [
+      { "label": "Pages, posts and decisions", "note": "412" },
+      { "label": "Uploaded files", "note": "1,038" },
+      { "label": "Members and settings", "note": "12 members" },
+      { "label": "Restore guide", "note": "step by step" }
+    ]
+  }
+}

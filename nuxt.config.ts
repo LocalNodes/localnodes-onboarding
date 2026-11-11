@@ -14,6 +14,16 @@ export default defineNuxtConfig({
     preference: 'dark'
   },
 
+  // Montserrat ships as one variable file per subset and style. Only the latin,
+  // normal file is kept and preloaded, so the text is set in Montserrat on the
+  // first paint instead of swapping in after it and moving the lines. Italic is
+  // slanted from the normal file; letters outside latin use the fallback font.
+  fonts: {
+    families: [
+      { name: 'Montserrat', subsets: ['latin'], styles: ['normal'], weights: ['400 700'], preload: true }
+    ]
+  },
+
   runtimeConfig: {
     // Private keys (server-only, set via NUXT_* env vars)
     coolifyApiUrl: 'https://coolify.localnodes.xyz/api/v1',
