@@ -354,7 +354,7 @@ describe('the close', () => {
 describe('each window says what the first pilots get', () => {
   const TAGS: Array<[string, Component, string]> = [
     ['hero', HomeHero, 'In the first pilots'],
-    ['decide', HomeDecide, 'Coming next'],
+    ['decide', HomeDecide, 'Coming. Not in the first pilots.'],
     ['fund', HomeFund, 'Coming later. Off for the first pilots.'],
     ['yours', HomeYours, 'Export button coming. The archive works today.']
   ]

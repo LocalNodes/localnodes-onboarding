@@ -103,14 +103,14 @@ describe('sign-up footer: "Get help" (T-1, SC 3.2.6 help in the same place on ev
 
 describe('landing Privacy section says what the sign-in and sign-up code keeps, word for word', () => {
   // The link and sign-in times must match TOKEN_TTL_SECONDS and SESSION_TTL_SECONDS in server/utils/invites.ts (checked below).
-  const TA2 = 'When you ask for a sign-in link, we keep your email on Upstash so the link only works for you: the link lasts 15 minutes, and once you sign in, you stay signed in for two hours. Our invite list keeps only a scrambled form of each address. If you set up a site, its setup and payment records are kept separately, with us and with Stripe. Stripe handles your card details at checkout; LocalNodes never sees or stores them.'
+  const PRIVACY_COPY = 'When you ask for a sign-in link, we keep your email on Upstash so the link only works for you: the link lasts 15 minutes, and once you sign in, you stay signed in for up to two hours. Our invite list keeps only a scrambled form of each address. If you set up a site, its setup and payment records are kept separately, with us and with Stripe. Stripe handles your card details at checkout; LocalNodes never sees or stores them.'
 
   it('names the same link and sign-in times as the code', async () => {
     const { TOKEN_TTL_SECONDS, SESSION_TTL_SECONDS } = await import('../../server/utils/invites')
     expect(TOKEN_TTL_SECONDS).toBe(15 * 60)
     expect(SESSION_TTL_SECONDS).toBe(2 * 60 * 60)
-    expect(TA2).toContain('the link lasts 15 minutes')
-    expect(TA2).toContain('you stay signed in for two hours')
+    expect(PRIVACY_COPY).toContain('the link lasts 15 minutes')
+    expect(PRIVACY_COPY).toContain('you stay signed in for up to two hours')
   })
 
   const privacy = () => {
@@ -121,16 +121,16 @@ describe('landing Privacy section says what the sign-in and sign-up code keeps, 
   }
 
   it('contains the sentence exactly, inside the #privacy section', () => {
-    expect(privacy()).toContain(TA2)
+    expect(privacy()).toContain(PRIVACY_COPY)
   })
 
   it('puts it in the "Where:" item, after the existing sentence about Resend', () => {
     const where = privacy().slice(privacy().indexOf('Where:'))
     const resend = where.indexOf('the email service we use to send launch news.')
     expect(resend).toBeGreaterThan(-1)
-    expect(where.indexOf(TA2)).toBeGreaterThan(resend)
+    expect(where.indexOf(PRIVACY_COPY)).toBeGreaterThan(resend)
     // Still in the same list item, before the next one.
-    expect(where.indexOf(TA2)).toBeLessThan(where.indexOf('Spam protection:'))
+    expect(where.indexOf(PRIVACY_COPY)).toBeLessThan(where.indexOf('Spam protection:'))
   })
 
   it('says "scrambled form", not "encrypted": the invite list is a keyed hash', () => {

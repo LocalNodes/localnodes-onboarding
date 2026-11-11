@@ -44,7 +44,7 @@
             <span class="font-semibold text-default">Where:</span> on our list at Resend, the email
             service we use to send launch news. When you ask for a sign-in link, we keep your email on
             Upstash so the link only works for you: the link lasts 15 minutes, and once you sign in, you
-            stay signed in for two hours. Our invite list keeps only a scrambled form of each address. If you
+            stay signed in for up to two hours. Our invite list keeps only a scrambled form of each address. If you
             set up a site, its setup and payment records are kept separately, with us and with Stripe.
             Stripe handles your card details at checkout; LocalNodes
             never sees or stores them.
