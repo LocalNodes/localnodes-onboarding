@@ -61,6 +61,7 @@
 import { callbackToken } from './provision-handlers'
 import { refundAndTearDown, refundOwed, type RefundDeps } from './refund'
 import { rearmHold, releaseHold } from './promo'
+import { pilotEndOf } from './pilot-end'
 import { PROVISION_ID_PATTERN, SITE_BASE_DOMAIN, SUBDOMAIN_PATTERN } from '../../shared/provisioning'
 import {
   ACTIVATION_WINDOW_MS,
@@ -144,6 +145,8 @@ export interface SubscriptionLike {
   status?: string
   metadata?: Record<string, string> | null
   latest_invoice?: MaybeExpanded<InvoiceLike>
+  /** Unix seconds when Stripe ends it by itself; a pilot's frozen end (pilot-end.ts). */
+  cancel_at?: number | null
 }
 
 /** The subscription waits for its first invoice to be paid (B-1). */
@@ -158,6 +161,9 @@ export interface SubscriptionParams {
   payment_settings: { save_default_payment_method: 'on_subscription' }
   metadata: Record<string, string>
   expand: string[]
+  /** A free pilot only (pilot-end.ts): Stripe ends the subscription here unless the organizer says yes. */
+  cancel_at?: number
+  proration_behavior?: 'none'
 }
 
 /** A refund as refund.ts reads it (Stripe.Refund: status, amount, currency, payment_intent). */
@@ -269,7 +275,10 @@ export function subscriptionParams(input: {
   price: string
   promoId?: string
   metadata: Record<string, string>
+  /** A free pilot's frozen end (pilot-end.ts). Without it the params are exactly the paid path's. */
+  cancelAt?: number
 }): SubscriptionParams {
+  const pilot = input.cancelAt !== undefined
   return {
     customer: input.customer,
     items: [{ price: input.price }],
@@ -277,8 +286,9 @@ export function subscriptionParams(input: {
     ...(input.promoId ? { discounts: [{ promotion_code: input.promoId }] } : {}),
     payment_behavior: 'default_incomplete',
     payment_settings: { save_default_payment_method: 'on_subscription' },
-    metadata: input.metadata,
-    expand: ['latest_invoice']
+    metadata: pilot ? { ...input.metadata, pilot: 'ends', pilot_ends_at: String(input.cancelAt) } : input.metadata,
+    expand: ['latest_invoice'],
+    ...(pilot ? { cancel_at: input.cancelAt, proration_behavior: 'none' as const } : {})
   }
 }
 
@@ -697,7 +707,7 @@ async function markPending(run: Run, err?: unknown, unclear = false): Promise<{ 
 }
 
 /** Billing rejected: no automatic retry; the reconciliation lists it. An idempotency mismatch is flagged in the same step. */
-async function markRejected(run: Run, billingError: 'invalid' | 'no_card' | 'no_price', op?: IntentOp, flag?: 'idempotency_mismatch'): Promise<{ outcome: BillingOutcome, paid: false }> {
+async function markRejected(run: Run, billingError: 'invalid' | 'no_card' | 'no_price' | 'no_pilot_end' | 'pilot_not_free', op?: IntentOp, flag?: 'idempotency_mismatch'): Promise<{ outcome: BillingOutcome, paid: false }> {
   if (flag) run.deps.log?.('billing: the idempotency key was used with other parameters, flagged for a person')
   run.deps.log?.(`billing: rejected (${billingError})`)
   const params = flag ? { billingError, flag } : { billingError }
@@ -767,6 +777,17 @@ async function adopt(run: Run, customer: string, list: boolean): Promise<Adopted
     return { kind: 'none' }
   }
   return ours.length === 1 ? { kind: 'one', sub: ours[0]! } : { kind: 'many' }
+}
+
+/** A pilot sign-up's end frozen at checkout, or null when it has none. */
+function frozenPilotEnd(signup: Record<string, unknown>): number | null {
+  const n = Number(signup.pilotEndsAt)
+  return signup.pilotEndsAt !== undefined && signup.pilotEndsAt !== '' && Number.isInteger(n) ? n : null
+}
+
+/** True when the subscription ends by itself at exactly `end`. */
+function endsAt(sub: SubscriptionLike, end: number | null): boolean {
+  return end !== null && sub.cancel_at === end
 }
 
 /** Adopt one subscription found by adopt(): the pendingSubscription step (the marker gets its id in the same step). */
@@ -914,6 +935,10 @@ async function charge(run: Run, state: State): Promise<{ outcome: BillingOutcome
     return markRejected(run, 'no_card')
   }
   if (!paymentMethod) return markRejected(run, 'no_card')
+  // A free pilot (pilot-end.ts): its subscription must end by itself at the
+  // end frozen at checkout, and billing never pays for it.
+  const pilot = pilotEndOf(signup, Math.floor(nowOf(deps) / 1000))
+  const frozenEnd = pilot.pilot ? frozenPilotEnd(signup) : null
 
   // 1. The subscription: the one already made, one Stripe made for us (the
   //    marker's, or one listed by metadata), or a new one under this attempt's key.
@@ -932,11 +957,14 @@ async function charge(run: Run, state: State): Promise<{ outcome: BillingOutcome
     let subscription: SubscriptionLike
     if (found.kind === 'one') {
       subscription = found.sub
+      if (pilot.pilot && !endsAt(subscription, frozenEnd)) return markRejected(run, 'no_pilot_end')
       await adoptOne(run, subscription)
     } else {
       // The price frozen at checkout, never a runtime price (D3); none fails closed.
       const price = str(signup.priceId)
       if (!price) return markRejected(run, 'no_price')
+      // A pilot with no end more than a day ahead is never created.
+      if (pilot.pilot && pilot.cancelAt === null) return markRejected(run, 'no_pilot_end')
       await intent(run, 'subscribe', subscribeKey)
       try {
         subscription = await run.lease.stripe('subscribe', o => stripe.subscriptions.create(
@@ -945,6 +973,7 @@ async function charge(run: Run, state: State): Promise<{ outcome: BillingOutcome
             paymentMethod,
             price,
             promoId: signup.promoId ? str(signup.promoId) : undefined,
+            ...(pilot.pilot && pilot.cancelAt !== null ? { cancelAt: pilot.cancelAt } : {}),
             metadata: {
               provision_id: provisionId,
               subdomain: str(state.subdomain),
@@ -983,6 +1012,8 @@ async function charge(run: Run, state: State): Promise<{ outcome: BillingOutcome
   // 3. The first invoice. Already paid (a 100%-off pilot, or a payment whose
   //    reply was lost): no pay call.
   if (invoice.status !== 'paid') {
+    // A pilot is free: a first invoice that is not already paid is never paid (Stripe expires it).
+    if (pilot.pilot) return markRejected(run, 'pilot_not_free')
     await intent(run, 'pay', payKey)
     let paid: InvoiceLike
     try {
@@ -1024,7 +1055,10 @@ async function reconcile(run: Run, state: State): Promise<State | { outcome: Bil
       if (customer) {
         const adopted = await adopt(run, customer, true)
         if (adopted.kind === 'many') return { outcome: (await markMultiple(run)).outcome }
-        if (adopted.kind === 'one') await adoptOne(run, adopted.sub)
+        if (adopted.kind === 'one') {
+          if (pilotEndOf(signup, 0).pilot && !endsAt(adopted.sub, frozenPilotEnd(signup))) return { outcome: (await markRejected(run, 'no_pilot_end')).outcome }
+          await adoptOne(run, adopted.sub)
+        }
       }
     } else if (found.op === 'pay' && state.invoiceId && state.billing !== 'paid') {
       const invoice = await run.lease.stripe('invoice', o => stripe().invoices.retrieve(str(state.invoiceId), {}, o))

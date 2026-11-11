@@ -55,6 +55,7 @@ import { sweepBilling, type BillingDeps } from './billing'
 import { sweepHeld, sweepTeardowns } from './teardown'
 import { refundDepsOf, sweepRefunds } from './refund'
 import { clearIndex } from './lifecycle'
+import { sweepPilotNotices, type PilotNoticeDeps } from './pilot-end'
 import {
   MAX_FAILURES,
   STOPS_INDEX,
@@ -83,6 +84,8 @@ export type SweepDeps = Omit<RetryStopDeps, 'redis' | 'keepAlive'> & {
   redis: SweepRedis
   /** The first-payment wiring (makeBillingDeps(config).deps, no keepAlive: the sweep awaits). 23-32. */
   billing?: BillingDeps
+  /** The free pilot's end notice (makePilotNoticeDeps(config)). Absent: the step reports skipped. */
+  pilot?: PilotNoticeDeps
 }
 
 export interface StopsCounts {
@@ -175,13 +178,18 @@ export async function sweepStops(deps: SweepDeps): Promise<StopsCounts> {
   return counts
 }
 
-/** The sweep's steps, in order: stops, held (23-37), billing (23-32), refunds (23-43 Task 6), teardowns (23-37). */
+/**
+ * The sweep's steps, in order: stops, held (23-37), billing (23-32), refunds
+ * (23-43 Task 6), teardowns (23-37), pilotNotice (the free pilot's end mail,
+ * pilot-end.ts; it runs at most once per 6 hours behind its own Redis gate).
+ */
 export const CRON_STEPS: CronStep[] = [
   { name: 'stops', run: deps => sweepStops(deps) as unknown as Promise<Record<string, unknown>> },
   { name: 'held', run: deps => sweepHeld(deps) as unknown as Promise<Record<string, unknown>> },
   { name: 'billing', run: deps => sweepBilling({ ...deps, refund: refundDepsOf(deps) }) as unknown as Promise<Record<string, unknown>> },
   { name: 'refunds', run: deps => sweepRefunds(deps) as unknown as Promise<Record<string, unknown>> },
-  { name: 'teardowns', run: deps => sweepTeardowns(deps) as unknown as Promise<Record<string, unknown>> }
+  { name: 'teardowns', run: deps => sweepTeardowns(deps) as unknown as Promise<Record<string, unknown>> },
+  { name: 'pilotNotice', run: async deps => deps.pilot ? sweepPilotNotices(deps.pilot) as unknown as Promise<Record<string, unknown>> : { skipped: true } }
 ]
 
 /** Run each step in turn. A step that throws as a whole reports { error: true }, and the next still runs. */

@@ -104,14 +104,15 @@ import {
   PAID_SIGNUPS_CLOSED_MESSAGE,
   type CheckoutDeps
 } from '../../server/utils/checkout'
-import { HOLD_SCRIPT } from '../../server/utils/promo'
+import { HOLD_SCRIPT, PROMO_REFUSED_MESSAGE } from '../../server/utils/promo'
+import { pilotEndsAt } from '../../server/utils/pilot-end'
 
 const GATE_SECRET = 'test-invite-hash-secret'
 const GATE_EMAIL = 'invited.person@example.com'
 const GATE_BODY = { communityName: 'Repair Collective', subdomain: 'repair' }
 const PROVISION = 'AAAAAAAAAAAAAAAAAAAAAA'
 
-type Coupon = string | { percent_off?: number | null, amount_off?: number | null } | null
+type Coupon = string | { id?: string, percent_off?: number | null, amount_off?: number | null, duration?: string, duration_in_months?: number } | null
 
 async function gateSetup(opts: { gate: boolean, coupon?: Coupon, open?: boolean, invited?: boolean } ) {
   const redis = new FakeRedis()
@@ -175,17 +176,15 @@ describe('the paid-sign-up gate (23-32, B-2 Phase 23 part)', () => {
   })
 
   it('gate off, invited, a code whose coupon is percent_off 100: the checkout goes ahead as today', async () => {
-    const { create, deps } = await gateSetup({ gate: false, coupon: { percent_off: 100 } })
+    const { create, deps } = await gateSetup({ gate: false, coupon: { percent_off: 100, duration: 'repeating', duration_in_months: 3 } })
     const r = await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, deps)
     expect(r).toEqual({ status: 200, body: { url: 'https://checkout.stripe.com/c/pay_1' } })
     expect(create).toHaveBeenCalledTimes(1)
   })
 
   it.each([
-    ['percent_off 50', { percent_off: 50 }],
-    ['amount_off', { amount_off: 500, percent_off: null }],
-    ['an unexpanded coupon id', 'coupon_123'],
-    ['no coupon at all', null]
+    ['percent_off 50', { percent_off: 50, duration: 'forever' }],
+    ['amount_off', { amount_off: 500, percent_off: null, duration: 'once' }]
   ] as const)('gate off, invited, a code whose coupon is %s: 409 with the same message, and the hold is released', async (_label, coupon) => {
     const { redis, inviteId, create, capacity, deps } = await gateSetup({ gate: false, coupon })
     const r = await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, deps)
@@ -212,8 +211,7 @@ describe('the paid-sign-up gate (23-32, B-2 Phase 23 part)', () => {
 
   it.each([
     ['no code', {}, undefined],
-    ['a 50% code', { code: 'PILOT-AAAA' }, { percent_off: 50 }],
-    ['an unexpanded coupon', { code: 'PILOT-AAAA' }, 'coupon_123']
+    ['a 50% code', { code: 'PILOT-AAAA' }, { percent_off: 50, duration: 'forever' }]
   ] as const)('gate on, invited, %s: the checkout goes ahead as today', async (_label, extra, coupon) => {
     const { create, deps } = await gateSetup({ gate: true, coupon })
     expect((await handleCreateCheckout({ ...GATE_BODY, ...extra }, deps)).status).toBe(200)
@@ -298,16 +296,44 @@ describe('the owner session hash is kept on the sign-up record (23-37)', () => {
 
 describe('frozen parameters (23-43 Task 3, D3)', () => {
   it('writes priceId (the price in force at checkout) and couponId (the code\'s coupon, expanded) on signup:{provisionId}, beside promoId', async () => {
-    const { redis, deps } = await gateSetup({ gate: false, coupon: { id: 'coupon_full', percent_off: 100 } as unknown as Coupon })
+    const { redis, deps } = await gateSetup({ gate: false, coupon: { id: 'coupon_full', percent_off: 100, duration: 'once' } })
     const r = await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, deps)
     expect(r.status).toBe(200)
     expect(await redis.hgetall(`signup:${PROVISION}`)).toMatchObject({ promoId: 'promo_A', priceId: 'price_test_123', couponId: 'coupon_full' })
   })
 
-  it('an unexpanded coupon id is frozen as it is', async () => {
-    const { redis, deps } = await gateSetup({ gate: true, coupon: 'coupon_123' })
+  it('a paid code\'s expanded coupon id is frozen, with no pilot fields', async () => {
+    const { redis, deps } = await gateSetup({ gate: true, coupon: { id: 'coupon_half', percent_off: 50, duration: 'forever' } })
     await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, deps)
-    expect(await redis.hgetall(`signup:${PROVISION}`)).toMatchObject({ priceId: 'price_test_123', couponId: 'coupon_123' })
+    const signup = (await redis.hgetall<Record<string, unknown>>(`signup:${PROVISION}`))!
+    expect(signup).toMatchObject({ priceId: 'price_test_123', couponId: 'coupon_half' })
+    expect(signup).not.toHaveProperty('pilotMonths')
+    expect(signup).not.toHaveProperty('pilotEndsAt')
+  })
+
+  it.each([
+    ['once', { percent_off: 100, duration: 'once' }, 1],
+    ['repeating 3 months', { percent_off: 100, duration: 'repeating', duration_in_months: 3 }, 3]
+  ] as const)('a free pilot code (%s) freezes pilotMonths and pilotEndsAt from the checkout time', async (_label, coupon, months) => {
+    const { redis, deps } = await gateSetup({ gate: false, coupon })
+    const nowMs = Date.parse('2027-01-31T23:00:00Z')
+    await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, { ...deps, now: () => nowMs })
+    const signup = (await redis.hgetall<Record<string, unknown>>(`signup:${PROVISION}`))!
+    expect(Number(signup.pilotMonths)).toBe(months)
+    expect(Number(signup.pilotEndsAt)).toBe(pilotEndsAt(nowMs / 1000, months))
+  })
+
+  it.each([
+    ['an unexpanded coupon id', 'coupon_123', false],
+    ['no coupon at all', null, false],
+    ['100% off forever', { percent_off: 100, duration: 'forever' }, false],
+    ['an unexpanded coupon id, paid switch on', 'coupon_123', true]
+  ] as const)('a code whose coupon is %s is refused with the one promo message: nothing written, no checkout', async (_label, coupon, gate) => {
+    const { redis, create, deps } = await gateSetup({ gate, coupon })
+    const r = await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, deps)
+    expect(r).toEqual({ status: 409, body: { message: PROMO_REFUSED_MESSAGE } })
+    expect(await redis.exists(`signup:${PROVISION}`)).toBe(0)
+    expect(create).not.toHaveBeenCalled()
   })
 
   it('no code: priceId is frozen, and no couponId or promoId is written', async () => {

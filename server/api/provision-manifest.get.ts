@@ -7,7 +7,7 @@ import { handleManifest } from '../utils/provision-manifest'
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   const out = await handleManifest(getQuery(event), getHeader(event, 'authorization'), {
-    config: { provisionCallbackSecret: config.provisionCallbackSecret, byoKeySecret: String(config.byoKeySecret ?? '') },
+    config: { provisionCallbackSecret: config.provisionCallbackSecret, byoKeySecret: String(config.byoKeySecret ?? ''), hostReportEmail: String(config.hostReportEmail ?? '') },
     redis: useRedis()
   })
   setResponseStatus(event, out.status)

@@ -1,5 +1,5 @@
 import { handleCronSweep } from '../../utils/cron-sweep'
-import { makeBillingDeps, makeStopDeps } from '../../utils/billing-wiring'
+import { makeBillingDeps, makePilotNoticeDeps, makeStopDeps } from '../../utils/billing-wiring'
 
 // QStash's signed POST every 5 minutes (23-38). The signature is checked in
 // server/utils/cron-sweep.ts against the raw body and the configured URL,
@@ -30,6 +30,8 @@ export default defineEventHandler(async (event) => {
       redis: useRedis(),
       // The first payment and the activation still owed (23-32), awaited here.
       billing: makeBillingDeps(config).deps,
+      // The free pilot's end notice, 14 days ahead (pilot-end.ts), at most once per 6 hours.
+      pilot: makePilotNoticeDeps(config),
       log: msg => console.warn(msg)
     })
   )

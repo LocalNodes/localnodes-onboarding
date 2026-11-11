@@ -31,6 +31,7 @@ import { sendRenewalMail } from './billing-mail'
 import { stopProvision, type RetryStopDeps, type StopStripe } from './retry-stop'
 import { dispatchTeardown } from './github'
 import { sendHeldMail } from './teardown'
+import type { PilotNoticeDeps, PilotNoticeStripe } from './pilot-end'
 
 export interface BillingConfig {
   stripePriceId?: string
@@ -116,5 +117,31 @@ export function makeBillingDeps(config: BillingConfig, keepAlive?: KeepAlive) {
     onRenewalProblem,
     start: (sid: string) => startBilling(sid, deps, keepAlive),
     nudge: (sid: string, provisionId?: string) => nudgeBilling(sid, provisionId, deps, keepAlive)
+  }
+}
+
+/**
+ * The free pilot's end notice (pilot-end.ts sweepPilotNotices), for the QStash
+ * sweep only: Redis for the 6-hour gate, Stripe to list and mark the pilot
+ * subscriptions, the mailer, and the invite secret that seals the continue
+ * link. A missing mail setting or secret makes the step report unconfigured.
+ */
+export function makePilotNoticeDeps(config: BillingConfig): PilotNoticeDeps {
+  return {
+    redis: useRedis(),
+    // Built on first use, so a missing Stripe key fails this step only, never
+    // the sweep's setup. The SDK's own types are wider than the subset pilot-end.ts reads.
+    stripe: {
+      subscriptions: {
+        list: params => (useStripe() as unknown as PilotNoticeStripe).subscriptions.list(params),
+        update: (id, params, opts) => (useStripe() as unknown as PilotNoticeStripe).subscriptions.update(id, params, opts)
+      }
+    },
+    fetch: (url, opts) => $fetch(url, opts as Parameters<typeof $fetch>[1]),
+    apiKey: String(config.resendApiKey ?? ''),
+    from: String(config.mailFrom ?? ''),
+    secret: String(config.inviteHashSecret ?? ''),
+    now: Date.now,
+    log: msg => console.warn(msg)
   }
 }

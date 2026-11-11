@@ -63,7 +63,7 @@ function guardedRedis(opts: { scanPage?: number } = {}) {
 }
 
 interface Session { id: string, created: number, status?: string, mode?: string, metadata?: Record<string, string>, customer_email?: string }
-interface Sub { id: string, status: string, metadata?: Record<string, string>, discounts?: Array<string | { end: number | null }> }
+interface Sub { id: string, status: string, metadata?: Record<string, string>, discounts?: Array<string | { end: number | null, coupon?: { percent_off?: number | null } }>, cancel_at?: number | null, ended_at?: number | null }
 
 /** A fake Stripe: list and retrieve only, pages of 2, and a log of what was asked. */
 function guardedStripe(data: { sessions?: Session[], subs?: Sub[] } = {}, pageSize = 2) {
@@ -565,5 +565,71 @@ describe('reconcile-signups: the command line', () => {
     expect([...loaded.LIFECYCLE_STATES]).toEqual([...LIFECYCLE_STATES])
     expect(loaded.billingWaits({ billing: 'review' })).toBe(true)
     expect(loaded.billingWaits({ billing: 'pending' })).toBe(false)
+  })
+})
+
+describe('reconcile-signups: the free pilot\'s end (pilot-end.ts)', () => {
+  const at = (days: number) => Math.floor((NOW + days * DAY) / 1000)
+  const pilot = (id: string, over: Partial<Sub> = {}): Sub => ({
+    id,
+    status: 'active',
+    metadata: { provision_id: `prov_${id}`, pilot: 'ends', pilot_ends_at: String(at(30)) },
+    cancel_at: at(30),
+    discounts: [{ end: null, coupon: { percent_off: 100 } }],
+    ...over
+  })
+
+  it('a pilot whose cancel_at matches its frozen end gives no row', async () => {
+    const w = await world()
+    w.s = guardedStripe({ subs: [pilot('sub_ok')] })
+    expect(named(await run(w), 'pilot without end')).toEqual([])
+  })
+
+  it('flags a pilot with no cancel_at, a cancel_at that moved, or a 100% discount with no pilot mark, for a person', async () => {
+    const w = await world()
+    w.s = guardedStripe({ subs: [
+      pilot('sub_noend', { cancel_at: null }),
+      pilot('sub_moved', { cancel_at: at(31) }),
+      pilot('sub_nomark', { metadata: { provision_id: 'prov_nomark' }, cancel_at: null }),
+      pilot('sub_kept', { metadata: { provision_id: 'prov_kept', pilot: 'continued' }, cancel_at: null })
+    ] })
+    const rows = named(await run(w), 'pilot without end')
+    expect(rows.map(r => r.detail.subscriptionId).sort()).toEqual(['sub_moved', 'sub_noend', 'sub_nomark'])
+    expect(rows.every(r => r.needsPerson === true)).toBe(true)
+  })
+
+  it('a paying subscription with a part discount and no pilot mark gives no pilot row', async () => {
+    const w = await world()
+    w.s = guardedStripe({ subs: [pilot('sub_paid', { metadata: { provision_id: 'prov_paid' }, cancel_at: null, discounts: [{ end: at(40), coupon: { percent_off: 50 } }] })] })
+    expect(named(await run(w), 'pilot without end')).toEqual([])
+  })
+
+  it('flags a pilot whose end notice is overdue (under 12 days left, no notice mark), for a person', async () => {
+    const w = await world()
+    w.s = guardedStripe({ subs: [
+      pilot('sub_overdue', { cancel_at: at(10), metadata: { provision_id: 'prov_overdue', pilot: 'ends', pilot_ends_at: String(at(10)) } }),
+      pilot('sub_noticed', { cancel_at: at(10), metadata: { provision_id: 'prov_noticed', pilot: 'ends', pilot_ends_at: String(at(10)), pilot_notice_sent: String(at(-3)) } }),
+      pilot('sub_early', { cancel_at: at(13), metadata: { provision_id: 'prov_early', pilot: 'ends', pilot_ends_at: String(at(13)) } }),
+      pilot('sub_kept', { cancel_at: null, metadata: { provision_id: 'prov_kept', pilot: 'continued' } })
+    ] })
+    const rows = named(await run(w), 'pilot notice not sent')
+    expect(rows.map(r => r.detail.subscriptionId)).toEqual(['sub_overdue'])
+    expect(rows[0]!.needsPerson).toBe(true)
+    expect(rows[0]!.detail.endsAt).toBe(iso(at(10) * 1000).slice(0, 10))
+  })
+
+  it('lists a pilot that ended, so a person decides on the site; one ended long ago is listed without the attention mark', async () => {
+    const w = await world()
+    w.s = guardedStripe({ subs: [
+      pilot('sub_ended', { status: 'canceled', ended_at: at(-3) }),
+      pilot('sub_old', { status: 'canceled', ended_at: at(-200) }),
+      pilot('sub_kept_then_cancelled', { status: 'canceled', ended_at: at(-3), metadata: { provision_id: 'prov_x', pilot: 'continued' } })
+    ] })
+    const rows = named(await run(w), 'pilot ended')
+    expect(rows.map(r => r.detail.subscriptionId).sort()).toEqual(['sub_ended', 'sub_old'])
+    expect(rows.find(r => r.detail.subscriptionId === 'sub_ended')!.needsPerson).toBe(true)
+    expect(rows.find(r => r.detail.subscriptionId === 'sub_old')!.needsPerson).toBe(false)
+    expect(rows.find(r => r.detail.subscriptionId === 'sub_ended')!.detail.endedAt).toBe(iso(at(-3) * 1000).slice(0, 10))
+    expect(w.s.listed.filter(l => l.what === 'subscriptions').map(l => l.params.status)).toContain('canceled')
   })
 })

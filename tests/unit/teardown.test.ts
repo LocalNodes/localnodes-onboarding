@@ -1073,8 +1073,8 @@ describe('the QStash held step (sweepHeld) and teardowns step (sweepTeardowns)',
   const state = () => redis.hgetall<Record<string, unknown>>(stateKey)
   const members = (key: string) => redis.zrange(key, '-inf', '+inf', { byScore: true })
 
-  it('CRON_STEPS names are, in order, stops, held, billing, refunds (23-43 Task 6), teardowns', () => {
-    expect(CRON_STEPS.map(s => s.name)).toEqual(['stops', 'held', 'billing', 'refunds', 'teardowns'])
+  it('CRON_STEPS names are, in order, stops, held, billing, refunds (23-43 Task 6), teardowns, pilotNotice', () => {
+    expect(CRON_STEPS.map(s => s.name)).toEqual(['stops', 'held', 'billing', 'refunds', 'teardowns', 'pilotNotice'])
   })
 
   it('before heldUntil: a held member with no mail gets it; no invoice read; the member stays', async () => {

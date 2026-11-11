@@ -47,6 +47,7 @@ import { cleanTopicTypes, signupBodySchema } from '../../shared/signup'
 import { inviteKey, type InviteRecord } from './invites'
 import { cleanDescription, MAX_DESCRIPTION, MIN_DESCRIPTION } from './topic-types'
 import { checkCode, PROMO_REFUSED_MESSAGE, releaseHold, type PromoRedis, type PromoStripe } from './promo'
+import { pilotEndsAt } from './pilot-end'
 import { errorStatus, FULL_MESSAGE } from './capacity'
 import { AI_CHOICES, KEY_NOT_CHECKED_MESSAGE } from '../../shared/ai-choice'
 import { attachKeyToProvision, pendingKeyKind, pendingKeyName, returnKeyToSession, type ByoKeyRedis } from './byo-key'
@@ -277,6 +278,7 @@ export async function handleCreateCheckout(raw: unknown, deps: CheckoutDeps): Pr
     // is written or Stripe is called: a used or held code never reaches either.
     let promoId: string | undefined
     let couponId: string | undefined
+    let pilotMonths: number | undefined
     if (input.code) {
       if (!deps.stripe.promotionCodes || !redis.eval || !redis.zrem) throw new Error('create-checkout: promotion codes not wired')
       const checked = await checkCode(
@@ -294,6 +296,7 @@ export async function handleCreateCheckout(raw: unknown, deps: CheckoutDeps): Pr
       }
       promoId = checked.promoId
       couponId = checked.couponId || undefined
+      pilotMonths = checked.pilotMonths
     }
     const provisionId = (deps.newProvisionId ?? (() => randomBytes(16).toString('base64url')))()
     const topicTypes = cleanTopicTypes(input.topicTypes)
@@ -315,6 +318,8 @@ export async function handleCreateCheckout(raw: unknown, deps: CheckoutDeps): Pr
       // Frozen for the subscription at ready (23-43 Task 3, D3): billing never reads the runtime price.
       ...(deps.priceId ? { priceId: deps.priceId } : {}),
       ...(couponId ? { couponId } : {}),
+      // A free pilot's months and end, frozen here (pilot-end.ts): billing sets cancel_at from them.
+      ...(pilotMonths ? { pilotMonths, pilotEndsAt: pilotEndsAt(Math.floor((deps.now ?? Date.now)() / 1000), pilotMonths) } : {}),
       ...(description ? { description } : {}),
       ...(timeZone ? { timeZone } : {}),
       // The browser that made this sign-up (sha256 of its ln_invite cookie):

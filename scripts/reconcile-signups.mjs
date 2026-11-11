@@ -50,6 +50,13 @@ const DAY = 86_400_000
 const TRIGGERED_LIMIT_MS = 15 * MIN
 const BUILT_NOT_PAID_MS = 24 * HOUR
 const TEARDOWN_LIMIT_MS = HOUR
+/** A pilot that ended within this many days is marked for a person (pilot ended row). */
+const PILOT_ENDED_ATTENTION_DAYS = 60
+/**
+ * The end notice goes out 14 days before (pilot-end.ts, every 6 hours, retried
+ * for 20 hours). A pilot with fewer days left and no notice mark needs a person.
+ */
+const PILOT_NOTICE_OVERDUE_DAYS = 12
 const B2_WARN_DAYS = 14
 const PAGE_LIMIT = 100
 const MAX_PAGES = 1000
@@ -370,12 +377,49 @@ export async function reconcile({ hours, now }, { redis, stripe, lifecycle }) {
       for (const d of sub.discounts ?? []) {
         if (d && typeof d === 'object' && typeof d.end === 'number' && (!earliest || d.end < earliest.end)) earliest = { end: d.end, subscriptionId: String(sub.id) }
       }
+      // The free pilot (pilot-end.ts): a pilot must end by itself at its frozen end,
+      // and a 100% discount with no pilot mark was never given an end.
+      const meta = sub.metadata ?? {}
+      const fullOff = (sub.discounts ?? []).some(d => d && typeof d === 'object' && (d.coupon?.percent_off ?? d.source?.coupon?.percent_off) === 100)
+      const endsWrong = meta.pilot === 'ends' && (typeof sub.cancel_at !== 'number' || String(sub.cancel_at) !== String(meta.pilot_ends_at))
+      if (endsWrong || (fullOff && meta.pilot !== 'ends' && meta.pilot !== 'continued')) {
+        add('pilot without end', '-', byProvisionId.get(String(pid)) ?? null, {
+          provisionId: String(pid),
+          needsPerson: true,
+          detail: { subscriptionId: String(sub.id), pilot: present(meta.pilot) ? String(meta.pilot) : 'unmarked', cancelAt: typeof sub.cancel_at === 'number' ? iso(sub.cancel_at * 1000).slice(0, 10) : 'none' }
+        })
+      }
+      // The end notice (pilot-end.ts): overdue when the sweep could not send or confirm it.
+      // A person checks Resend, writes to the organizer if no mail went out, and sets
+      // pilot_notice_sent on the subscription.
+      if (meta.pilot === 'ends' && !present(meta.pilot_notice_sent) && typeof sub.cancel_at === 'number'
+        && sub.cancel_at * 1000 > nowMs && sub.cancel_at * 1000 - nowMs < PILOT_NOTICE_OVERDUE_DAYS * DAY) {
+        add('pilot notice not sent', '-', byProvisionId.get(String(pid)) ?? null, {
+          provisionId: String(pid),
+          needsPerson: true,
+          detail: { subscriptionId: String(sub.id), endsAt: iso(sub.cancel_at * 1000).slice(0, 10) }
+        })
+      }
       const rec = byProvisionId.get(String(pid))
       if (rec && ['torn_down', 'refunded', 'declined'].includes(String(rec.status))) {
         add('subscription without a record', '-', rec, { provisionId: String(pid), detail: { subscriptionId: String(sub.id), subscription: String(sub.status) } })
       }
     }
   }
+  // ---- Stripe: pilots that ended by themselves (the site stays up until a person removes it) ----
+  const ended = await reading('Stripe', () => listAll(p => stripe.subscriptions.list(p), { status: 'canceled' }))
+  for (const sub of ended) {
+    if (sub?.metadata?.pilot !== 'ends' || !present(sub?.metadata?.provision_id)) continue
+    const endedSec = Number.isFinite(sub.ended_at) ? sub.ended_at : null
+    add('pilot ended', '-', byProvisionId.get(String(sub.metadata.provision_id)) ?? null, {
+      provisionId: String(sub.metadata.provision_id),
+      ageMs: endedSec === null ? null : nowMs - endedSec * 1000,
+      // Recent ends need a person: write before removing the site (the end mail's promise).
+      needsPerson: endedSec === null || nowMs - endedSec * 1000 <= PILOT_ENDED_ATTENTION_DAYS * DAY,
+      detail: { subscriptionId: String(sub.id), endedAt: endedSec === null ? 'unknown' : iso(endedSec * 1000).slice(0, 10) }
+    })
+  }
+
   if (earliest) {
     const daysAway = Math.floor((earliest.end * 1000 - nowMs) / DAY)
     add('B-2 date', '-', null, {

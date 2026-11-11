@@ -38,7 +38,8 @@ export function resetPriceCache(): void {
   cache.clear()
 }
 
-function format(price: PriceLike, currency: string): string | null {
+/** "$20 a month" for a recurring price in `currency`, or null when it has no amount or no interval. */
+export function formatPrice(price: PriceLike, currency: string): string | null {
   if (price.unit_amount === null || price.unit_amount === undefined || !price.recurring) return null
   let digits: number
   try {
@@ -69,7 +70,7 @@ export async function priceLine(stripe: PriceStripe, priceId: string, currency: 
     cache.set(priceId, hit)
   }
   if (String(hit.price.currency).toLowerCase() !== wanted) return { ok: false, reason: 'currency mismatch' }
-  const line = format(hit.price, wanted)
+  const line = formatPrice(hit.price, wanted)
   return line === null ? { ok: false, reason: 'unavailable' } : { ok: true, line }
 }
 

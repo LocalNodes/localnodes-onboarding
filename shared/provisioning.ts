@@ -118,7 +118,7 @@ export interface ProvisioningState {
   /** Where the first payment stands (23-32). */
   billing?: 'charging' | 'pending' | 'paid' | 'held' | 'declined' | 'rejected'
   /** Why billing is pending (api) or rejected (invalid, no_card). */
-  billingError?: 'api' | 'invalid' | 'no_card'
+  billingError?: 'api' | 'invalid' | 'no_card' | 'no_price' | 'no_pilot_end' | 'pilot_not_free'
   /** Stripe API errors met so far; it also numbers the retried idempotency keys. */
   billingTries?: number
   /** The subscription before its first invoice is paid; 23-37's teardown cancels it. */

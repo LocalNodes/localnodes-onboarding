@@ -69,6 +69,7 @@ export default defineNuxtConfig({
     // Topic-type suggestions and bring-your-own AI keys.
     geminiApiKey: '',           // NUXT_GEMINI_API_KEY: the paid key for suggestions
     geminiModel: '',            // NUXT_GEMINI_MODEL: model id for suggestions
+    hostReportEmail: '',        // NUXT_HOST_REPORT_EMAIL: the host's address for page reports, sent to every new site (provision manifest)
     byoKeySecret: '',           // NUXT_BYO_KEY_SECRET: 32-byte key that seals a customer's own AI key
 
     public: {
@@ -98,6 +99,17 @@ export default defineNuxtConfig({
     // page is never cached, sends no Referer and is kept out of search results.
     // The POST to the same path is server/routes/unsubscribe.post.ts.
     '/unsubscribe': {
+      ssr: true,
+      headers: {
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+        'X-Robots-Tag': 'noindex'
+      }
+    },
+    // The free pilot's continue page (pilot-end.ts). Its token is in the query
+    // string, so the page is never cached, sends no Referer and is kept out of
+    // search results. The API is server/api/pilot-continue.ts.
+    '/pilot/continue': {
       ssr: true,
       headers: {
         'Cache-Control': 'no-store',
