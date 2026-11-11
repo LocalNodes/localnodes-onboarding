@@ -53,6 +53,13 @@ const TEARDOWN_LIMIT_MS = HOUR
 /** A pilot that ended within this many days is marked for a person (pilot ended row). */
 const PILOT_ENDED_ATTENTION_DAYS = 60
 /**
+ * A lapsed pilot's site stays up this many days after the end, then a person
+ * removes it after a written notice sent PILOT_REMOVAL_NOTICE_DAYS before
+ * (project rule, 2026-11-11). The row only prints the dates; nothing here removes a site.
+ */
+const PILOT_LAPSE_DAYS = 30
+const PILOT_REMOVAL_NOTICE_DAYS = 7
+/**
  * The end notice goes out 14 days before (pilot-end.ts, every 6 hours, retried
  * for 20 hours). A pilot with fewer days left and no notice mark needs a person.
  */
@@ -416,7 +423,13 @@ export async function reconcile({ hours, now }, { redis, stripe, lifecycle }) {
       ageMs: endedSec === null ? null : nowMs - endedSec * 1000,
       // Recent ends need a person: write before removing the site (the end mail's promise).
       needsPerson: endedSec === null || nowMs - endedSec * 1000 <= PILOT_ENDED_ATTENTION_DAYS * DAY,
-      detail: { subscriptionId: String(sub.id), endedAt: endedSec === null ? 'unknown' : iso(endedSec * 1000).slice(0, 10) }
+      detail: {
+        subscriptionId: String(sub.id),
+        endedAt: endedSec === null ? 'unknown' : iso(endedSec * 1000).slice(0, 10),
+        noticeFrom: endedSec === null ? 'unknown' : iso(endedSec * 1000 + (PILOT_LAPSE_DAYS - PILOT_REMOVAL_NOTICE_DAYS) * DAY).slice(0, 10),
+        removeFrom: endedSec === null ? 'unknown' : iso(endedSec * 1000 + PILOT_LAPSE_DAYS * DAY).slice(0, 10),
+        removalDue: endedSec !== null && nowMs - endedSec * 1000 >= PILOT_LAPSE_DAYS * DAY
+      }
     })
   }
 

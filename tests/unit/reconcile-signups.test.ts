@@ -632,4 +632,21 @@ describe('reconcile-signups: the free pilot\'s end (pilot-end.ts)', () => {
     expect(rows.find(r => r.detail.subscriptionId === 'sub_ended')!.detail.endedAt).toBe(iso(at(-3) * 1000).slice(0, 10))
     expect(w.s.listed.filter(l => l.what === 'subscriptions').map(l => l.params.status)).toContain('canceled')
   })
+
+  it('prints the notice and removal dates of a lapsed pilot (30 days, notice 7 days before) and marks removal due only from day 30', async () => {
+    const w = await world()
+    w.s = guardedStripe({ subs: [
+      pilot('sub_recent', { status: 'canceled', ended_at: at(-29) }),
+      pilot('sub_due', { status: 'canceled', ended_at: at(-31) }),
+      pilot('sub_unknown', { status: 'canceled', ended_at: null })
+    ] })
+    const rows = named(await run(w), 'pilot ended')
+    const by = (id: string) => rows.find(r => r.detail.subscriptionId === id)!.detail
+    expect(by('sub_recent').noticeFrom).toBe(iso((at(-29) + 23 * 86400) * 1000).slice(0, 10))
+    expect(by('sub_recent').removeFrom).toBe(iso((at(-29) + 30 * 86400) * 1000).slice(0, 10))
+    expect(by('sub_recent').removalDue).toBe(false)
+    expect(by('sub_due').removalDue).toBe(true)
+    expect(by('sub_due').removeFrom).toBe(iso((at(-31) + 30 * 86400) * 1000).slice(0, 10))
+    expect(by('sub_unknown')).toMatchObject({ endedAt: 'unknown', noticeFrom: 'unknown', removeFrom: 'unknown', removalDue: false })
+  })
 })
