@@ -12,6 +12,7 @@ import { deleteProvisionKey } from './byo-key'
 import { billingWaits, isApplied, transition } from './lifecycle'
 import { sameSessionHash } from './invites'
 import { hasCheckoutMarker } from './checkout-marker'
+import { pilotEndOf } from './pilot-end'
 
 type RedisLike = RetryStopRedis
 
@@ -100,6 +101,8 @@ export async function handleProvisionStatus(
   refundProven?: boolean
   lateActivation?: boolean
   notFound?: boolean
+  /** True for a free pilot, false for a paid sign-up; absent when the sign-up record could not be read. */
+  pilot?: boolean
 }> {
   if (!sessionId) {
     throw httpError(400, 'session_id is required')
@@ -144,6 +147,7 @@ export async function handleProvisionStatus(
   // teardown (stopFinished sets it for a build failure only), so the reply says
   // it, with no retry: the Stopped screen, never the failure-and-retry one.
   const zeroStopped = shown === 'failed' && isRefundCase(raw)
+  const pilot = await readPilot(raw, redis, opts.log)
   const reply = {
     status: shown,
     siteUrl: isHttpsUrl(data.siteUrl) ? data.siteUrl : null,
@@ -153,7 +157,9 @@ export async function handleProvisionStatus(
     stopped: zeroStopped || String(data.stopped) === 'true',
     startedAt: data.startedAt,
     // 1 for the first build, 2 after the free retry (23-14 counts it up).
-    attempt: wholeAttempt(data.attempt)
+    attempt: wholeAttempt(data.attempt),
+    // Whether the first step is a free pilot or a payment, so the progress page names it right.
+    ...(pilot === undefined ? {} : { pilot })
   }
 
   // Held for the bank's confirmation (23-37): the end of the hold, and whether
@@ -188,6 +194,23 @@ export async function handleProvisionStatus(
     return { ...reply, lateActivation: isTrueField(raw.lateActivation) }
   }
   return reply
+}
+
+/**
+ * Whether this sign-up is a free pilot, from its sign-up record (a pilot has
+ * pilotMonths, a paid sign-up has none). Undefined when the record is missing
+ * or cannot be read, so the page does not guess: it keeps its neutral words.
+ */
+async function readPilot(raw: Record<string, unknown>, redis: RedisLike, log?: (msg: string) => void): Promise<boolean | undefined> {
+  if (!raw.provisionId) return undefined
+  try {
+    const signup = await redis.hgetall(`signup:${String(raw.provisionId)}`)
+    if (!signup || Object.keys(signup).length === 0) return undefined
+    return pilotEndOf(signup, 0).pilot
+  } catch {
+    log?.('provision-status: pilot flag not read')
+    return undefined
+  }
 }
 
 const isTrueField = (value: unknown) => String(value) === 'true'

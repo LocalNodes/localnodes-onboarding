@@ -1,5 +1,6 @@
 import { defineEventHandler, getCookie, readBody, setResponseStatus } from 'h3'
 import { handleCheckCode } from '../utils/check-code'
+import { isPaidSignupsEnabled } from '../utils/checkout'
 import { getInvitedSession, INVITE_COOKIE, type InviteRecord } from '../utils/invites'
 
 // Logic in server/utils/check-code.ts. Gated while the launch is closed
@@ -21,6 +22,7 @@ export default defineEventHandler(async (event) => {
     session,
     stripe: useStripe(),
     redis: useRedis(),
+    paidSignupsEnabled: isPaidSignupsEnabled(useRuntimeConfig(event).paidSignupsEnabled),
     log: msg => console.warn(msg)
   })
   setResponseStatus(event, outcome.status)

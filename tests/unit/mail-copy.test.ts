@@ -109,7 +109,7 @@ const ROWS = [
     mail: 'Update card (renewal)',
     built: () => buildRenewalMail('update', { date: 'November 15, 2026', link: 'https://invoice.stripe.com/i/acct_x/test_link' }),
     subject: 'Your card didn\'t go through',
-    body: 'Your community\'s site is live, but we couldn\'t charge your card. Nothing has been removed. Please update your card by November 15, 2026.',
+    body: 'Your community\'s site is still open, but we couldn\'t charge your card. Please update your card by November 15, 2026.',
     button: 'Update my card',
     unsubscribe: false
   },
@@ -117,9 +117,9 @@ const ROWS = [
     // B-2 Phase 23 part, invoice.payment_action_required for a renewal (23-32).
     mail: 'Confirm card (renewal)',
     built: () => buildRenewalMail('confirm', { date: 'November 15, 2026', link: 'https://invoice.stripe.com/i/acct_x/test_link' }),
-    subject: 'Your card didn\'t go through',
-    body: 'Your community\'s site is live, but your bank needs you to confirm the payment. Nothing has been removed. Please confirm it by November 15, 2026.',
-    button: 'Confirm my card',
+    subject: 'Confirm your site payment',
+    body: 'Your community\'s site is still open, but your bank needs you to confirm the payment. Please confirm it by November 15, 2026.',
+    button: 'Confirm my payment',
     unsubscribe: false
   }
 ] as const
@@ -288,5 +288,19 @@ describe('the pilot end notice: a lapsed site stays 30 days, with a written noti
     expect(m.text).toContain('If you do nothing, we won\'t charge you anything.')
     expect(m.text).toContain('Your site stays open for 30 days after that')
     expect(m.text).toContain('we\'ll write to you at least a week before we remove it')
+  })
+})
+
+describe('the pilot end notice: the choice and its price', () => {
+  const m = buildPilotEndMail({ date: 'March 12, 2027', price: '$49 a month', link: 'https://localnodes.xyz/pilot/continue?t=x' })
+
+  it('names the end, the price only if you choose, and the date to choose by', () => {
+    expect(m.text).toContain('Your free pilot ends on March 12, 2027.')
+    expect(m.text).toContain('After that, the site costs $49 a month only if you choose to keep it; we charge only if you say yes.')
+    expect(m.text).toContain('To keep it, choose "Keep my site" below before March 12, 2027.')
+  })
+
+  it('promises no second question and never says "from then on"', () => {
+    expect(m.text).not.toMatch(/we will ask|we'll ask|from then on|full price/i)
   })
 })

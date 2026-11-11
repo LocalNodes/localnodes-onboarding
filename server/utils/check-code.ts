@@ -4,8 +4,9 @@
 //
 // The sign-up form asks "is this code good?" before the organizer pays. Only an
 // invited session may ask (the code is checked for that invite and held for
-// it); everyone else gets 404. A good code answers { ok: true } and nothing
-// else, a refused one always the same words (T-23-48). Nothing is logged that
+// it); everyone else gets 404. A good code answers { ok: true } with what it
+// offers (a free pilot and its months, or a discount that is not a free pilot),
+// a refused one always the same words. Nothing is logged that
 // names the code, the invite or the address.
 import * as v from 'valibot'
 import { INVITE_USED_MESSAGE } from './checkout'
@@ -28,6 +29,8 @@ export interface CheckCodeRouteDeps {
   session: InviteRecord | null
   stripe: PromoStripe
   redis: CheckCodeRouteRedis
+  /** runtimeConfig paidSignupsEnabled (isPaidSignupsEnabled). Missing reads as closed. */
+  paidSignupsEnabled?: boolean
   /** Milliseconds. Tests inject it. */
   now?: () => number
   /** Logs without the code, the invite id or the address. */
@@ -35,7 +38,7 @@ export interface CheckCodeRouteDeps {
 }
 
 export type CheckCodeOutcome =
-  | { status: 200, body: { ok: true } }
+  | { status: 200, body: { ok: true, offer: 'pilot' | 'paid', months?: number } }
   | { status: 404, body: { message: string } }
   | { status: 400 | 409 | 503, body: { ok: false, message: string } }
 
@@ -59,14 +62,17 @@ export async function handleCheckCode(raw: unknown, deps: CheckCodeRouteDeps): P
       return { status: 409, body: { ok: false, message: INVITE_USED_MESSAGE } }
     }
     const checked = await checkCode(
-      { code: parsed.output.code, holder: session.inviteId, invite },
+      // While paid sign-ups are closed (or not stated) only a free pilot code is
+      // usable, as at checkout: any other is refused before a hold is taken.
+      { code: parsed.output.code, holder: session.inviteId, invite, pilotOnly: deps.paidSignupsEnabled !== true },
       { stripe: deps.stripe, redis: deps.redis, now: deps.now }
     )
     if (!checked.ok) {
       deps.log?.('check-code: refused, code not usable')
       return { status: 409, body: { ok: false, message: PROMO_REFUSED_MESSAGE } }
     }
-    return { status: 200, body: { ok: true } }
+    // A usable code is a free pilot or a discount that is not one; the form words the page by it.
+    return { status: 200, body: checked.pilotMonths ? { ok: true, offer: 'pilot', months: checked.pilotMonths } : { ok: true, offer: 'paid' } }
   } catch (err) {
     // An outage is not "this code is used". Never the error body: it can carry the code.
     const status = (err as { statusCode?: number, status?: number })?.statusCode ?? (err as { status?: number })?.status

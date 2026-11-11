@@ -1,7 +1,6 @@
-import { useTimeoutPoll, useCountdown } from '@vueuse/core'
+import { useTimeoutPoll } from '@vueuse/core'
 import { ref, computed, watch } from 'vue'
 import { PROVISION_STATUSES, type ProvisionStatus } from '#shared/provisioning'
-import { timeLine } from '~/utils/reason-copy'
 
 // The /success page's status poll (fresh3 23-20; ONB-01, ONB-02, D-13, T-3).
 // The status list is shared/provisioning.ts's PROVISION_STATUSES, the same list
@@ -29,8 +28,6 @@ import { timeLine } from '~/utils/reason-copy'
 // waiting screen, P6) and refunded (P2) add lateActivation. The page keeps
 // polling while removing, while refunding, and while a removed sign-up with a
 // capture waits for its refund's proof.
-
-export { timeLine }
 
 // ---- Types ----
 
@@ -62,6 +59,8 @@ interface StatusResponse {
   lateActivation?: boolean
   /** No state and no checkout marker: an id that is not ours, or one that has expired (23-20 follow-up). */
   notFound?: boolean
+  /** True for a free pilot, false for a paid sign-up; absent when the server could not tell. */
+  pilot?: boolean
 }
 
 // ---- Exported pure helpers (testable without Vue context) ----
@@ -78,9 +77,27 @@ export const STAGES = [
   { id: 'triggered', label: 'Card saved', statuses: ['triggered'] },
   { id: 'provisioning', label: 'Setting up your server', statuses: ['provisioning'] },
   { id: 'installing', label: 'Installing your site', statuses: ['installing', 'creating_user', 'sending_email'] },
-  { id: 'payment', label: 'Taking your first payment', statuses: ['ready', 'held'] },
+  // The label here is the neutral one, for before a reply has said whether this
+  // is a free pilot; paymentStepLabel gives the label to show.
+  { id: 'payment', label: 'Confirming your card', statuses: ['ready', 'held'] },
   { id: 'complete', label: 'Your site is ready', statuses: ['complete'] }
 ] as const satisfies ReadonlyArray<{ id: string, label: string, statuses: readonly ProvisionStatus[] }>
+
+/**
+ * The payment step's name: a free pilot confirms (nothing is charged), a paid
+ * sign-up takes its first payment, and until a reply has said which it is (or
+ * when the first read failed) the step only names the card.
+ */
+export function paymentStepLabel(pilot: boolean | null): string {
+  if (pilot === true) return 'Confirming your free pilot'
+  if (pilot === false) return 'Taking your first payment'
+  return 'Confirming your card'
+}
+
+/** The label a step shows, given what is known about the pilot. */
+export function stageLabel(stage: { id: string, label: string }, pilot: boolean | null): string {
+  return stage.id === 'payment' ? paymentStepLabel(pilot) : stage.label
+}
 
 /** The payment outcomes that are no build step (23-43 Task 7). */
 const NO_STEP: readonly RawStatus[] = ['failed', 'declined', 'refunding', 'refunded']
@@ -119,23 +136,14 @@ export function shouldStopPolling(reply: { status: string, canRetry?: boolean, s
 }
 
 /**
- * Format seconds as "M:SS" (e.g., 225 -> "3:45").
- */
-export function formatTimeRemaining(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}
-
-/**
  * Map STAGES to an array with state labels based on the current stage index.
  * state: 'completed' (index < current), 'active' (index === current), 'pending' (index > current)
  * When currentStageIndex is -1 (failed), all stages are 'pending'.
  */
-export function mapStagesToState(currentStageIndex: number) {
+export function mapStagesToState(currentStageIndex: number, pilot: boolean | null = null) {
   return STAGES.map((s, i) => ({
     id: s.id,
-    label: s.label,
+    label: stageLabel(s, pilot),
     state: (currentStageIndex < 0)
       ? 'pending' as const
       : i < currentStageIndex
@@ -148,11 +156,9 @@ export function mapStagesToState(currentStageIndex: number) {
 
 // ---- Composable ----
 
-const PROVISIONING_SECONDS = 240
-
 /**
  * Polls GET /api/provision-status every 3 seconds, maps the status to the five
- * steps, keeps a 4-minute countdown, and offers retry() for a failed build.
+ * steps, and offers retry() for a failed build.
  *
  * @param sessionId - Stripe checkout session ID from URL query param
  */
@@ -193,6 +199,12 @@ export function useProvisioningStatus(sessionId: string | undefined) {
    * still waiting for its webhook.
    */
   const notFound = ref(false)
+  /**
+   * Whether this sign-up is a free pilot, once a reply has said. Null before
+   * that and after a failed first read; a later reply that does not say keeps
+   * the last answer.
+   */
+  const pilot = ref<boolean | null>(null)
 
   const isComplete = computed(() => status.value === 'complete')
   const isFailed = computed(() => status.value === 'failed')
@@ -201,24 +213,8 @@ export function useProvisioningStatus(sessionId: string | undefined) {
   const isRefunding = computed(() => status.value === 'refunding')
   const isRefunded = computed(() => status.value === 'refunded')
   const currentStageIndex = computed(() => getStageIndex(status.value))
-  const stages = computed(() => mapStagesToState(currentStageIndex.value))
-  const activeStageLabel = computed(() => STAGES[Math.max(0, currentStageIndex.value)]!.label)
-
-  // Countdown timer: 240 seconds (4 minutes).
-  // `immediate: true` is required to actually start ticking. @vueuse's
-  // useCountdown defers to useIntervalFn, whose auto-start is guarded by
-  // `immediate && isClient` -- so the per-second interval runs only in the
-  // browser and is skipped during SSR (no dangling server-side timer).
-  const { remaining, pause: pauseCountdown, start: startCountdown } = useCountdown(PROVISIONING_SECONDS, { immediate: true })
-
-  const timeRemaining = computed(() => formatTimeRemaining(remaining.value))
-  /** "About 3 minutes left." Changes once a minute; never announced. */
-  const minutesLine = computed(() => timeLine(remaining.value))
-
-  // Pause the countdown once the build has ended either way.
-  watch(status, (s) => {
-    if (s === 'complete' || s === 'failed' || s === 'refunding' || s === 'refunded') pauseCountdown()
-  })
+  const stages = computed(() => mapStagesToState(currentStageIndex.value, pilot.value))
+  const activeStageLabel = computed(() => stageLabel(STAGES[Math.max(0, currentStageIndex.value)]!, pilot.value))
 
   // Polling: fetch status every 3 seconds
   const { pause, resume } = useTimeoutPoll(async () => {
@@ -248,6 +244,7 @@ export function useProvisioningStatus(sessionId: string | undefined) {
       refundProven.value = heldExpired.value && data.refundProven === true
       lateActivation.value = (data.status === 'refunding' || data.status === 'refunded') && data.lateActivation === true
       notFound.value = data.notFound === true
+      if (typeof data.pilot === 'boolean') pilot.value = data.pilot
 
       if (shouldStopPolling(data)) pause()
     } catch {
@@ -265,7 +262,7 @@ export function useProvisioningStatus(sessionId: string | undefined) {
   /**
    * Run the build again for the same Stripe session (23-14). The server decides
    * whether a retry is allowed; this only calls the gated route. On success the
-   * page goes back to the progress steps with a fresh countdown.
+   * page goes back to the progress steps.
    */
   async function retry(): Promise<void> {
     if (!sessionId || retrying.value) return
@@ -280,7 +277,6 @@ export function useProvisioningStatus(sessionId: string | undefined) {
       status.value = 'triggered'
       canRetry.value = false
       reason.value = null
-      startCountdown()
     } catch {
       // Refused (409 already running or stopped) or not reached: the failure
       // stays on screen with the retry-failed line. The next status read shows
@@ -311,6 +307,7 @@ export function useProvisioningStatus(sessionId: string | undefined) {
     isRefunding,
     isRefunded,
     notFound,
+    pilot,
     siteUrl,
     reason,
     canRetry,
@@ -322,9 +319,6 @@ export function useProvisioningStatus(sessionId: string | undefined) {
     retryFailed,
     retried,
     retry,
-    timeRemaining,
-    minutesLine,
-    remaining,
     pause
   }
 }

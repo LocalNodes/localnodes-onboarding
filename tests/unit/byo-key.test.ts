@@ -869,8 +869,8 @@ describe('the Stripe webhook: an expired checkout forgets its key', () => {
 
 // --- the AI choice copy (UI-SPEC, D-21, orchestrator ruling 2026-11-08) -----------------------
 
-const RECALL_LINE = 'Works with your own OpenRouter key; answers may find fewer members-only notes than the default for now.'
-const ZDR_LINE = 'Turn on Zero Data Retention in your OpenRouter privacy settings, so the companies that run the AI don\'t keep your community\'s text.'
+const RECALL_LINE = 'This option may miss some members-only pages when answering. Use the included service if you need those pages.'
+const ZDR_LINE = 'In OpenRouter\'s privacy settings, turn on Zero Data Retention before continuing, so the companies that run the AI don\'t keep your community\'s text.'
 
 describe('AI choice copy, word for word from the UI-SPEC', () => {
   it('the OpenRouter recall line is the UI-SPEC row, word for word', () => {
@@ -891,10 +891,12 @@ describe('AI choice copy, word for word from the UI-SPEC', () => {
   it('the options, legend and messages are the UI-SPEC rows', () => {
     expect(AI_CHOICE_COPY.legend).toBe('Which AI should your site use?')
     expect(AI_CHOICE_COPY.options.map(o => [o.value, o.label, o.description])).toEqual([
-      ['default', 'The LocalNodes default', 'No setup. We cover the cost, with a limit per site.'],
-      ['gemini', 'Your own Gemini key', 'Use a key from your own Google Cloud project.'],
-      ['openrouter', 'Your own OpenRouter key', 'Use a key from your own OpenRouter account.']
+      ['default', 'Use the included AI service', 'No setup. We cover the cost, with a limit per site.'],
+      ['gemini', 'Your own Gemini account', 'Use a key from your own Google Cloud project.'],
+      ['openrouter', 'Your own OpenRouter account', 'Use a key from your own OpenRouter account.']
     ])
+    expect(AI_CHOICE_COPY.keyHelp).toBe('An API key is the private code from your AI service that lets this site use it. Paste your key. We check it once, then keep it only until your site is set up. We never show it again.')
+    expect(AI_CHOICE_COPY.keyLabel).toEqual({ gemini: 'Gemini key', openrouter: 'OpenRouter key' })
     expect(KEY_FAILED_MESSAGE).toBe('That key didn\'t work. Check you copied all of it, then try again.')
     expect(TOO_MANY_KEY_CHECKS_MESSAGE).toBe('Too many checks. Wait a few minutes, then try again.')
     expect(KEY_NOT_CHECKED_MESSAGE).toBe('Check your key before continuing.')

@@ -76,19 +76,24 @@ describe('sendRenewalMail', () => {
     })
     expect(REPLY_TO).toBe('hello@localnodes.xyz')
     expect(mail.text).toContain('Please update your card by November 15, 2026.')
+    expect(mail.text).toContain('still open')
+    expect(mail.text).not.toContain('Nothing has been removed')
     expect(mail.parts.button).toEqual({ label: 'Update my card', url: HOSTED })
     expect(mail.text).toContain(MAIL_FOOTER)
     expect(mail.html).not.toMatch(/unsubscribe/i)
     expect(mail.text).not.toMatch(/unsubscribe/i)
   })
 
-  it('invoice.payment_action_required for a renewal: the "Confirm card" body and the button "Confirm my card"', async () => {
+  it('invoice.payment_action_required for a renewal: the confirm subject, body and the button "Confirm my payment"', async () => {
     await sendRenewalMail(renewalInvoice(), 'confirm', EVENT_CREATED, deps)
     const body = (fetchMock.mock.calls[0]![1] as { body: Record<string, unknown> }).body
     const mail = buildRenewalMail('confirm', { date: 'November 15, 2026', link: HOSTED })
     expect(body.text).toBe(mail.text)
     expect(mail.text).toContain('Please confirm it by November 15, 2026.')
-    expect(mail.parts.button).toEqual({ label: 'Confirm my card', url: HOSTED })
+    expect(mail.subject).toBe('Confirm your site payment')
+    expect(body.subject).toBe('Confirm your site payment')
+    expect(mail.text).not.toContain('Nothing has been removed')
+    expect(mail.parts.button).toEqual({ label: 'Confirm my payment', url: HOSTED })
   })
 
   it('the same invoice failing twice, or action required then failed, sends one mail in total (SET card-mail:{invoiceId} NX EX 30 days)', async () => {
@@ -96,6 +101,8 @@ describe('sendRenewalMail', () => {
     expect(await sendRenewalMail(renewalInvoice(), 'update', EVENT_CREATED + 3600, deps)).toBe(false)
     expect(await sendRenewalMail(renewalInvoice(), 'update', EVENT_CREATED + 7200, deps)).toBe(false)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    // The one mail that went is the first kind to arrive, with its own subject.
+    expect((fetchMock.mock.calls[0]![1] as { body: Record<string, unknown> }).body.subject).toBe('Confirm your site payment')
     expect(CARD_MAIL_SECONDS).toBe(2592000)
     expect(await redis.ttl(`card-mail:${INVOICE}`)).toBe(2592000)
   })

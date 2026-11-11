@@ -324,7 +324,7 @@ describe('create-checkout when the server is full', () => {
   it('returns 409 with the full reply, word for word', async () => {
     const { deps } = await fullSetup()
     const r = await handleCreateCheckout(BODY, deps)
-    expect(FULL_MESSAGE).toBe('We\'re full right now. We\'ll email you when there\'s room.')
+    expect(FULL_MESSAGE).toBe('We are full right now; you have not been charged.')
     expect(r).toEqual({ status: 409, body: { message: FULL_MESSAGE } })
   })
 
