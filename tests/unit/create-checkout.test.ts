@@ -175,21 +175,27 @@ describe('the paid-sign-up gate (23-32, B-2 Phase 23 part)', () => {
     expect(logs).toEqual(['create-checkout: refused, paid sign-ups not open'])
   })
 
-  it('gate off, invited, a code whose coupon is percent_off 100: the checkout goes ahead as today', async () => {
-    const { create, deps } = await gateSetup({ gate: false, coupon: { percent_off: 100, duration: 'repeating', duration_in_months: 3 } })
+  it('gate off, invited, a code whose coupon is percent_off 100: the checkout goes ahead as today, and the code is held for the invite', async () => {
+    const { redis, inviteId, create, deps } = await gateSetup({ gate: false, coupon: { percent_off: 100, duration: 'repeating', duration_in_months: 3 } })
     const r = await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, deps)
     expect(r).toEqual({ status: 200, body: { url: 'https://checkout.stripe.com/c/pay_1' } })
     expect(create).toHaveBeenCalledTimes(1)
+    expect(await redis.zrangebyscore('promo:holds:promo_A', '-inf', '+inf')).toEqual([inviteId])
   })
 
   it.each([
     ['percent_off 50', { percent_off: 50, duration: 'forever' }],
-    ['amount_off', { amount_off: 500, percent_off: null, duration: 'once' }]
-  ] as const)('gate off, invited, a code whose coupon is %s: 409 with the same message, and the hold is released', async (_label, coupon) => {
-    const { redis, inviteId, create, capacity, deps } = await gateSetup({ gate: false, coupon })
+    ['amount_off', { amount_off: 500, percent_off: null, duration: 'once' }],
+    ['percent_off 100, once (a discount, not a pilot)', { percent_off: 100, duration: 'once' }]
+  ] as const)('gate off, invited, a code whose coupon is %s: 409 in the refused-code words check-code gives, and no hold is ever taken', async (_label, coupon) => {
+    const { redis, create, capacity, deps } = await gateSetup({ gate: false, coupon })
+    const evalSpy = vi.spyOn(redis, 'eval')
+    const zrem = vi.spyOn(redis, 'zrem')
     const r = await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, deps)
-    expect(r).toEqual({ status: 409, body: { message: PAID_SIGNUPS_CLOSED_MESSAGE } })
-    expect(await redis.zrangebyscore('promo:holds:promo_A', '-inf', '+inf')).not.toContain(inviteId)
+    expect(r).toEqual({ status: 409, body: { message: PROMO_REFUSED_MESSAGE } })
+    expect(evalSpy).not.toHaveBeenCalled()
+    expect(zrem).not.toHaveBeenCalled()
+    expect(await redis.exists('promo:holds:promo_A')).toBe(0)
     expect(await redis.exists(`signup:${PROVISION}`)).toBe(0)
     expect(create).not.toHaveBeenCalled()
     expect(capacity.addInflight).not.toHaveBeenCalled()
@@ -296,7 +302,7 @@ describe('the owner session hash is kept on the sign-up record (23-37)', () => {
 
 describe('frozen parameters (23-43 Task 3, D3)', () => {
   it('writes priceId (the price in force at checkout) and couponId (the code\'s coupon, expanded) on signup:{provisionId}, beside promoId', async () => {
-    const { redis, deps } = await gateSetup({ gate: false, coupon: { id: 'coupon_full', percent_off: 100, duration: 'once' } })
+    const { redis, deps } = await gateSetup({ gate: false, coupon: { id: 'coupon_full', percent_off: 100, duration: 'repeating', duration_in_months: 3 } })
     const r = await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, deps)
     expect(r.status).toBe(200)
     expect(await redis.hgetall(`signup:${PROVISION}`)).toMatchObject({ promoId: 'promo_A', priceId: 'price_test_123', couponId: 'coupon_full' })
@@ -312,7 +318,20 @@ describe('frozen parameters (23-43 Task 3, D3)', () => {
   })
 
   it.each([
-    ['once', { percent_off: 100, duration: 'once' }, 1],
+    ['monthly', 'price_monthly'],
+    ['weekly', 'price_weekly']
+  ] as const)('paid sign-ups open, a 100%%-off once code on a %s price: a paid discount, the coupon frozen and no pilot fields', async (_label, priceId) => {
+    const { redis, create, deps } = await gateSetup({ gate: true, coupon: { id: 'coupon_once', percent_off: 100, duration: 'once' } })
+    const r = await handleCreateCheckout({ ...GATE_BODY, code: 'PILOT-AAAA' }, { ...deps, priceId })
+    expect(r.status).toBe(200)
+    expect(create).toHaveBeenCalledTimes(1)
+    const signup = (await redis.hgetall<Record<string, unknown>>(`signup:${PROVISION}`))!
+    expect(signup).toMatchObject({ promoId: 'promo_A', priceId, couponId: 'coupon_once' })
+    expect(signup).not.toHaveProperty('pilotMonths')
+    expect(signup).not.toHaveProperty('pilotEndsAt')
+  })
+
+  it.each([
     ['repeating 3 months', { percent_off: 100, duration: 'repeating', duration_in_months: 3 }, 3]
   ] as const)('a free pilot code (%s) freezes pilotMonths and pilotEndsAt from the checkout time', async (_label, coupon, months) => {
     const { redis, deps } = await gateSetup({ gate: false, coupon })

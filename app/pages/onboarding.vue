@@ -32,9 +32,6 @@ const full = computed(() => capacity.data.value?.room !== true)
         :description="copy.full.alert"
         class="border-l-4 border-l-accented bg-default"
       />
-      <p class="mt-4 text-base text-muted">
-        {{ copy.full.line }}
-      </p>
     </template>
     <template v-else>
       <h1 class="text-[28px] leading-tight font-semibold text-highlighted mb-2">

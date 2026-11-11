@@ -4,11 +4,12 @@
 // scanners prefetch links, so the page only reads the date, the price and the
 // state (GET /api/pilot-continue), in the browser. Only the button's POST, the
 // organizer's yes, keeps the site, and from then on the saved card is charged
-// the full price, even while paid sign-ups are off. Not gated. The token is in
+// from the first bill after the free months, even while paid sign-ups are off.
+// With no readable price the page offers no yes, only a new read. Not gated. The token is in
 // the query string, so the route rule sends no Referer and the page is never
 // cached (nuxt.config.ts). The words are draft wording, to be confirmed
 // (app/utils/pilot-continue-flow.ts).
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { PILOT_CONTINUE_COPY, callPilotContinue, pilotTokenFromQuery, type PilotContinueView } from '~/utils/pilot-continue-flow'
 
 // Task page: forced light (fresh3 22-UI-SPEC Part 1, "Dark mode (Nuxt only)").
@@ -24,6 +25,8 @@ const view = ref<PilotContinueView>({ phase: token ? 'loading' : 'invalid', date
 // The date and price from the last good read, kept when a POST fails.
 const known = ref({ date: '', price: '' })
 const result = ref<HTMLElement | null>(null)
+// The yes is offered only when the last good read had both the date and the price.
+const canKeep = computed(() => Boolean(known.value.date && known.value.price))
 
 const fetcher = (url: string, opts: { method: 'GET' | 'POST', query: { t: string } }) => $fetch(url, opts)
 
@@ -36,7 +39,7 @@ async function load() {
 }
 
 async function keep() {
-  if (!token || view.value.phase === 'working' || view.value.phase === 'continued') return
+  if (!token || !canKeep.value || view.value.phase === 'working' || view.value.phase === 'continued') return
   view.value = { ...view.value, phase: 'working' }
   const next = await callPilotContinue(fetcher, 'POST', token)
   if (next.date) known.value = { date: next.date, price: next.price }
@@ -57,8 +60,8 @@ watch(() => view.value.phase, (now) => {
 })
 
 function retry() {
-  // A read that failed reads again; a failed yes is tried again only when the read had worked.
-  if (known.value.date) keep()
+  // A read that failed reads again; a failed yes is tried again only when the read had a price.
+  if (canKeep.value) keep()
   else load()
 }
 </script>
@@ -79,7 +82,7 @@ function retry() {
       ref="result"
       tabindex="-1"
       class="text-base text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-    >{{ copy.continued(view.date || known.date, view.price || known.price) }}</p>
+    >{{ copy.continued(view.price || known.price) }}</p>
 
     <div
       v-else-if="view.phase === 'ended' || view.phase === 'invalid'"
@@ -98,7 +101,7 @@ function retry() {
     <div v-else class="flex flex-col gap-6">
       <template v-if="known.date">
         <p class="text-base text-default">{{ copy.ends(known.date) }}</p>
-        <p class="text-base text-muted">{{ copy.cost(known.date, known.price) }}</p>
+        <p class="text-base text-muted">{{ known.price ? copy.cost(known.date, known.price) : copy.priceMissing }}</p>
       </template>
       <div
         v-if="view.phase === 'server-error'"
@@ -114,7 +117,7 @@ function retry() {
         />
       </div>
       <UButton
-        v-if="known.date"
+        v-if="canKeep"
         type="button"
         :label="view.phase === 'working' ? copy.buttonWorking : copy.button"
         :loading="view.phase === 'working'"
@@ -125,9 +128,9 @@ function retry() {
         @click="keep"
       />
       <UButton
-        v-else-if="view.phase === 'server-error'"
+        v-else-if="view.phase === 'server-error' || view.phase === 'price-missing'"
         type="button"
-        label="Try again"
+        :label="copy.retry"
         size="xl"
         color="neutral"
         variant="outline"

@@ -244,7 +244,9 @@ describe('voice and product rules (a separate list from the honesty bans)', () =
     ['Voice', 'Seamlessly connected'],
     ['Voice', 'An AI-powered library'],
     ['Voice', 'We empower communities'],
-    ['Third-party title', 'Inspired by Building a Second Brain']
+    ['Third-party title', 'Inspired by Building a Second Brain'],
+    ['Plain words', 'Then the full price applies'],
+    ['Plain words', 'This usually takes about 4 minutes']
   ]
 
   it.each(probes)('%s fires on "%s" and the output names the list', (rule, probe) => {
@@ -466,6 +468,22 @@ describe('sign-up pages and mail copy are wording-checked (23-28)', () => {
     const r = runClean()
     expect(r.code).toBe(1)
     expect(r.out).toMatch(/^FAIL server\/utils\/mail-copy\.ts: .*\(mailSources: frame word in the mail copy \(D-05\)\)/m)
+  })
+
+  it.each(['full price', 'about 4 minutes'])('the plain-words phrase "%s" planted in a sign-up page fails as a voice rule', (phrase) => {
+    copyListed()
+    plant(INVITE_ENTRY, `<p>Then the ${phrase} applies.</p>`)
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL app\/pages\/invite\/index\.vue: .*\(signupSources: voice and product rules, Plain words:/m)
+  })
+
+  it('the plain-words phrases planted in the mail copy fail and name mailSources', () => {
+    copyListed()
+    plant(MAIL_COPY, 'export const planted = \'Then the full price applies\'')
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL server\/utils\/mail-copy\.ts: .*\(mailSources: voice and product rules, Plain words:/m)
   })
 
   it('a hype word planted in a sign-up page fails as a voice rule', () => {

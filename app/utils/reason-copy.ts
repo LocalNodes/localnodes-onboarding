@@ -18,13 +18,13 @@ export const REASON_SENTENCES: Record<ReasonCode, string> = {
   create_failed: 'We couldn\'t create your site on our hosting service.',
   env_failed: 'We couldn\'t finish configuring your site.',
   deploy_failed: 'We couldn\'t start your site.',
-  deploy_timeout: 'Starting your site took longer than we allow.',
-  install_timeout: 'Your site started, but setting it up took longer than we allow.',
-  manifest_failed: 'We couldn\'t pass your sign-up details to the setup step.',
-  install_failed: 'We couldn\'t finish installing your site.',
-  db_not_empty: 'A previous attempt left something behind that stopped this one.',
+  deploy_timeout: 'Setting up your site took too long.',
+  install_timeout: 'Setting up your site took too long.',
+  manifest_failed: 'We couldn\'t finish setting up your site.',
+  install_failed: 'We couldn\'t finish setting up your site.',
+  db_not_empty: 'We couldn\'t finish setting up your site.',
   platform_enable_failed: 'We couldn\'t turn on your site\'s features.',
-  organizer_failed: 'Your site is built, but we couldn\'t create your account on it.',
+  organizer_failed: 'Your site is built, but we couldn\'t add you to it as its organizer.',
   unknown: 'Something went wrong on our side.'
 }
 
@@ -39,8 +39,8 @@ export const SUCCESS_COPY = {
   // Section 4, progress.
   progress: {
     title: 'Setting Up Your Site',
-    intro: 'This usually takes about 4 minutes. You can leave this page; we\'ll email you.',
-    retriedIntro: 'Trying again. This usually takes about 4 minutes.',
+    intro: 'This usually takes a few minutes. We\'ll email you when it\'s ready.',
+    retriedIntro: 'This usually takes a few minutes. We\'ll email you when it\'s ready.',
     underSteps: 'We\'ll email your sign-in link when your site is ready.',
     readError: 'Couldn\'t check your site\'s progress right now. We\'ll keep trying, and we\'ll email you.',
     // "Empty (no session)" (orchestrator, rule C, 2026-11-08).
@@ -52,7 +52,7 @@ export const SUCCESS_COPY = {
   failed: {
     title: 'Setting Up Your Site',
     alert: 'Setting up your site didn\'t finish. You haven\'t been charged.',
-    retryLine: 'You can try once more for free. If it doesn\'t work a second time, we\'ll stop and you won\'t be charged.',
+    retryLine: 'Try setting up your site once more. If it still doesn\'t work, we\'ll stop. You won\'t be charged.',
     retry: 'Retry site setup',
     retrying: 'Retrying…',
     retryingAnnouncement: 'Retrying site setup.',
@@ -132,18 +132,6 @@ export const SUCCESS_COPY = {
 
 /** The browser title shape every sign-up page uses: "‹Page Title› - LocalNodes". */
 export const pageTitle = (title: string) => `${title} - LocalNodes`
-
-/**
- * The progress page's time line (section 4): "About 3 minutes left.", from the
- * seconds left on the 4-minute countdown, rounded up to whole minutes, so it
- * changes once a minute. It is never announced. At one minute the noun is
- * singular; at zero the line is empty and the page hides it.
- */
-export function timeLine(secondsLeft: number): string {
-  const minutes = Math.ceil(Math.max(0, secondsLeft) / 60)
-  if (minutes <= 0) return ''
-  return minutes === 1 ? 'About 1 minute left.' : `About ${minutes} minutes left.`
-}
 
 /**
  * The held screen's body (section 6a) with its one time slot filled: the end

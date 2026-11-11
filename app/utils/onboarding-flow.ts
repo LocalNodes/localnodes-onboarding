@@ -7,6 +7,7 @@
 // here; change the UI-SPEC first. npm run check:claims scans this file with the
 // sign-up rules (signupSources in tests/fixtures/banned-claims.json).
 import { DEFAULT_TOPIC_TYPES } from '#shared/signup'
+import { monthsPhrase, monthsWord, readCodeOffer, type CodeOffer } from '#shared/code-offer'
 import {
   GEMINI_BILLING_MESSAGE,
   KEY_FAILED_MESSAGE,
@@ -44,7 +45,7 @@ export const SIGNUP_COPY = {
     suggestingAnnouncement: 'Suggesting page types.',
     newLabel: 'New page type',
     add: 'Add a type',
-    atMax: 'You can have up to 8 page types.',
+    atMax: 'You can add up to 8 extra page types; five standard types are already included.',
     alwaysIncluded: 'Always included: Blog, Content, Dialog, News and Reference.',
     fallback: 'We couldn\'t suggest types just now. You can add your own, or skip this.',
     tooMany: 'You\'ve asked for suggestions a lot. Wait a bit, or add your own types.',
@@ -56,20 +57,36 @@ export const SIGNUP_COPY = {
     label: 'Code',
     apply: 'Apply code',
     prefilledHelp: 'Your invite includes this code.',
-    accepted: 'Code applied. It\'s used when we start your subscription, once your site is live.'
+    // What an applied code says, by what it offers. A code with no offer to
+    // state (refused, or not checked) says nothing here.
+    accepted: {
+      pilot: (months: number) => `Your pilot code gives you ${monthsPhrase(months)} free; paying afterwards is your choice.`,
+      paid: 'Code applied. Your discount starts with your site\'s first bill.'
+    }
+  },
+  // The line above the button when the code is a free pilot; every other case shows the bare price line.
+  price: {
+    pilot: (months: number, line: string) => `Free for ${monthsPhrase(months)}, then ${line} only if you choose to continue.`
   },
   submit: {
     button: 'Continue to card details',
     working: 'Redirecting to card details…',
-    under: 'We\'ll save your card now and charge it only once your site is live.',
+    // The lines under the button, by which words are on screen.
+    under: {
+      pilot: (months: number) => [
+        `We save your card now; your ${monthsWord(months)}-month pilot costs nothing, and we charge it only if you choose to keep the site.`,
+        'We keep it so you won\'t need to enter it again if you choose to continue.'
+      ],
+      paid: ['We\'ll save your card now and charge it only once your site is live.'],
+      neutral: ['We\'ll save your card now. What you pay, if anything, depends on your code; we\'ll show it before you continue.']
+    },
     checkoutFailed: 'We couldn\'t start checkout. Try again in a moment.',
     summaryHeading: 'Fix these to continue'
   },
   full: {
     title: 'Waiting for Room',
     // The same words as server/utils/capacity.ts FULL_MESSAGE (a test keeps them equal).
-    alert: 'We\'re full right now. We\'ll email you when there\'s room.',
-    line: 'You haven\'t been charged.'
+    alert: 'We are full right now; you have not been charged.'
   }
 } as const
 
@@ -194,18 +211,32 @@ export async function checkAiKey(fetcher: Fetcher, kind: OwnKeyKind, key: string
   }
 }
 
-export type CodeResult = { kind: 'accepted' } | { kind: 'refused', message: string }
+/** The words for a code check that could not be made (a Stripe outage, a lost connection, a reply with no offer). */
+export const CODE_UNCHECKED_MESSAGE = 'We couldn\'t check that code just now. Please try again.'
+
+/**
+ * accepted: the code is usable, and the offer says what it gives (a free pilot or a discount).
+ * refused: the offer is none for a code the server turned down, unknown for a check that could not be made.
+ */
+export type CodeResult =
+  | { kind: 'accepted', offer: Extract<CodeOffer, { offer: 'pilot' | 'paid' }> }
+  | { kind: 'refused', message: string, offer: Extract<CodeOffer, { offer: 'none' | 'unknown' }> }
 
 /**
  * POST /api/check-code {code} (23-15). The server gives one message for every
- * refusal, and the form shows it as it comes.
+ * refusal, and the form shows it as it comes. A 409 is the server turning the
+ * code down; any other failure is a check that could not be made, so nothing is
+ * known about the code. A good reply with no readable offer is also unknown.
  */
 export async function applyCode(fetcher: Fetcher, code: string): Promise<CodeResult> {
   try {
     const res = await fetcher('/api/check-code', { method: 'POST', body: { code } }) as { ok?: boolean } | null
-    return res?.ok === true ? { kind: 'accepted' } : { kind: 'refused', message: SERVER_ERROR_MESSAGE }
+    const offer = readCodeOffer(res)
+    if (res?.ok === true && (offer.offer === 'pilot' || offer.offer === 'paid')) return { kind: 'accepted', offer }
+    return { kind: 'refused', message: CODE_UNCHECKED_MESSAGE, offer: { offer: 'unknown' } }
   } catch (err) {
-    return { kind: 'refused', message: messageOf(err) ?? SERVER_ERROR_MESSAGE }
+    const message = messageOf(err) ?? SERVER_ERROR_MESSAGE
+    return { kind: 'refused', message, offer: { offer: statusOf(err) === 409 ? 'none' : 'unknown' } }
   }
 }
 

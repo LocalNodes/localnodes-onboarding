@@ -281,11 +281,11 @@ describe('billing (tracer): ready → subscription → first invoice paid → ac
     expect((await state())?.status).toBe('complete')
   })
 
-  it('the status reply keeps its seven keys and shows ready while charging; no ids, billing fields or hosted invoice URL', async () => {
+  it('the status reply keeps its seven keys, plus the pilot flag, and shows ready while charging; no ids, billing fields or hosted invoice URL', async () => {
     await redis.hset(stateKey, { billing: 'charging', pendingSubscriptionId: SUB, invoiceId: INVOICE, subscriptionCreatedAt: CREATED, billingTries: 1 })
     await redis.hset(signupKey, { hostedInvoiceUrl: HOSTED })
     const reply = await handleProvisionStatus(SID, redis)
-    expect(Object.keys(reply).sort()).toEqual(['attempt', 'canRetry', 'reason', 'siteUrl', 'startedAt', 'status', 'stopped'])
+    expect(Object.keys(reply).sort()).toEqual(['attempt', 'canRetry', 'pilot', 'reason', 'siteUrl', 'startedAt', 'status', 'stopped'])
     expect(reply.status).toBe('ready')
     const text = JSON.stringify(reply)
     for (const secret of [SUB, INVOICE, HOSTED, CUSTOMER, PM, 'charging', 'billing']) expect(text).not.toContain(secret)
@@ -1466,6 +1466,20 @@ describe('billing: the free pilot ends by itself', () => {
       proration_behavior: 'none',
       metadata: { provision_id: PID, pilot: 'ends', pilot_ends_at: String(END) }
     })
+  })
+
+  it('a sign-up from a 100%-off once code carries no pilot fields, so its subscription is created with the paid params: no cancel_at', async () => {
+    await redis.del(signupKey)
+    await seedReady(redis, { now: clock })
+    stripe.subscriptions.create.mockResolvedValue({
+      id: SUB, created: CREATED, status: 'active', cancel_at: null, metadata: { provision_id: PID }, latest_invoice: { id: INVOICE, status: 'paid' }
+    })
+    await chargeAtReady(SID, deps)
+    const params = stripe.subscriptions.create.mock.calls[0]![0] as Record<string, unknown>
+    expect(params).not.toHaveProperty('cancel_at')
+    expect(params).not.toHaveProperty('proration_behavior')
+    expect(params).toMatchObject({ discounts: [{ promotion_code: PROMO }], metadata: { provision_id: PID } })
+    expect(params.metadata).not.toHaveProperty('pilot')
   })
 
   it('a pilot is created with cancel_at at its frozen end, and its paid-at-creation invoice takes the paid path with no pay call', async () => {

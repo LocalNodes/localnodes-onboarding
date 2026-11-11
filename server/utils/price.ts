@@ -10,7 +10,9 @@
 // the form must never show a price the card will not be charged.
 //
 // Privacy rule: logs hold the short fixed lines below, never an error text.
-import type { InviteRecord } from './invites'
+import type { CodeOffer } from '../../shared/code-offer'
+import { inviteKey, type InviteRecord } from './invites'
+import { classifyCode, type PromoStripe } from './promo'
 
 /** How long a retrieved Stripe price is reused. */
 export const PRICE_CACHE_SECONDS = 600
@@ -74,30 +76,73 @@ export async function priceLine(stripe: PriceStripe, priceId: string, currency: 
   return line === null ? { ok: false, reason: 'unavailable' } : { ok: true, line }
 }
 
+/** The Redis call the invite's code needs: the invite hash, as check-code reads it. */
+export interface PriceRedis {
+  hgetall: (key: string) => Promise<Record<string, unknown> | null>
+}
+
 export interface PriceDeps {
   /** NUXT_LAUNCH_OPEN. */
   open: boolean
   /** The invited session behind the cookie (getInvitedSession), or null. */
   session: InviteRecord | null
-  stripe: PriceStripe
+  /** Prices, and promotion codes for an invite that carries a code. */
+  stripe: PriceStripe & Partial<PromoStripe>
+  /** For the invite hash. Without it an invite's code reads unknown. */
+  redis?: PriceRedis
   priceId: string
   /** NUXT_STRIPE_CURRENCY. */
   currency: string
+  /** runtimeConfig paidSignupsEnabled. Missing reads as closed: a code that is not a pilot then reads none. */
+  paidSignupsEnabled?: boolean
   /** Milliseconds. Tests inject it. */
   now?: () => number
   log?: (msg: string) => void
 }
 
 export type PriceOutcome =
-  | { status: 200, body: { line: string } }
+  | { status: 200, body: { line: string, invited?: true, inviteCode?: { code: string } & CodeOffer } }
   | { status: 404 | 503, body: { message: string } }
+
+/**
+ * What the invited session's code offers, so the form words the page before
+ * anyone presses "Apply code". The session carries the code text but not the
+ * code's id, so the invite hash is read for it (as verifying the invite does).
+ * A hash that is another invite's gives none; a read that fails gives unknown.
+ */
+async function inviteCodeOffer(deps: PriceDeps): Promise<({ code: string } & CodeOffer) | null> {
+  const session = deps.session
+  const code = session?.promoCode?.trim()
+  if (!session || !code) return null
+  try {
+    if (!deps.redis || !deps.stripe.promotionCodes) throw new Error('not wired')
+    const invite = await deps.redis.hgetall(inviteKey(session.emailHmac))
+    if (invite && Object.keys(invite).length > 0 && String(invite.inviteId) !== session.inviteId) return { code, offer: 'none' }
+    const offer = await classifyCode(
+      { code, invite: { inviteId: session.inviteId, promoCodeId: invite?.promoCodeId } },
+      { stripe: { promotionCodes: deps.stripe.promotionCodes }, now: deps.now }
+    )
+    // Closed to paid sign-ups, a code that is not a pilot can't be used (check-code and checkout refuse it).
+    if (offer.offer === 'paid' && deps.paidSignupsEnabled !== true) return { code, offer: 'none' }
+    return { code, ...offer }
+  } catch {
+    deps.log?.('price: invite code unreadable')
+    return { code, offer: 'unknown' }
+  }
+}
 
 /** GET /api/price: invited-only while the launch is closed. */
 export async function handlePrice(deps: PriceDeps): Promise<PriceOutcome> {
   if (!deps.open && !deps.session) return { status: 404, body: { message: 'Not Found' } }
   try {
     const result = await priceLine(deps.stripe, deps.priceId, deps.currency, (deps.now ?? Date.now)())
-    if (result.ok) return { status: 200, body: { line: result.line } }
+    if (result.ok) {
+      const inviteCode = await inviteCodeOffer(deps)
+      // `invited` says a live invited session stands behind the cookie, whether or
+      // not the launch is open: checkout honours that session's code either way,
+      // so the form reads it from here and not from the details it was given.
+      return { status: 200, body: { line: result.line, ...(deps.session ? { invited: true as const } : {}), ...(inviteCode ? { inviteCode } : {}) } }
+    }
     deps.log?.(`price: ${result.reason}`)
   } catch {
     deps.log?.('price: unavailable')

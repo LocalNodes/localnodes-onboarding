@@ -5,8 +5,8 @@ import { getInvitedSession, INVITE_COOKIE, type InviteRecord } from '../utils/in
 // Logic in server/utils/capacity.ts (23-17, D-08). Gated (shared/launch.ts
 // GATED_API): while the launch is closed only an invited session gets here.
 // Answers {room} and nothing else. An invited session that finds no room is put
-// on the waiting list with waiting_for_room "true", so the full screen's "We'll
-// email you when there's room" holds without a checkout button. The session is
+// on the waiting list with waiting_for_room "true", so there is a list to write
+// to when room opens, though the full screen offers no checkout button. The session is
 // read here from the cookie, as create-checkout does: the gate only sets
 // event.context.invited when it would otherwise refuse.
 export default defineEventHandler(async (event) => {

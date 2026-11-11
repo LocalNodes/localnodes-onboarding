@@ -29,24 +29,24 @@ export const AI_CHOICE_COPY = {
   legend: 'Which AI should your site use?',
   help: 'This sets up your site\'s AI assistant and search.',
   options: [
-    { value: 'default', label: 'The LocalNodes default', description: 'No setup. We cover the cost, with a limit per site.' },
-    { value: 'gemini', label: 'Your own Gemini key', description: 'Use a key from your own Google Cloud project.' },
-    { value: 'openrouter', label: 'Your own OpenRouter key', description: 'Use a key from your own OpenRouter account.' }
+    { value: 'default', label: 'Use the included AI service', description: 'No setup. We cover the cost, with a limit per site.' },
+    { value: 'gemini', label: 'Your own Gemini account', description: 'Use a key from your own Google Cloud project.' },
+    { value: 'openrouter', label: 'Your own OpenRouter account', description: 'Use a key from your own OpenRouter account.' }
   ] as ReadonlyArray<{ value: AiChoice, label: string, description: string }>,
   keyLabel: { gemini: 'Gemini key', openrouter: 'OpenRouter key' } as Record<OwnKeyKind, string>,
-  keyHelp: 'Paste your key. We check it once, then keep it only until your site is set up. We never show it again.',
+  keyHelp: 'An API key is the private code from your AI service that lets this site use it. Paste your key. We check it once, then keep it only until your site is set up. We never show it again.',
   checkButton: 'Check key',
   checkButtonWorking: 'Checking…',
   keyChecked: 'Key checked',
   replaceKey: 'Replace key',
   geminiCheckbox: 'This key is from a Google Cloud project with billing turned on',
   /** Shown under Option 3 (D-21). */
-  openRouterZdrLine: 'Turn on Zero Data Retention in your OpenRouter privacy settings, so the companies that run the AI don\'t keep your community\'s text.',
+  openRouterZdrLine: 'In OpenRouter\'s privacy settings, turn on Zero Data Retention before continuing, so the companies that run the AI don\'t keep your community\'s text.',
   /**
    * Shown under Option 3 (orchestrator, rule C, 2026-11-08) until todo
    * 2026-11-08-openrouter-member-recall closes; then it is removed.
    */
-  openRouterRecallLine: 'Works with your own OpenRouter key; answers may find fewer members-only notes than the default for now.'
+  openRouterRecallLine: 'This option may miss some members-only pages when answering. Use the included service if you need those pages.'
 } as const
 
 /** Key failed (also the reply for an empty or malformed key). */

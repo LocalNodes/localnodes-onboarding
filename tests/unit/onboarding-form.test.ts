@@ -17,6 +17,7 @@ import {
   MAX_PAGE_TYPES,
   SIGNUP_COPY,
   addTopicType,
+  CODE_UNCHECKED_MESSAGE,
   applyCode,
   checkAiKey,
   browserTimeZone,
@@ -41,6 +42,7 @@ import {
 } from '../../shared/ai-choice'
 import { FULL_MESSAGE } from '../../server/utils/capacity'
 import { PROMO_REFUSED_MESSAGE } from '../../server/utils/promo'
+import { CHECK_CODE_UNAVAILABLE_MESSAGE } from '../../server/utils/check-code'
 import { PRICE_UNAVAILABLE_MESSAGE } from '../../server/utils/price'
 import { createInvitedSession, invitedDetails, INVITE_COOKIE } from '../../server/utils/invites'
 import { FakeRedis } from './helpers/fake-redis'
@@ -218,17 +220,33 @@ describe('Check key (POST /api/ai-key)', () => {
 // --- the code -------------------------------------------------------------------
 
 describe('the code (POST /api/check-code)', () => {
-  it('an accepted code shows "Code applied. It\'s used when we start your subscription, once your site is live."', async () => {
-    const { fetcher, calls } = fakeFetch({ '/api/check-code': { status: 200, body: { ok: true } } })
-    expect(await applyCode(fetcher, 'PILOT-ONE')).toEqual({ kind: 'accepted' })
+  it('an accepted pilot code says what it gives: months free, and that paying afterwards is the organizer\'s choice', async () => {
+    const { fetcher, calls } = fakeFetch({ '/api/check-code': { status: 200, body: { ok: true, offer: 'pilot', months: 3 } } })
+    expect(await applyCode(fetcher, 'PILOT-ONE')).toEqual({ kind: 'accepted', offer: { offer: 'pilot', months: 3 } })
     expect(calls[0]?.opts).toEqual({ method: 'POST', body: { code: 'PILOT-ONE' } })
-    expect(SIGNUP_COPY.code.accepted).toBe('Code applied. It\'s used when we start your subscription, once your site is live.')
-    expect(read('app/components/PromoCodeField.vue')).toMatch(/v-if="accepted"[\s\S]*?\{\{ copy\.accepted \}\}/)
+    expect(SIGNUP_COPY.code.accepted.pilot(3)).toBe('Your pilot code gives you three months free; paying afterwards is your choice.')
+    expect(SIGNUP_COPY.code.accepted.pilot(6)).toBe('Your pilot code gives you 6 months free; paying afterwards is your choice.')
+    expect(read('app/components/PromoCodeField.vue')).toMatch(/v-if="acceptedText"[\s\S]*?\{\{ acceptedText \}\}/)
   })
 
-  it('a refused code shows the server\'s message as it comes (23-15 gives one message for every refusal)', async () => {
+  it('an accepted discount code says the discount starts with the first bill', async () => {
+    const { fetcher } = fakeFetch({ '/api/check-code': { status: 200, body: { ok: true, offer: 'paid' } } })
+    expect(await applyCode(fetcher, 'TEN-OFF')).toEqual({ kind: 'accepted', offer: { offer: 'paid' } })
+    expect(SIGNUP_COPY.code.accepted.paid).toBe('Code applied. Your discount starts with your site\'s first bill.')
+  })
+
+  it('a refused code shows the server\'s message as it comes (one message for every refusal), and offers nothing', async () => {
     const { fetcher } = fakeFetch({ '/api/check-code': { status: 409, body: { ok: false, message: PROMO_REFUSED_MESSAGE } } })
-    expect(await applyCode(fetcher, 'USED-CODE')).toEqual({ kind: 'refused', message: PROMO_REFUSED_MESSAGE })
+    expect(await applyCode(fetcher, 'USED-CODE')).toEqual({ kind: 'refused', message: PROMO_REFUSED_MESSAGE, offer: { offer: 'none' } })
+  })
+
+  it('a check that could not be made, or a good reply with no readable offer, leaves the offer unknown', async () => {
+    const outage = fakeFetch({ '/api/check-code': { status: 503, body: { ok: false, message: CHECK_CODE_UNAVAILABLE_MESSAGE } } })
+    expect(await applyCode(outage.fetcher, 'ANY')).toEqual({ kind: 'refused', message: CHECK_CODE_UNAVAILABLE_MESSAGE, offer: { offer: 'unknown' } })
+    const bare = fakeFetch({ '/api/check-code': { status: 200, body: { ok: true } } })
+    expect(await applyCode(bare.fetcher, 'ANY')).toEqual({ kind: 'refused', message: CODE_UNCHECKED_MESSAGE, offer: { offer: 'unknown' } })
+    const odd = fakeFetch({ '/api/check-code': { status: 200, body: { ok: true, offer: 'free-forever' } } })
+    expect(await applyCode(odd.fetcher, 'ANY')).toMatchObject({ kind: 'refused', offer: { offer: 'unknown' } })
   })
 })
 
@@ -435,7 +453,7 @@ describe('mounted', () => {
           expect(text).toContain(`${AI_CHOICE_COPY.options[2]!.label} ${AI_CHOICE_COPY.options[2]!.description}`)
           expect(html).toContain('data-option="openrouter"')
         } else {
-          expect(text).not.toContain('Your own OpenRouter key')
+          expect(text).not.toContain('Your own OpenRouter account')
           expect(text).not.toContain(AI_CHOICE_COPY.options[2]!.description)
           expect(html).not.toContain('data-option="openrouter"')
           expect(html.match(/data-option="/g)).toHaveLength(2)
@@ -446,7 +464,7 @@ describe('mounted', () => {
     it('with no plugin run (no page state at all), Option 3 is hidden', async () => {
       states.delete(OPENROUTER_STATE)
       const text = textOf(await mount(AiChoiceField, {}))
-      expect(text).not.toContain('Your own OpenRouter key')
+      expect(text).not.toContain('Your own OpenRouter account')
     })
 
     it('the setting stays server-only: the plugin copies a boolean, and nuxt.config has no public copy', () => {
@@ -498,8 +516,8 @@ describe('mounted', () => {
     const html = await mount(OnboardingPage)
     const text = textOf(html)
     expect(text).toContain('Waiting for Room')
-    expect(text).toContain('We\'re full right now. We\'ll email you when there\'s room.')
-    expect(text).toContain('You haven\'t been charged.')
+    expect(text).toContain('We are full right now; you have not been charged.')
+    expect(text).not.toContain('email you')
     expect(html).toMatch(/role="status"[^>]*data-alert/)
     expect(html).not.toMatch(/type="submit"/)
     expect(text).not.toContain('Continue to card details')
@@ -550,6 +568,83 @@ describe('mounted', () => {
     expect(textOf(html)).not.toContain('I have a code')
   })
 
+  // The words follow the code in the field, and a pilot invite shows its pilot
+  // words before anyone presses "Apply code" (the server reads the invite's code
+  // into the price reply).
+  describe('the words by offer', () => {
+    const PILOT_SENTENCES = [
+      'Free for three months, then $20 a month only if you choose to continue.',
+      'We save your card now; your three-month pilot costs nothing, and we charge it only if you choose to keep the site.',
+      'We keep it so you won\'t need to enter it again if you choose to continue.'
+    ]
+    const PAID_UNDER = 'We\'ll save your card now and charge it only once your site is live.'
+    const NEUTRAL_UNDER = 'We\'ll save your card now. What you pay, if anything, depends on your code; we\'ll show it before you continue.'
+
+    it('a pilot invite opens the form with the pilot sentences and the pilot price line, before "Apply code"', async () => {
+      states.set('ln-invite-details', ref({ email: 'organizer@example.org', promoCode: 'PILOT-ONE' }))
+      fetchAnswers['/api/price'] = { data: { line: '$20 a month', inviteCode: { code: 'PILOT-ONE', offer: 'pilot', months: 3 } } }
+      const text = textOf(await mount(OnboardingForm))
+      for (const sentence of PILOT_SENTENCES) expect(text).toContain(sentence)
+      // Nothing has been pressed: the Apply code button is still there to press.
+      expect(text).toContain('Apply code')
+      expect(text.indexOf(PILOT_SENTENCES[1]!)).toBeGreaterThan(text.indexOf('Continue to card details'))
+      expect(text).not.toContain(PAID_UNDER)
+      expect(text).not.toContain(NEUTRAL_UNDER)
+    })
+
+    it('a paid sign-up with no code shows the bare price and today\'s line under the button', async () => {
+      fetchAnswers['/api/price'] = { data: { line: '$20 a month' } }
+      const text = textOf(await mount(OnboardingForm))
+      expect(text).toContain('$20 a month')
+      expect(text).not.toContain('Free for')
+      expect(text).toContain(PAID_UNDER)
+    })
+
+    it('an invite whose code is a discount shows the bare price and the paid line', async () => {
+      states.set('ln-invite-details', ref({ email: 'organizer@example.org', promoCode: 'TEN-OFF' }))
+      fetchAnswers['/api/price'] = { data: { line: '$20 a month', inviteCode: { code: 'TEN-OFF', offer: 'paid' } } }
+      const text = textOf(await mount(OnboardingForm))
+      expect(text).not.toContain('Free for')
+      expect(text).toContain(PAID_UNDER)
+    })
+
+    it('an invite whose code could not be read shows neutral words and no pilot promise', async () => {
+      states.set('ln-invite-details', ref({ email: 'organizer@example.org', promoCode: 'PILOT-ONE' }))
+      fetchAnswers['/api/price'] = { data: { line: '$20 a month', inviteCode: { code: 'PILOT-ONE', offer: 'unknown' } } }
+      const text = textOf(await mount(OnboardingForm))
+      expect(text).toContain(NEUTRAL_UNDER)
+      expect(text).not.toContain('Free for')
+      expect(text).not.toContain(PAID_UNDER)
+    })
+
+    it('a code in the field that nobody has classified shows neutral words; a public sign-up ignores it', async () => {
+      states.set('ln-invite-details', ref({ email: 'organizer@example.org', promoCode: 'PILOT-ONE' }))
+      fetchAnswers['/api/price'] = { data: { line: '$20 a month' } }
+      expect(textOf(await mount(OnboardingForm))).toContain(NEUTRAL_UNDER)
+      states.set('ln-invite-details', ref(null))
+      expect(textOf(await mount(OnboardingForm))).toContain(PAID_UNDER)
+    })
+
+    it('the form checks the code before the card page, and the code field voids a check when it is edited', () => {
+      const form = read('app/components/OnboardingForm.vue')
+      expect(form).toMatch(/await decideSubmit\(/)
+      expect(form.indexOf('await decideSubmit(')).toBeLessThan(form.indexOf('await startCheckout('))
+      expect(form).toMatch(/@classified="classified"/)
+      const field = read('app/components/PromoCodeField.vue')
+      expect(field).toMatch(/watch\(code, \(\) => \{\s*guard\.invalidate\(\)/)
+      expect(field).toMatch(/if \(!guard\.isCurrent\(ticket\)\) return/)
+      expect(field).toMatch(/emit\('classified'/)
+    })
+
+    it('the pilot invite\'s months come from the server: six months reads "Free for 6 months" and a "6-month pilot"', async () => {
+      states.set('ln-invite-details', ref({ email: 'organizer@example.org', promoCode: 'PILOT-SIX' }))
+      fetchAnswers['/api/price'] = { data: { line: '$20 a month', inviteCode: { code: 'PILOT-SIX', offer: 'pilot', months: 6 } } }
+      const text = textOf(await mount(OnboardingForm))
+      expect(text).toContain('Free for 6 months, then $20 a month only if you choose to continue.')
+      expect(text).toContain('your 6-month pilot costs nothing')
+    })
+  })
+
   it('without a code the field is collapsed behind "I have a code", with aria-expanded', async () => {
     const html = await mount(OnboardingForm)
     expect(textOf(html)).toContain('I have a code')
@@ -584,10 +679,10 @@ describe('mounted', () => {
     expect(html).toContain('aria-label="Remove How-to"')
   })
 
-  it('at 8 rows the add row is replaced by "You can have up to 8 page types."', async () => {
+  it('at 8 rows the add row is replaced by the line that says five standard types are already included', async () => {
     const eight = Array.from({ length: 8 }, (_, i) => `Type ${i + 1}`)
     const html = await mount(TopicTypesEditor, { modelValue: eight })
-    expect(textOf(html)).toContain('You can have up to 8 page types.')
+    expect(textOf(html)).toContain('You can add up to 8 extra page types; five standard types are already included.')
     expect(html).not.toMatch(/data-field="newType"/)
   })
 

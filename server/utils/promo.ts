@@ -31,6 +31,7 @@
 //
 // Privacy rule: the code, the invite id and the holder are never logged.
 import type Stripe from 'stripe'
+import type { CodeOffer } from '../../shared/code-offer'
 import { pilotMonthsOf } from './pilot-end'
 
 /** The one refusal, for every kind of failure. Words from 22-UI-SPEC Part 7. */
@@ -196,37 +197,65 @@ export async function releaseHold(redis: PromoRedis, promoId: string, holder: st
   await redis.zrem(holdsKey(promoId), holder)
 }
 
+/** What the shared lookup found: the usable code, how many uses are left, and what its coupon makes of a sign-up. */
+interface UsableCode {
+  promo: PromoLike
+  left: number | null
+  kind: Exclude<ReturnType<typeof pilotMonthsOf>, { refuse: true }>
+}
+
 /**
- * Look the code up, refuse it if it can't be used, and hold it for `holder`.
- * Lets a Stripe or Redis error through: the caller must not read an outage as
- * "this code is used" (and no checkout starts either way).
+ * The lookup and the checks checkCode and classifyCode share: Stripe is asked
+ * for the active code, and the code is refused when it is unknown, expired,
+ * used up, bound to another invite, or has a coupon that can't make a pilot
+ * that ends. The clock is read after Stripe replies, so a code that runs out
+ * during the request is refused. Places no hold. Lets a Stripe error through.
  */
-export async function checkCode(
-  input: { code: string, holder: string, invite: PromoInvite | null },
-  deps: CheckCodeDeps
-): Promise<CheckCodeResult> {
-  const now = deps.now ?? Date.now
+async function findUsableCode(
+  input: { code: string, invite: PromoInvite | null },
+  stripe: PromoStripe,
+  now: () => number
+): Promise<UsableCode | null> {
   const code = input.code.trim()
-  if (!code) return { ok: false }
+  if (!code) return null
   // The coupon is expanded so the paid-sign-up gate can tell a 100%-off code (23-32).
-  const { data } = await deps.stripe.promotionCodes.list({ code, active: true, limit: 1, expand: ['data.promotion.coupon'] })
+  const { data } = await stripe.promotionCodes.list({ code, active: true, limit: 1, expand: ['data.promotion.coupon'] })
   const promo = data[0]
-  if (!promo || promo.active === false) return { ok: false }
-  if (promo.expires_at != null && promo.expires_at * 1000 <= now()) return { ok: false }
+  if (!promo || promo.active === false) return null
+  if (promo.expires_at != null && promo.expires_at * 1000 <= now()) return null
   const left = promo.max_redemptions == null ? null : promo.max_redemptions - promo.times_redeemed
-  if (left !== null && left <= 0) return { ok: false }
+  if (left !== null && left <= 0) return null
   // A pilot code belongs to one invite: the invite names it, and add-pilot
   // tags the code with the invite id on Stripe's side. Either mismatch refuses.
   const inviteId = input.invite?.inviteId == null ? undefined : String(input.invite.inviteId)
   const boundCodeId = input.invite?.promoCodeId == null || input.invite.promoCodeId === '' ? undefined : String(input.invite.promoCodeId)
-  if (boundCodeId !== undefined && boundCodeId !== promo.id) return { ok: false }
+  if (boundCodeId !== undefined && boundCodeId !== promo.id) return null
   const taggedInvite = promo.metadata?.invite_id
-  if (taggedInvite && taggedInvite !== inviteId) return { ok: false }
+  if (taggedInvite && taggedInvite !== inviteId) return null
   // A free pilot must be able to end by itself (pilot-end.ts): a coupon that
   // can't be read, or a 100%-off one that is forever or has no month count,
   // is refused before anything is held.
   const kind = pilotMonthsOf(promo.promotion?.coupon)
-  if ('refuse' in kind) return { ok: false }
+  if ('refuse' in kind) return null
+  return { promo, left, kind }
+}
+
+/**
+ * Look the code up, refuse it if it can't be used, and hold it for `holder`.
+ * pilotOnly (paid sign-ups closed): a code that is not a free pilot is refused
+ * too, before the hold, so a refused code is never held. Lets a Stripe or
+ * Redis error through: the caller must not read an outage as "this code is
+ * used" (and no checkout starts either way).
+ */
+export async function checkCode(
+  input: { code: string, holder: string, invite: PromoInvite | null, pilotOnly?: boolean },
+  deps: CheckCodeDeps
+): Promise<CheckCodeResult> {
+  const now = deps.now ?? Date.now
+  const found = await findUsableCode(input, deps.stripe, now)
+  if (!found) return { ok: false }
+  const { promo, left, kind } = found
+  if (input.pilotOnly && !kind.pilot) return { ok: false }
   const held = await holdCode(deps.redis, promo.id, input.holder, left, now())
   if (!held) return { ok: false }
   return {
@@ -235,6 +264,27 @@ export async function checkCode(
     fullDiscount: isFullDiscount(promo),
     couponId: couponIdOf(promo),
     ...(kind.pilot ? { pilotMonths: kind.months } : {})
+  }
+}
+
+/**
+ * What a code offers, read-only: the same Stripe lookup and invite checks as
+ * checkCode, with no hold. A free pilot is { offer: 'pilot', months }; a valid
+ * code that is not a free pilot is { offer: 'paid' }; a refused or empty code
+ * is { offer: 'none' }; a Stripe error is { offer: 'unknown' }, never 'paid'.
+ * Does not look at live holds, so a code another checkout is holding still
+ * reads by what it offers (checkCode is what refuses it).
+ */
+export async function classifyCode(
+  input: { code: string, invite: PromoInvite | null },
+  deps: { stripe: PromoStripe, now?: () => number }
+): Promise<CodeOffer> {
+  try {
+    const found = await findUsableCode(input, deps.stripe, deps.now ?? Date.now)
+    if (!found) return { offer: 'none' }
+    return found.kind.pilot ? { offer: 'pilot', months: found.kind.months } : { offer: 'paid' }
+  } catch {
+    return { offer: 'unknown' }
   }
 }
 

@@ -118,11 +118,11 @@ async function setupInvite(redis: FakeRedis, invite: { promoCodeId?: string, pro
 
 describe('checkCode', () => {
   it.each([
-    ['a coupon with percent_off 100, once', { percent_off: 100, duration: 'once' }, true, 1],
+    ['a coupon with percent_off 100, once (a discount, not a pilot)', { percent_off: 100, duration: 'once' }, true, undefined],
     ['a coupon with percent_off 100, repeating 3 months', { percent_off: 100, duration: 'repeating', duration_in_months: 3 }, true, 3],
     ['a coupon with percent_off 50', { percent_off: 50, duration: 'forever' }, false, undefined],
     ['a coupon with amount_off', { amount_off: 500, percent_off: null, duration: 'once' }, false, undefined],
-    ['an expanded coupon with its id (23-43 Task 3)', { id: 'coupon_full', percent_off: 100, duration: 'once' }, true, 1]
+    ['an expanded coupon with its id', { id: 'coupon_full', percent_off: 100, duration: 'repeating', duration_in_months: 3 }, true, 3]
   ] as const)('fullDiscount for %s is %s (23-32: only a 100%-off coupon counts), pilotMonths %s', async (_label, coupon, full, months) => {
     const { redis } = holdRedis()
     const row = { ...promoRow(), promotion: { type: 'coupon', coupon } }
@@ -131,6 +131,27 @@ describe('checkCode', () => {
     // couponId (23-43 Task 3, D3): the coupon's id; empty when it has none.
     const couponId = 'id' in coupon ? coupon.id : ''
     expect(r).toEqual({ ok: true, promoId: 'promo_A', fullDiscount: full, couponId, ...(months ? { pilotMonths: months } : {}) })
+  })
+
+  it.each([
+    ['100% off once', { percent_off: 100, duration: 'once' }],
+    ['50% off forever', { percent_off: 50, duration: 'forever' }]
+  ] as const)('pilotOnly: a %s code is refused before any hold is taken', async (_label, coupon) => {
+    const { redis, holders } = holdRedis()
+    const evalSpy = vi.spyOn(redis, 'eval')
+    const row = { ...promoRow(), promotion: { type: 'coupon', coupon } }
+    const { stripe } = mockStripe([row as PromoRow])
+    expect(await checkCode({ code: 'PILOT-AAAA', holder: 'inv_1', invite: null, pilotOnly: true }, { stripe, redis, now: () => T0 })).toEqual({ ok: false })
+    expect(evalSpy).not.toHaveBeenCalled()
+    expect(holders('promo_A')).toEqual([])
+  })
+
+  it('pilotOnly: a pilot code is held exactly as without it', async () => {
+    const { redis, holders } = holdRedis()
+    const { stripe } = mockStripe([{ ...promoRow(), promotion: { type: 'coupon', coupon: { percent_off: 100, duration: 'repeating', duration_in_months: 3 } } } as PromoRow])
+    const r = await checkCode({ code: 'PILOT-AAAA', holder: 'inv_1', invite: null, pilotOnly: true }, { stripe, redis, now: () => T0 })
+    expect(r).toMatchObject({ ok: true, promoId: 'promo_A' })
+    expect(holders('promo_A')).toEqual(['inv_1'])
   })
 
   it.each([
@@ -192,6 +213,21 @@ describe('checkCode', () => {
       expect(holders('promo_A'), name).toEqual([])
       expect(evals.count, `${name}: refused before any hold is tried`).toBe(0)
     }
+  })
+
+  it('judges expiry by the clock after Stripe replies: a code that runs out during the request is refused and not held', async () => {
+    const { redis, holders } = holdRedis()
+    let clock = T0
+    const { stripe } = mockStripe([promoRow({ expires_at: Math.floor(T0 / 1000) + 10 })])
+    const slow = stripe.promotionCodes.list
+    stripe.promotionCodes.list = vi.fn(async (...args: Parameters<typeof slow>) => {
+      const reply = await slow(...args)
+      clock = T0 + 20_000
+      return reply
+    })
+    const r = await checkCode({ code: 'PILOT-AAAA', holder: 'inv_1', invite: null }, { stripe, redis, now: () => clock })
+    expect(r).toEqual({ ok: false })
+    expect(holders('promo_A')).toEqual([])
   })
 
   it('refuses a code Stripe returns as inactive even if the list filter did not drop it', async () => {
@@ -651,10 +687,10 @@ describe('check-code', () => {
     expect(list).not.toHaveBeenCalled()
   })
 
-  it('accepts a good code with ok true and nothing else, and holds it for the invite', async () => {
+  it('accepts a good code with ok true and what it offers, and holds it for the invite (paid sign-ups open)', async () => {
     const { deps, holders, inviteId } = await codeSetup()
-    const r = await handleCheckCode({ code: ' PILOT-AAAA ' }, deps)
-    expect(r).toEqual({ status: 200, body: { ok: true } })
+    const r = await handleCheckCode({ code: ' PILOT-AAAA ' }, { ...deps, paidSignupsEnabled: true })
+    expect(r).toEqual({ status: 200, body: { ok: true, offer: 'paid' } })
     expect(holders('promo_A')).toEqual([inviteId])
   })
 

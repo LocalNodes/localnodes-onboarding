@@ -282,17 +282,14 @@ export async function handleCreateCheckout(raw: unknown, deps: CheckoutDeps): Pr
     if (input.code) {
       if (!deps.stripe.promotionCodes || !redis.eval || !redis.zrem) throw new Error('create-checkout: promotion codes not wired')
       const checked = await checkCode(
-        { code: input.code, holder: session.inviteId, invite },
+        // While paid sign-ups are closed only a free pilot code is usable; any
+        // other code is refused here, before a hold, in the words check-code gives it.
+        { code: input.code, holder: session.inviteId, invite, pilotOnly: !deps.paidSignupsEnabled },
         { stripe: deps.stripe as PromoStripe, redis: redis as PromoRedis, now: deps.now }
       )
       if (!checked.ok) {
         deps.log?.('create-checkout: refused, code not usable')
         return refuse(409, PROMO_REFUSED_MESSAGE)
-      }
-      // A code that is not 100% off is still a paid sign-up: let the hold go first.
-      if (!deps.paidSignupsEnabled && !checked.fullDiscount) {
-        await releaseHold(redis as PromoRedis, checked.promoId, session.inviteId).catch(() => {})
-        return refusePaid(deps)
       }
       promoId = checked.promoId
       couponId = checked.couponId || undefined
