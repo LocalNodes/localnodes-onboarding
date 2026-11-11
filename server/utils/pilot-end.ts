@@ -73,17 +73,19 @@ export interface CouponLike {
 export type PilotClass = { pilot: true, months: number } | { pilot: false } | { refuse: true }
 
 /**
- * What a code's coupon makes of a sign-up. 100% off once is a 1-month pilot,
- * 100% off repeating N months an N-month pilot. Anything that is not 100% off
- * is the paid path. Refused: a coupon that is not an expanded object (it can't
- * be classified), and a 100%-off coupon that is forever or has no whole month
- * count (no end could be set).
+ * What a code's coupon makes of a sign-up. Only 100% off repeating N months is
+ * a pilot, of N months. 100% off once is a paid discount, never a pilot: it is
+ * used up by the first invoice, so on a price billed more often than monthly a
+ * second invoice would charge the card inside the free month. Anything that is
+ * not 100% off is the paid path too. Refused: a coupon that is not an expanded
+ * object (it can't be classified), and a 100%-off coupon that is forever or
+ * has no whole month count (no end could be set).
  */
 export function pilotMonthsOf(coupon: unknown): PilotClass {
   if (typeof coupon !== 'object' || coupon === null) return { refuse: true }
   const c = coupon as CouponLike
   if (c.percent_off !== 100) return { pilot: false }
-  if (c.duration === 'once') return { pilot: true, months: 1 }
+  if (c.duration === 'once') return { pilot: false }
   if (c.duration === 'repeating') {
     const n = c.duration_in_months
     return typeof n === 'number' && Number.isInteger(n) && n >= 1 ? { pilot: true, months: n } : { refuse: true }

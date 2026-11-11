@@ -41,8 +41,7 @@ const {
   retrying,
   retryFailed,
   retried,
-  retry,
-  minutesLine
+  retry
 } = useProvisioningStatus(sessionId)
 
 const progress = SUCCESS_COPY.progress
@@ -173,11 +172,8 @@ watch(retrying, (now) => {
       <h1 class="text-[28px] leading-tight font-semibold text-highlighted mb-2">
         {{ progress.title }}
       </h1>
-      <p class="text-base text-muted mb-2">
+      <p class="text-base text-muted mb-8">
         {{ retried ? progress.retriedIntro : progress.intro }}
-      </p>
-      <p v-if="minutesLine" class="text-base text-default mb-8">
-        {{ minutesLine }}
       </p>
 
       <UAlert

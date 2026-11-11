@@ -30,6 +30,11 @@ describe('priceLine formats', () => {
     expect(await priceLine(stripe, 'price_a', 'usd', T0)).toEqual({ ok: true, line: '$20 a month' })
   })
 
+  it('4900 usd monthly is exactly "$49 a month", the words the continue page and the notice mail show', async () => {
+    const { stripe } = mockStripe(monthly({ unit_amount: 4900 }))
+    expect(await priceLine(stripe, 'price_a', 'usd', T0)).toEqual({ ok: true, line: '$49 a month' })
+  })
+
   it('1950 usd monthly keeps both decimals: "$19.50 a month"', async () => {
     const { stripe } = mockStripe(monthly({ unit_amount: 1950 }))
     expect(await priceLine(stripe, 'price_a', 'usd', T0)).toEqual({ ok: true, line: '$19.50 a month' })
@@ -150,7 +155,12 @@ describe('handlePrice (GET /api/price)', () => {
 
   it('answers {line} for an invited session while closed', async () => {
     const { deps } = base()
-    expect(await handlePrice(deps)).toEqual({ status: 200, body: { line: '$20 a month' } })
+    expect(await handlePrice(deps)).toEqual({ status: 200, body: { line: '$20 a month', invited: true } })
+  })
+
+  it('says a live invited session stands behind the cookie even with the launch open, and not to a visitor without one', async () => {
+    expect((await handlePrice(base({ open: true }).deps)).body).toEqual({ line: '$20 a month', invited: true })
+    expect((await handlePrice(base({ open: true, session: null }).deps)).body).toEqual({ line: '$20 a month' })
   })
 
   it('answers 404 and never asks Stripe while closed without an invited session', async () => {
@@ -191,7 +201,7 @@ describe('handlePrice (GET /api/price)', () => {
     expect(logs).toEqual(['price: unavailable'])
     expect(logs.join('\n')).not.toContain('sk_test')
     fail = false
-    expect(await handlePrice(deps)).toEqual({ status: 200, body: { line: '$20 a month' } })
+    expect(await handlePrice(deps)).toEqual({ status: 200, body: { line: '$20 a month', invited: true } })
     expect(retrieve).toHaveBeenCalledTimes(2)
   })
 

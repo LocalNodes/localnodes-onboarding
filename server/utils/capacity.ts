@@ -47,7 +47,7 @@ export const APPS_CACHE_SECONDS = 60
 export const WAITING_MARK_SECONDS = 21600
 
 /** The full-server reply (23-UI-SPEC section 3, "Full server"), word for word. */
-export const FULL_MESSAGE = 'We\'re full right now. We\'ll email you when there\'s room.'
+export const FULL_MESSAGE = 'We are full right now; you have not been charged.'
 /** The Resend contact property for people waiting for room (created 2026-11-08, TA-8). A String property. */
 export const WAITING_PROPERTY = 'waiting_for_room'
 
@@ -260,8 +260,9 @@ export interface CapacityReadDeps {
 /**
  * GET /api/capacity: answers {room} and nothing else. An invited session that
  * finds no room is put on the waiting list here (23-UI-SPEC section 3 build
- * note: the full screen offers no checkout, so this read is where its promise
- * "We'll email you when there's room" is kept). Once per invite per 6 hours,
+ * note: the full screen offers no checkout; the screen itself no longer
+ * promises an email, but the address is still kept for when there is room).
+ * Once per invite per 6 hours,
  * and only marked after Resend accepted it, so a failed add is tried again on
  * the next read.
  */

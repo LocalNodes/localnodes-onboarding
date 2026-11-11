@@ -7,28 +7,34 @@
 // Opening the page changes nothing: mail scanners prefetch links. The page's
 // GET only reads the date, the price and the state; only the button's POST
 // (the organizer's yes) clears the pilot's end, and from then on the saved card
-// is charged the full price, whether or not paid sign-ups are open.
+// is charged at the first bill after the free months, whether or not paid
+// sign-ups are open. The yes works only before the free end.
 import { PILOT_CONTINUE_TOKEN_RE, type PilotContinueState } from '#shared/pilot-continue'
 
 export const PILOT_CONTINUE_COPY = {
   title: 'Keep your LocalNodes site',
   loading: 'Checking your pilot…',
   ends: (date: string) => `Your free pilot ends on ${date}. If you do nothing, we won't charge you anything.`,
+  // With no price the page names no cost and has no Keep button (priceMissing is shown instead).
   cost: (date: string, price: string) => price
-    ? `To keep your site after that, choose "Keep my site". From about ${date} it costs ${price}, charged to the card you saved when you signed up.`
-    : `To keep your site after that, choose "Keep my site". From about ${date} it costs the full price, charged to the card you saved when you signed up.`,
+    ? `Continuing costs ${price} for one community site, including all its groups and members, after your free period and only if you choose it. We charge the card you saved when you signed up. To continue, choose "Keep my site" before ${date}.`
+    : '',
+  priceMissing: 'We cannot confirm the continuation price right now; please try again before choosing to continue.',
   button: 'Keep my site',
   buttonWorking: 'Keeping your site…',
-  continued: (date: string, price: string) => price
-    ? `Done. Your site stays open, and from about ${date} it costs ${price}, charged to the card you saved. Questions? Write to hello@localnodes.xyz.`
-    : `Done. Your site stays open, and from about ${date} it costs the full price, charged to the card you saved. Questions? Write to hello@localnodes.xyz.`,
+  retry: 'Try again',
+  // No date: the first charge is the first renewal after the free months, which
+  // for a yearly price can be well after the pilot's end. The price is a rate.
+  continued: (price: string) => price
+    ? `Done. Your site stays open. It costs ${price}, charged to the card you saved, starting with the first bill after your free months. Questions? Write to hello@localnodes.xyz.`
+    : 'Done. Your site stays open. Questions? Write to hello@localnodes.xyz.',
   ended: 'Your free pilot has already ended, so we can\'t keep the site from this link. Write to hello@localnodes.xyz and we\'ll help.',
   invalid: 'This link doesn\'t work. Write to hello@localnodes.xyz and we\'ll sort it out.',
   serverError: 'Something went wrong on our side. Try again in a minute.'
 } as const
 
-/** loading: the first read; ready: the button; working: the POST is out; then a result. */
-export type PilotContinuePhase = 'loading' | 'ready' | 'working' | 'continued' | 'ended' | 'invalid' | 'server-error'
+/** loading: the first read; ready: the button; price-missing: the end is known but the price is not, so no button; working: the POST is out; then a result. */
+export type PilotContinuePhase = 'loading' | 'ready' | 'price-missing' | 'working' | 'continued' | 'ended' | 'invalid' | 'server-error'
 
 export interface PilotContinueView {
   phase: PilotContinuePhase
@@ -57,12 +63,11 @@ const PHASE_OF: Record<Exclude<PilotContinueState, 'invalid' | 'unavailable'>, P
 
 function viewOf(body: unknown, fallback: PilotContinuePhase): PilotContinueView {
   const b = (body ?? {}) as { state?: unknown, date?: unknown, price?: unknown }
-  const phase = typeof b.state === 'string' && Object.hasOwn(PHASE_OF, b.state) ? PHASE_OF[b.state as keyof typeof PHASE_OF] : fallback
-  return {
-    phase,
-    date: typeof b.date === 'string' ? b.date : '',
-    price: typeof b.price === 'string' ? b.price : ''
-  }
+  let phase = typeof b.state === 'string' && Object.hasOwn(PHASE_OF, b.state) ? PHASE_OF[b.state as keyof typeof PHASE_OF] : fallback
+  const price = typeof b.price === 'string' ? b.price : ''
+  // The yes is offered only next to a price the server could read.
+  if (phase === 'ready' && !price) phase = 'price-missing'
+  return { phase, date: typeof b.date === 'string' ? b.date : '', price }
 }
 
 /**

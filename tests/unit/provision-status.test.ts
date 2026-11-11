@@ -230,7 +230,7 @@ describe('provision-status: held and declined (23-37)', () => {
 
   it('held, the owner\'s session: the seven keys plus heldUntil (ISO) and canConfirm true', async () => {
     const reply = await handleProvisionStatus(SID, redis, { requestHash: OWNER })
-    expect(Object.keys(reply).sort()).toEqual([...SEVEN_KEYS, 'canConfirm', 'heldUntil'].sort())
+    expect(Object.keys(reply).sort()).toEqual([...SEVEN_KEYS, 'canConfirm', 'heldUntil', 'pilot'].sort())
     expect(reply).toMatchObject({ status: 'held', heldUntil: '2026-11-09T16:15:00.000Z', canConfirm: true })
   })
 
@@ -259,7 +259,7 @@ describe('provision-status: held and declined (23-37)', () => {
   it('declined: the seven keys plus heldExpired false; no heldUntil or canConfirm', async () => {
     await redis.hset(`provision:${SID}`, { status: 'declined', teardownReason: 'declined' })
     const reply = await handleProvisionStatus(SID, redis, { requestHash: OWNER })
-    expect(Object.keys(reply).sort()).toEqual([...SEVEN_KEYS, 'heldExpired'].sort())
+    expect(Object.keys(reply).sort()).toEqual([...SEVEN_KEYS, 'heldExpired', 'pilot'].sort())
     expect(reply).toMatchObject({ status: 'declined', heldExpired: false })
   })
 
@@ -268,9 +268,43 @@ describe('provision-status: held and declined (23-37)', () => {
     expect(await handleProvisionStatus(SID, redis, {})).toMatchObject({ status: 'declined', heldExpired: true })
   })
 
-  it.each(['ready', 'provisioning', 'complete', 'failed'])('%s: exactly the seven keys, no heldUntil, canConfirm or heldExpired', async (status) => {
+  it.each(['ready', 'provisioning', 'complete', 'failed'])('%s: exactly the seven keys and pilot, no heldUntil, canConfirm or heldExpired', async (status) => {
     await redis.hset(`provision:${SID}`, { status })
-    expect(Object.keys(await handleProvisionStatus(SID, redis, { requestHash: OWNER })).sort()).toEqual(SEVEN_KEYS)
+    expect(Object.keys(await handleProvisionStatus(SID, redis, { requestHash: OWNER })).sort()).toEqual([...SEVEN_KEYS, 'pilot'].sort())
+  })
+
+  // The progress page names its payment step by this flag: a free pilot
+  // confirms, a paid sign-up takes its first payment. Without a readable
+  // sign-up record the reply says neither and the page keeps neutral words.
+  describe('pilot', () => {
+    it('is true when the sign-up record carries pilot months, and false when it carries none', async () => {
+      await redis.hset(`provision:${SID}`, { status: 'provisioning' })
+      expect(await handleProvisionStatus(SID, redis, {})).toMatchObject({ pilot: false })
+      await redis.hset(`signup:${PID}`, { pilotMonths: 3, pilotEndsAt: 1_800_000_000 })
+      expect(await handleProvisionStatus(SID, redis, {})).toMatchObject({ pilot: true })
+    })
+
+    it('is a boolean only: the months, the end and the code never reach the reply', async () => {
+      await redis.hset(`signup:${PID}`, { pilotMonths: 3, pilotEndsAt: 1_800_000_000, promoCode: 'PILOT-CANARY' })
+      const text = JSON.stringify(await handleProvisionStatus(SID, redis, {}))
+      expect(text).toContain('"pilot":true')
+      expect(text).not.toContain('PILOT-CANARY')
+      expect(text).not.toContain('1800000000')
+    })
+
+    it('is left out when the sign-up record is missing or cannot be read', async () => {
+      await redis.hset(`provision:${SID}`, { status: 'provisioning', provisionId: 'Nosuchsignup00000000000' })
+      expect(Object.keys(await handleProvisionStatus(SID, redis, {}))).not.toContain('pilot')
+      const failing = {
+        hgetall: async (key: string) => {
+          if (key.startsWith('signup:')) throw new Error('redis down')
+          return redis.hgetall(key)
+        }
+      } as unknown as FakeRedis
+      const reply = await handleProvisionStatus(SID, failing, {})
+      expect(Object.keys(reply)).not.toContain('pilot')
+      expect(reply.status).toBe('provisioning')
+    })
   })
 
   it('the route hashes the request\'s ln_invite cookie with sha256 and passes it', async () => {

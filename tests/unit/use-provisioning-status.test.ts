@@ -40,7 +40,6 @@ vi.stubGlobal('$fetch', vi.fn())
 //   timer). `pollHarness.run()` invokes the captured callback so tests stay
 //   deterministic. `pause` and `resume` are spies so we can assert polling
 //   stops and starts again.
-// - useCountdown: return a controllable `remaining` ref + spy `pause`/`start`.
 const pollHarness: {
   fn: (() => void | Promise<void>) | null
   pause: ReturnType<typeof vi.fn>
@@ -55,34 +54,18 @@ const pollHarness: {
   }
 }
 
-const countdownHarness = {
-  remaining: ref(240),
-  pause: vi.fn(),
-  start: vi.fn()
-}
-
 vi.mock('@vueuse/core', () => ({
   useTimeoutPoll: (fn: () => void | Promise<void>, _interval: number, _opts?: unknown) => {
     pollHarness.fn = fn
     return { pause: pollHarness.pause, resume: pollHarness.resume, isActive: ref(false) }
-  },
-  useCountdown: (_initial: number) => ({
-    remaining: countdownHarness.remaining,
-    pause: countdownHarness.pause,
-    resume: vi.fn(),
-    start: countdownHarness.start,
-    stop: vi.fn(),
-    reset: vi.fn()
-  })
+  }
 }))
 
 import {
   STAGES,
   getStageIndex,
-  formatTimeRemaining,
   mapStagesToState,
   shouldStopPolling,
-  timeLine,
   useProvisioningStatus
 } from '~/composables/useProvisioningStatus'
 import { REASON_SENTENCES, SUCCESS_COPY, reasonSentence } from '~/utils/reason-copy'
@@ -117,13 +100,13 @@ describe('the /success words (23-UI-SPEC sections 4 to 7)', () => {
       create_failed: 'We couldn\'t create your site on our hosting service.',
       env_failed: 'We couldn\'t finish configuring your site.',
       deploy_failed: 'We couldn\'t start your site.',
-      deploy_timeout: 'Starting your site took longer than we allow.',
-      install_timeout: 'Your site started, but setting it up took longer than we allow.',
-      manifest_failed: 'We couldn\'t pass your sign-up details to the setup step.',
-      install_failed: 'We couldn\'t finish installing your site.',
-      db_not_empty: 'A previous attempt left something behind that stopped this one.',
+      deploy_timeout: 'Setting up your site took too long.',
+      install_timeout: 'Setting up your site took too long.',
+      manifest_failed: 'We couldn\'t finish setting up your site.',
+      install_failed: 'We couldn\'t finish setting up your site.',
+      db_not_empty: 'We couldn\'t finish setting up your site.',
       platform_enable_failed: 'We couldn\'t turn on your site\'s features.',
-      organizer_failed: 'Your site is built, but we couldn\'t create your account on it.',
+      organizer_failed: 'Your site is built, but we couldn\'t add you to it as its organizer.',
       unknown: 'Something went wrong on our side.'
     })
   })
@@ -141,8 +124,8 @@ describe('the /success words (23-UI-SPEC sections 4 to 7)', () => {
   it('the progress, failure, stopped and welcome strings are the UI-SPEC rows', () => {
     expect(SUCCESS_COPY.progress).toEqual({
       title: 'Setting Up Your Site',
-      intro: 'This usually takes about 4 minutes. You can leave this page; we\'ll email you.',
-      retriedIntro: 'Trying again. This usually takes about 4 minutes.',
+      intro: 'This usually takes a few minutes. We\'ll email you when it\'s ready.',
+      retriedIntro: 'This usually takes a few minutes. We\'ll email you when it\'s ready.',
       underSteps: 'We\'ll email your sign-in link when your site is ready.',
       readError: 'Couldn\'t check your site\'s progress right now. We\'ll keep trying, and we\'ll email you.',
       // "Empty (no session)" (orchestrator, rule C, 2026-11-08).
@@ -153,7 +136,7 @@ describe('the /success words (23-UI-SPEC sections 4 to 7)', () => {
     expect(SUCCESS_COPY.failed).toEqual({
       title: 'Setting Up Your Site',
       alert: 'Setting up your site didn\'t finish. You haven\'t been charged.',
-      retryLine: 'You can try once more for free. If it doesn\'t work a second time, we\'ll stop and you won\'t be charged.',
+      retryLine: 'Try setting up your site once more. If it still doesn\'t work, we\'ll stop. You won\'t be charged.',
       retry: 'Retry site setup',
       retrying: 'Retrying…',
       retryingAnnouncement: 'Retrying site setup.',
@@ -183,15 +166,13 @@ describe('the /success words (23-UI-SPEC sections 4 to 7)', () => {
     expect(SUCCESS_COPY.failed.nextStep).toBe('We\'re finishing up and will email you about what happens next.')
   })
 
-  it('the time line reads "About N minutes left." and is not a ticking clock', () => {
-    expect(timeLine(240)).toBe('About 4 minutes left.')
-    expect(timeLine(180)).toBe('About 3 minutes left.')
-    expect(timeLine(150)).toBe('About 3 minutes left.')
-    expect(timeLine(121)).toBe('About 3 minutes left.')
-    expect(timeLine(120)).toBe('About 2 minutes left.')
-    expect(timeLine(60)).toBe('About 1 minute left.')
-    expect(timeLine(1)).toBe('About 1 minute left.')
-    expect(timeLine(0)).toBe('')
+  it('the progress page promises no number of minutes and shows no countdown', () => {
+    const page = read('app/pages/success.vue')
+    expect(page).not.toMatch(/minutes? left/i)
+    expect(SUCCESS_COPY.progress.intro).not.toMatch(/\d/)
+    expect(SUCCESS_COPY.progress.retriedIntro).not.toMatch(/\d/)
+    const { retriedIntro, intro } = SUCCESS_COPY.progress
+    expect(retriedIntro).toBe(intro)
   })
 
   it('the fixture puts the failure component and the reason copy under the sign-up wording check', () => {
@@ -215,7 +196,8 @@ describe('useProvisioningStatus - pure helpers', () => {
     })
 
     it('the first step reads Card saved, and the five steps are the UI-SPEC section 4 names', () => {
-      expect(STAGES.map(s => s.label)).toEqual(['Card saved', 'Setting up your server', 'Installing your site', 'Taking your first payment', 'Your site is ready'])
+      // The payment step's own label is the neutral one; paymentStepLabel names it once a reply says pilot or not.
+      expect(STAGES.map(s => s.label)).toEqual(['Card saved', 'Setting up your server', 'Installing your site', 'Confirming your card', 'Your site is ready'])
       expect(STAGES[0].statuses).toContain('triggered')
     })
 
@@ -229,8 +211,8 @@ describe('useProvisioningStatus - pure helpers', () => {
       expect(STAGES[2].statuses).toContain('sending_email')
     })
 
-    it('the fourth step is { id: payment, label: Taking your first payment, statuses: [ready, held] } (23-32)', () => {
-      expect(STAGES[3]).toEqual({ id: 'payment', label: 'Taking your first payment', statuses: ['ready', 'held'] })
+    it('the fourth step is { id: payment, label: Confirming your card, statuses: [ready, held] }', () => {
+      expect(STAGES[3]).toEqual({ id: 'payment', label: 'Confirming your card', statuses: ['ready', 'held'] })
     })
 
     it('maps "complete" to stage 4', () => {
@@ -280,12 +262,6 @@ describe('useProvisioningStatus - pure helpers', () => {
     })
   })
 
-  describe('formatTimeRemaining', () => {
-    it.each([[240, '4:00'], [225, '3:45'], [60, '1:00'], [9, '0:09'], [0, '0:00'], [119, '1:59']])('formats %i seconds as "%s"', (s, out) => {
-      expect(formatTimeRemaining(s)).toBe(out)
-    })
-  })
-
   describe('mapStagesToState', () => {
     it('marks stages before, at and after the current index', () => {
       const result = mapStagesToState(2)
@@ -312,9 +288,6 @@ describe('useProvisioningStatus - composable', () => {
     pollHarness.fn = null
     pollHarness.pause.mockClear()
     pollHarness.resume.mockClear()
-    countdownHarness.pause.mockClear()
-    countdownHarness.start.mockClear()
-    countdownHarness.remaining.value = 240
   })
 
   afterEach(() => {
@@ -392,7 +365,6 @@ describe('useProvisioningStatus - composable', () => {
     expect(isComplete.value).toBe(true)
     expect(siteUrl.value).toBe('https://repair.localnodes.xyz')
     expect(pollHarness.pause).toHaveBeenCalled()
-    expect(countdownHarness.pause).toHaveBeenCalled()
   })
 
   it('polling stops on stopped', async () => {
@@ -414,7 +386,6 @@ describe('useProvisioningStatus - composable', () => {
     expect(canRetry.value).toBe(true)
     expect(currentStageIndex.value).toBe(-1)
     expect(pollHarness.pause).toHaveBeenCalled()
-    expect(countdownHarness.pause).toHaveBeenCalled()
   })
 
   it('keeps polling on failed with no retry and not stopped, and shows the stop when it lands', async () => {
@@ -465,7 +436,6 @@ describe('useProvisioningStatus - composable', () => {
     expect(p.reason.value).toBeNull()
     expect(p.isFailed.value).toBe(false)
     expect(pollHarness.resume).toHaveBeenCalledTimes(1)
-    expect(countdownHarness.start).toHaveBeenCalled()
   })
 
   it('a second retry press while one is in flight sends nothing more', async () => {
@@ -524,13 +494,6 @@ describe('useProvisioningStatus - composable', () => {
     expect(p.notFound.value).toBe(false)
     expect(pollHarness.pause).not.toHaveBeenCalled()
   })
-
-  it('exposes the time line derived from the countdown', () => {
-    countdownHarness.remaining.value = 225
-    const { timeRemaining, minutesLine } = useProvisioningStatus('cs_test_123')
-    expect(timeRemaining.value).toBe('3:45')
-    expect(minutesLine.value).toBe('About 4 minutes left.')
-  })
 })
 
 // ---- Mounted components (Vue's server renderer, small Nuxt UI stand-ins) ----
@@ -571,7 +534,7 @@ const textOf = (html: string) => html.replace(/<!--.*?-->/g, '').replace(/<[^>]+
 describe('mounted', () => {
   it('the step list: the first step reads Card saved, with no strikethrough or white text', async () => {
     const html = await mount(ProvisioningProgress, { stages: mapStagesToState(1) })
-    expect(textOf(html)).toMatch(/^Card saved Setting up your server Installing your site Taking your first payment Your site is ready$/)
+    expect(textOf(html)).toMatch(/^Card saved Setting up your server Installing your site Confirming your card Your site is ready$/)
     expect(html).not.toMatch(/line-through|text-white/)
     expect(html).toMatch(/<ol/)
   })
@@ -582,7 +545,7 @@ describe('mounted', () => {
     expect(text).toContain('Setting Up Your Site')
     expect(text).toContain('Setting up your site didn\'t finish. You haven\'t been charged.')
     expect(text).toContain('We couldn\'t start your site.')
-    expect(text).toContain('You can try once more for free. If it doesn\'t work a second time, we\'ll stop and you won\'t be charged.')
+    expect(text).toContain('Try setting up your site once more. If it still doesn\'t work, we\'ll stop. You won\'t be charged.')
     expect(text.match(/Retry site setup/g)).toHaveLength(1)
     // The alert box takes focus and carries no alert role (23-39, F8).
     const target = focusTargets(html)
@@ -614,10 +577,10 @@ describe('mounted', () => {
     const html = await mount(ProvisioningFailed, { reason: 'install_failed', canRetry: false, stopped: false, retrying: false, retryFailed: false, attempt: 2 })
     const text = textOf(html)
     expect(text).toContain('Setting up your site didn\'t finish. You haven\'t been charged.')
-    expect(text).toContain('We couldn\'t finish installing your site.')
-    expect(text).toMatch(/We couldn't finish installing your site\. We're finishing up and will email you about what happens next\.$/)
+    expect(text).toContain('We couldn\'t finish setting up your site.')
+    expect(text).toMatch(/We couldn't finish setting up your site\. We're finishing up and will email you about what happens next\.$/)
     expect(html).toMatch(/<p class="mt-4 text-base text-muted">We(&#39;|')re finishing up and will email you about what happens next\.<\/p>/)
-    expect(text).not.toContain('You can try once more for free.')
+    expect(text).not.toContain('Try setting up your site once more.')
     expect(text).not.toContain('Retry site setup')
     expect(html).not.toMatch(/<button/)
   })
@@ -625,9 +588,9 @@ describe('mounted', () => {
   it('a failure with no retry offered and not yet stopped, on attempt 1 (a site failure inside its window), shows the alert only', async () => {
     const html = await mount(ProvisioningFailed, { reason: 'install_failed', canRetry: false, stopped: false, retrying: false, retryFailed: false, attempt: 1 })
     const text = textOf(html)
-    expect(text).toMatch(/We couldn't finish installing your site\.$/)
+    expect(text).toMatch(/We couldn't finish setting up your site\.$/)
     expect(text).not.toContain('finishing up')
-    expect(text).not.toContain('You can try once more for free.')
+    expect(text).not.toContain('Try setting up your site once more.')
     expect(html).not.toMatch(/<button/)
   })
 
@@ -712,7 +675,7 @@ describe('mounted', () => {
     expect(text).toContain('Back to the LocalNodes home page')
     expect(html).toMatch(/href="\/"/)
     expect(text).not.toContain('Retry site setup')
-    expect(text).not.toContain('You can try once more for free.')
+    expect(text).not.toContain('Try setting up your site once more.')
     expect(text).not.toContain('Setting up your site didn\'t finish.')
     expect(html).not.toMatch(/<button/)
   })
@@ -889,12 +852,148 @@ describe('useProvisioningStatus - held and declined (23-37)', () => {
     expect(p.canConfirm.value).toBe(false)
   })
 
-  it('the payment step ("Taking your first payment") is the active step for ready', async () => {
+  it('the payment step is the active step for ready, named for what the reply says (paid: "Taking your first payment")', async () => {
     const p = useProvisioningStatus('cs_test_123')
-    vi.mocked($fetch).mockResolvedValueOnce({ status: 'ready' })
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'ready', pilot: false })
     await pollHarness.run()
     expect(p.activeStageLabel.value).toBe('Taking your first payment')
     expect(p.stages.value.find(s => s.state === 'active')?.label).toBe('Taking your first payment')
+  })
+
+  it('a pilot reply names the payment step "Confirming your free pilot", in the list and in the active label alike', async () => {
+    const p = useProvisioningStatus('cs_test_123')
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'ready', pilot: true })
+    await pollHarness.run()
+    expect(p.activeStageLabel.value).toBe('Confirming your free pilot')
+    expect(p.stages.value.find(s => s.id === 'payment')?.label).toBe('Confirming your free pilot')
+    expect(p.stages.value.find(s => s.state === 'active')?.label).toBe(p.activeStageLabel.value)
+  })
+
+  it('before any reply has said, and after a failed first read, the payment step reads "Confirming your card"', async () => {
+    const p = useProvisioningStatus('cs_test_123')
+    expect(p.pilot.value).toBeNull()
+    expect(p.stages.value.find(s => s.id === 'payment')?.label).toBe('Confirming your card')
+    vi.mocked($fetch).mockRejectedValueOnce(new Error('offline'))
+    await pollHarness.run()
+    expect(p.readError.value).toBe(true)
+    expect(p.pilot.value).toBeNull()
+    expect(p.stages.value.find(s => s.id === 'payment')?.label).toBe('Confirming your card')
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'ready' })
+    await pollHarness.run()
+    expect(p.activeStageLabel.value).toBe('Confirming your card')
+  })
+
+  it('a reply without the flag keeps the last answer, and a failed read after a good one keeps it too', async () => {
+    const p = useProvisioningStatus('cs_test_123')
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'provisioning', pilot: true })
+    await pollHarness.run()
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'installing' })
+    await pollHarness.run()
+    expect(p.pilot.value).toBe(true)
+    vi.mocked($fetch).mockRejectedValueOnce(new Error('offline'))
+    await pollHarness.run()
+    expect(p.pilot.value).toBe(true)
+    expect(p.stages.value.find(s => s.id === 'payment')?.label).toBe('Confirming your free pilot')
+  })
+
+  it('a retry keeps the answer: the payment step still names the pilot', async () => {
+    const p = useProvisioningStatus('cs_test_123')
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'failed', reason: 'deploy_failed', canRetry: true, pilot: true })
+    await pollHarness.run()
+    vi.mocked($fetch).mockResolvedValueOnce({ ok: true })
+    await p.retry()
+    expect(p.retried.value).toBe(true)
+    expect(p.stages.value.find(s => s.id === 'payment')?.label).toBe('Confirming your free pilot')
+  })
+
+  it('only the boolean counts: the strings "true" and "false" leave it unknown', async () => {
+    const p = useProvisioningStatus('cs_test_123')
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'ready', pilot: 'true' })
+    await pollHarness.run()
+    expect(p.pilot.value).toBeNull()
+  })
+})
+
+describe('the /success progress page names the payment step', () => {
+  const g = globalThis as Record<string, unknown>
+  const GLOBALS = ['useRoute', 'useProvisioningStatus', 'definePageMeta', 'useSeoMeta']
+  beforeEach(() => {
+    vi.mocked($fetch).mockReset()
+    pollHarness.fn = null
+  })
+  afterEach(() => { for (const k of GLOBALS) delete g[k] })
+
+  /** Renders /success?session_id=… after the given replies (an Error means a failed read). */
+  async function render(...replies: Array<Record<string, unknown> | Error>) {
+    g.useRoute = () => ({ query: { session_id: 'cs_pilot_page' } })
+    g.definePageMeta = vi.fn()
+    g.useSeoMeta = vi.fn()
+    const state = useProvisioningStatus('cs_pilot_page')
+    for (const reply of replies) {
+      if (reply instanceof Error) vi.mocked($fetch).mockRejectedValueOnce(reply)
+      else vi.mocked($fetch).mockResolvedValueOnce(reply)
+      await pollHarness.run()
+    }
+    g.useProvisioningStatus = () => state
+    const app = createSSRApp(SuccessPage)
+    for (const [name, stub] of Object.entries(stubs)) app.component(name, stub)
+    app.component('UContainer', defineComponent((_, { slots }) => () => h('div', slots.default?.())))
+    app.component('GardenAnimation', defineComponent(() => () => h('div', { 'data-garden': '' })))
+    for (const [name, c] of Object.entries({ ProvisioningProgress, ProvisioningFailed, ProvisioningComplete, PaymentHeld, PaymentDeclined, PaymentNotConfirmed })) app.component(name, c)
+    app.directive('motion', { getSSRProps: () => ({}) })
+    return textOf(await renderToString(app))
+  }
+
+  it('first load, before any reply: "Confirming your card"', async () => {
+    const text = await render()
+    expect(text).toContain('Confirming your card')
+    expect(text).not.toContain('Taking your first payment')
+    expect(text).not.toContain('Confirming your free pilot')
+  })
+
+  it('a failed first read: still "Confirming your card"', async () => {
+    const text = await render(new Error('offline'))
+    expect(text).toContain('Confirming your card')
+    expect(text).not.toContain('Confirming your free pilot')
+  })
+
+  it('pilot polling: a pilot reply shows "Confirming your free pilot" and never "Taking your first payment"', async () => {
+    const text = await render({ status: 'provisioning', pilot: true }, { status: 'installing', pilot: true })
+    expect(text).toContain('Confirming your free pilot')
+    expect(text).not.toContain('Taking your first payment')
+    expect(text).not.toContain('Confirming your card')
+  })
+
+  it('a paid reply shows "Taking your first payment"', async () => {
+    const text = await render({ status: 'ready', pilot: false })
+    expect(text).toContain('Taking your first payment')
+    expect(text).not.toContain('Confirming your free pilot')
+  })
+
+  it('after a retry the progress steps still name the pilot', async () => {
+    g.useRoute = () => ({ query: { session_id: 'cs_pilot_page' } })
+    g.definePageMeta = vi.fn()
+    g.useSeoMeta = vi.fn()
+    const state = useProvisioningStatus('cs_pilot_page')
+    vi.mocked($fetch).mockResolvedValueOnce({ status: 'failed', reason: 'deploy_failed', canRetry: true, pilot: true })
+    await pollHarness.run()
+    vi.mocked($fetch).mockResolvedValueOnce({ ok: true })
+    await state.retry()
+    g.useProvisioningStatus = () => state
+    const app = createSSRApp(SuccessPage)
+    for (const [name, stub] of Object.entries(stubs)) app.component(name, stub)
+    app.component('UContainer', defineComponent((_, { slots }) => () => h('div', slots.default?.())))
+    app.component('GardenAnimation', defineComponent(() => () => h('div', { 'data-garden': '' })))
+    for (const [name, c] of Object.entries({ ProvisioningProgress, ProvisioningFailed, ProvisioningComplete, PaymentHeld, PaymentDeclined, PaymentNotConfirmed })) app.component(name, c)
+    app.directive('motion', { getSSRProps: () => ({}) })
+    const text = textOf(await renderToString(app))
+    expect(text).toContain('Confirming your free pilot')
+  })
+
+  it('the held screen keeps "Confirm Your Payment"', async () => {
+    const text = await render({ status: 'held', heldUntil: HELD_UNTIL_ISO, canConfirm: true, pilot: false })
+    expect(text).toContain('Confirm Your Payment')
+    expect(text).not.toContain('Confirming your free pilot')
   })
 })
 
@@ -1189,7 +1288,6 @@ describe('useProvisioningStatus: removing, refunding and refunded (23-43 Task 7)
     pollHarness.fn = null
     pollHarness.pause.mockClear()
     pollHarness.resume.mockClear()
-    countdownHarness.pause.mockClear()
   })
 
   it('exposes removed, noCapture, refundProven and lateActivation, false by default, and isRefunding and isRefunded', () => {
@@ -1236,13 +1334,12 @@ describe('useProvisioningStatus: removing, refunding and refunded (23-43 Task 7)
     expect(pollHarness.pause).toHaveBeenCalled()
   })
 
-  it('refunding and refunded are no build step: the step index is -1 and the countdown pauses', async () => {
+  it('refunding and refunded are no build step: the step index is -1', async () => {
     const p = useProvisioningStatus('cs_test_123')
     vi.mocked($fetch).mockResolvedValueOnce({ status: 'refunding' })
     await pollHarness.run()
     expect(p.currentStageIndex.value).toBe(-1)
     await nextTick()
-    expect(countdownHarness.pause).toHaveBeenCalled()
   })
 })
 

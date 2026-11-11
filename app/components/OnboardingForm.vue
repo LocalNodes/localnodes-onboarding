@@ -19,8 +19,10 @@ import type { AiChoice, OwnKeyKind } from '#shared/ai-choice'
 import { cleanTopicTypes } from '#shared/signup'
 import { onboardingSchema } from '~/utils/onboarding-schema'
 import { INVITE_COPY, isPlausibleEmail } from '~/utils/invite-flow'
+import type { CodeOffer } from '#shared/code-offer'
 import {
   SIGNUP_COPY,
+  applyCode,
   browserTimeZone,
   checkoutBody,
   readPrice,
@@ -28,6 +30,7 @@ import {
   submitLabel,
   type Fetcher
 } from '~/utils/onboarding-flow'
+import { decideSubmit, offersFromPrice, wordsFor, type KnownOffers } from '~/utils/offer'
 import { useSubdomain } from '~/composables/useSubdomain'
 
 /** What the server copied from the invited session during server rendering (app/plugins/invited-state.server.ts). */
@@ -50,9 +53,30 @@ const { slug, subdomain, availability } = useSubdomain(communityName)
 
 // The price line comes from the Stripe price on the server (23-31), read during
 // server rendering so it is there with the first paint.
-const price = useFetch<{ line?: string }>('/api/price', { key: 'signup-price' })
+const price = useFetch<{ line?: string, invited?: boolean, inviteCode?: unknown }>('/api/price', { key: 'signup-price' })
 const freshLine = ref<string | null>(null)
 const priceLine = computed(() => freshLine.value ?? (typeof price.data.value?.line === 'string' ? price.data.value.line : ''))
+
+// What the server has said about each code: the invite's own code arrives with
+// the price, and every check adds its answer. The words follow the field's
+// current value, so an answer for a code no longer in the field changes nothing.
+const checked = ref<Record<string, CodeOffer>>({})
+const known = computed<KnownOffers>(() => ({ ...offersFromPrice(price.data.value), ...checked.value }))
+// Only an invited sign-up uses a code: the server ignores one typed in the public flow.
+// The server says whether a live invited session stands behind this browser
+// (with the launch open the invite details above are not filled, yet checkout
+// still honours that session's code).
+const codesApply = computed(() => Boolean(invitedEmail.value) || price.data.value?.invited === true)
+const words = computed(() => wordsFor(code.value, known.value, codesApply.value))
+const shownLine = computed(() => (words.value.kind === 'pilot' && priceLine.value) ? copy.price.pilot(words.value.months, priceLine.value) : priceLine.value)
+const underLines = computed(() => {
+  const w = words.value
+  return w.kind === 'pilot' ? copy.submit.under.pilot(w.months) : copy.submit.under[w.kind]
+})
+
+function classified(payload: { code: string, offer: CodeOffer }) {
+  checked.value = { ...checked.value, [payload.code]: payload.offer }
+}
 
 const submitting = ref(false)
 const alertText = ref('')
@@ -125,6 +149,28 @@ async function submit() {
   if (availability.value !== 'available') return
 
   submitting.value = true
+  // The code is checked first (the check also holds it for this sign-up). If it
+  // offers something other than the words on screen, the new words show and a
+  // second press continues.
+  const decision = await decideSubmit({
+    code: code.value,
+    codesApply: codesApply.value,
+    known: known.value,
+    check: sent => applyCode(fetcher, sent),
+    current: () => code.value
+  })
+  if (decision.kind === 'overtaken') {
+    submitting.value = false
+    return
+  }
+  if (decision.kind === 'stop' || decision.kind === 'show') {
+    submitting.value = false
+    classified({ code: decision.code, offer: decision.offer })
+    if (decision.kind === 'stop') alertText.value = decision.message
+    else await say([shownLine.value, ...underLines.value].filter(Boolean).join(' '))
+    return
+  }
+
   // No price on the page yet: read it again, and show it before anyone is sent to the card page.
   if (!priceLine.value) {
     const read = await readPrice(fetcher)
@@ -245,11 +291,11 @@ async function submit() {
         :key-error="keyFieldError"
       />
 
-      <PromoCodeField v-model="code" :prefilled="codePrefilled" :error="codeError || undefined" />
+      <PromoCodeField v-model="code" :prefilled="codePrefilled" :error="codeError || undefined" @classified="classified" />
 
       <div class="flex flex-col gap-2">
         <p v-if="priceLine" class="text-xl font-semibold text-highlighted">
-          {{ priceLine }}
+          {{ shownLine }}
         </p>
         <UAlert
           v-else-if="price.error.value"
@@ -266,8 +312,8 @@ async function submit() {
           color="primary"
           class="self-start"
         />
-        <p class="text-sm text-muted">
-          {{ copy.submit.under }}
+        <p v-for="line in underLines" :key="line" class="text-sm text-muted">
+          {{ line }}
         </p>
       </div>
     </form>

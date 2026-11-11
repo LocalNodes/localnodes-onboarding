@@ -56,24 +56,68 @@ describe('callPilotContinue', () => {
   })
 })
 
-describe('the words (draft wording, to be confirmed)', () => {
-  it('the page says doing nothing costs nothing, and that keeping the site charges the saved card the full price', () => {
-    expect(PILOT_CONTINUE_COPY.ends('March 12, 2027')).toMatch(/If you do nothing, we won't charge you anything\./)
-    expect(PILOT_CONTINUE_COPY.cost('March 12, 2027', '$20 a month')).toMatch(/\$20 a month, charged to the card you saved/)
-    expect(PILOT_CONTINUE_COPY.cost('March 12, 2027', '')).toMatch(/the full price/)
-    expect(PILOT_CONTINUE_COPY.continued('March 12, 2027', '$20 a month')).toMatch(/\$20 a month/)
+describe('a pilot whose price cannot be read', () => {
+  it('GET with no price is its own phase, so the page offers no Keep button', async () => {
+    for (const price of ['', undefined, null]) {
+      const fetcher = vi.fn().mockResolvedValue({ state: 'ends', date: 'March 12, 2027', price })
+      expect((await callPilotContinue(fetcher, 'GET', TOKEN)).phase).toBe('price-missing')
+    }
+  })
+
+  it('a price that reads again turns it back into the ready phase', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ state: 'ends', date: 'March 12, 2027', price: '$49 a month' })
+    expect((await callPilotContinue(fetcher, 'GET', TOKEN)).phase).toBe('ready')
+  })
+
+  it('the other states do not need a price', async () => {
+    expect((await callPilotContinue(vi.fn().mockResolvedValue({ state: 'continued', date: 'd', price: '' }), 'POST', TOKEN)).phase).toBe('continued')
+    expect((await callPilotContinue(vi.fn().mockResolvedValue({ state: 'ended', date: 'd', price: '' }), 'GET', TOKEN)).phase).toBe('ended')
+  })
+
+  it('the page shows no Keep button without a price, and Try again reads (GET) again', () => {
+    const src = read(PAGE)
+    expect(src).toMatch(/const canKeep = computed\(\(\) => Boolean\(known\.value\.date && known\.value\.price\)\)/)
+    expect(src).toMatch(/v-if="canKeep"/)
+    expect(src).toMatch(/if \(canKeep\.value\) keep\(\)\s*else load\(\)/)
+    expect(src).toMatch(/copy\.priceMissing/)
+  })
+})
+
+describe('the words', () => {
+  it('the page says doing nothing costs nothing, then names the price, the card and the date to choose by', () => {
+    expect(PILOT_CONTINUE_COPY.ends('March 12, 2027')).toBe('Your free pilot ends on March 12, 2027. If you do nothing, we won\'t charge you anything.')
+    const cost = PILOT_CONTINUE_COPY.cost('March 12, 2027', '$49 a month')
+    expect(cost).toContain('Continuing costs $49 a month for one community site, including all its groups and members, after your free period and only if you choose it.')
+    expect(cost).toContain('We charge the card you saved when you signed up.')
+    expect(cost).toContain('To continue, choose "Keep my site" before March 12, 2027.')
+  })
+
+  it('with no price the page promises nothing about cost and asks to try again', () => {
+    expect(PILOT_CONTINUE_COPY.priceMissing).toBe('We cannot confirm the continuation price right now; please try again before choosing to continue.')
+    expect(PILOT_CONTINUE_COPY.cost('March 12, 2027', '')).not.toMatch(/costs|Keep my site/)
+  })
+
+  it('the done line names the rate and the card, gives no date, and has a version without a price', () => {
+    expect(PILOT_CONTINUE_COPY.continued('$49 a month')).toBe('Done. Your site stays open. It costs $49 a month, charged to the card you saved, starting with the first bill after your free months. Questions? Write to hello@localnodes.xyz.')
+    expect(PILOT_CONTINUE_COPY.continued('')).toBe('Done. Your site stays open. Questions? Write to hello@localnodes.xyz.')
+  })
+
+  it('a pilot that ended any way gets the same sentence, which says nothing about how long ago', () => {
+    expect(PILOT_CONTINUE_COPY.ended).toBe('Your free pilot has already ended, so we can\'t keep the site from this link. Write to hello@localnodes.xyz and we\'ll help.')
+  })
+
+  it('no line says "full price", a bracket, or a link expired', () => {
+    for (const line of Object.values(PILOT_CONTINUE_COPY)) {
+      const text = typeof line === 'function' ? (line as (a: string, b: string) => string)('d', 'p') + (line as (a: string, b: string) => string)('d', '') : line
+      expect(text).not.toMatch(/expire/i)
+      expect(text).not.toMatch(/full price/i)
+      expect(text).not.toMatch(/[\[\]]/)
+    }
   })
 
   it('the button is the mail\'s button', () => {
     expect(PILOT_CONTINUE_COPY.button).toBe('Keep my site')
     expect(read('server/utils/mail-copy.ts')).toMatch(/PILOT_END_BUTTON = 'Keep my site'/)
-  })
-
-  it('no line says a link expired', () => {
-    for (const line of Object.values(PILOT_CONTINUE_COPY)) {
-      const text = typeof line === 'function' ? (line as (a: string, b: string) => string)('d', 'p') : line
-      expect(text).not.toMatch(/expire/i)
-    }
   })
 })
 

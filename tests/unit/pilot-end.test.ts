@@ -73,9 +73,13 @@ describe('the end date', () => {
 })
 
 describe('which coupons make a pilot', () => {
-  it('100% off, repeating N months: N; once: 1', () => {
+  it('100% off, repeating N months: N', () => {
     expect(pilotMonthsOf({ percent_off: 100, duration: 'repeating', duration_in_months: 3 })).toEqual({ pilot: true, months: 3 })
-    expect(pilotMonthsOf({ percent_off: 100, duration: 'once' })).toEqual({ pilot: true, months: 1 })
+  })
+
+  it('100% off once is never a pilot: it is used up by the first invoice, whatever the price\'s period', () => {
+    expect(pilotMonthsOf({ percent_off: 100, duration: 'once' })).toEqual({ pilot: false })
+    expect(pilotMonthsOf({ id: 'coupon_full', percent_off: 100, duration: 'once' })).toEqual({ pilot: false })
   })
 
   it('a coupon that is not 100% off is not a pilot (the paid path)', () => {

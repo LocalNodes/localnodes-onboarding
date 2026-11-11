@@ -268,7 +268,9 @@
     "app/components/UnsubscribePanel.vue",
     "app/utils/unsubscribe-flow.ts",
     "app/pages/pilot/continue.vue",
-    "app/utils/pilot-continue-flow.ts"
+    "app/utils/pilot-continue-flow.ts",
+    "app/error.vue",
+    "app/utils/error-copy.ts"
   ],
   "mailSources": [
     "server/utils/mail-copy.ts"
@@ -396,6 +398,20 @@
         "flags": "i",
         "rule": "Third-party title",
         "reason": "Someone else's book and course title; \"second brain\" alone is fine (orchestrator for Tom, 2026-11-06)"
+      },
+      {
+        "pattern": "full price",
+        "regex": false,
+        "flags": "i",
+        "rule": "Plain words",
+        "reason": "Plain-words rule: name the price; \"full price\" leaves the reader guessing what it is"
+      },
+      {
+        "pattern": "about 4 minutes",
+        "regex": false,
+        "flags": "i",
+        "rule": "Plain words",
+        "reason": "Plain-words rule: set-up time is not measured, so no number of minutes is promised"
       }
     ]
   }

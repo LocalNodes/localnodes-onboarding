@@ -179,8 +179,10 @@ export const STOPPED_MAIL: BuiltMail = renderMail({
   after: []
 })
 
-/** The subject of both renewal card mails (23-UI-SPEC section 12). */
-export const RENEWAL_MAIL_SUBJECT = 'Your card didn\'t go through'
+/** The subject of the renewal mail for a card that was refused. */
+export const RENEWAL_UPDATE_MAIL_SUBJECT = 'Your card didn\'t go through'
+/** The subject of the renewal mail for a payment the bank needs confirmed. */
+export const RENEWAL_CONFIRM_MAIL_SUBJECT = 'Confirm your site payment'
 
 export interface RenewalMailContent {
   /** "November 15, 2026": 7 days after the failed charge (B-2). */
@@ -190,19 +192,21 @@ export interface RenewalMailContent {
 }
 
 /**
- * The renewal card mails (23-UI-SPEC section 12, rows "Update card (renewal)",
- * invoice.payment_failed, and "Confirm card (renewal)",
- * invoice.payment_action_required). Renewals only: a failed first payment gets
- * the card declined mail (23-37). They go to a customer, so no unsubscribe link.
+ * The renewal card mails: "Update card" for a refused renewal charge
+ * (invoice.payment_failed) and "Confirm payment" for one the bank needs
+ * confirmed (invoice.payment_action_required). Renewals only: a failed first
+ * payment gets the card declined mail. They go to a customer, so no unsubscribe
+ * link. They state no consequence: the site is still open, and the date is the
+ * day the card needs sorting by.
  */
 export function buildRenewalMail(kind: 'update' | 'confirm', content: RenewalMailContent): BuiltMail {
   const body = kind === 'update'
-    ? `Your community's site is live, but we couldn't charge your card. Nothing has been removed. Please update your card by ${content.date}.`
-    : `Your community's site is live, but your bank needs you to confirm the payment. Nothing has been removed. Please confirm it by ${content.date}.`
+    ? `Your community's site is still open, but we couldn't charge your card. Please update your card by ${content.date}.`
+    : `Your community's site is still open, but your bank needs you to confirm the payment. Please confirm it by ${content.date}.`
   return renderMail({
-    subject: RENEWAL_MAIL_SUBJECT,
+    subject: kind === 'update' ? RENEWAL_UPDATE_MAIL_SUBJECT : RENEWAL_CONFIRM_MAIL_SUBJECT,
     before: [body],
-    button: { label: kind === 'update' ? 'Update my card' : 'Confirm my card', url: content.link },
+    button: { label: kind === 'update' ? 'Update my card' : 'Confirm my payment', url: content.link },
     after: []
   })
 }
@@ -320,7 +324,7 @@ export function buildPilotEndMail(content: PilotEndMailContent): BuiltMail {
     subject: pilotEndMailSubject(content.date),
     before: [
       `Your free pilot ends on ${content.date}.`,
-      `If you'd like to keep your site after that, choose "${PILOT_END_BUTTON}". From then on it costs ${content.price}, charged to the card you saved when you signed up.`
+      `After that, the site costs ${content.price} only if you choose to keep it; we charge only if you say yes. To keep it, choose "${PILOT_END_BUTTON}" below before ${content.date}.`
     ],
     button: { label: PILOT_END_BUTTON, url: content.link },
     after: [
