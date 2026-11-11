@@ -31,6 +31,7 @@
 //
 // Privacy rule: the code, the invite id and the holder are never logged.
 import type Stripe from 'stripe'
+import { pilotMonthsOf } from './pilot-end'
 
 /** The one refusal, for every kind of failure. Words from 22-UI-SPEC Part 7. */
 export const PROMO_REFUSED_MESSAGE = 'This code has already been used. Ask whoever gave it to you for a new one.'
@@ -60,7 +61,7 @@ export interface PromoLike {
   times_redeemed: number
   metadata?: Record<string, string> | null
   /** The coupon behind the code (API 2026-02-25.clover); an object only when expanded. */
-  promotion?: { coupon?: string | { id?: string, percent_off?: number | null } | null } | null
+  promotion?: { coupon?: string | { id?: string, percent_off?: number | null, amount_off?: number | null, duration?: string | null, duration_in_months?: number | null } | null } | null
 }
 
 export interface PromoStripe {
@@ -84,7 +85,8 @@ export interface PromoInvite {
 
 /** fullDiscount: the code's coupon is 100% off (23-32's paid-sign-up gate lets it through). */
 /** couponId: the code's coupon (an expanded one's id, or the id as given), frozen on the sign-up at checkout (23-43 Task 3, D3); empty when unknown. */
-export type CheckCodeResult = { ok: true, promoId: string, fullDiscount: boolean, couponId: string } | { ok: false }
+/** pilotMonths: a 100%-off code's free months (pilot-end.ts pilotMonthsOf); set only for a free pilot. */
+export type CheckCodeResult = { ok: true, promoId: string, fullDiscount: boolean, couponId: string, pilotMonths?: number } | { ok: false }
 
 /** The coupon id behind a promotion code, expanded or not; empty when there is none. */
 export function couponIdOf(promo: PromoLike): string {
@@ -220,8 +222,20 @@ export async function checkCode(
   if (boundCodeId !== undefined && boundCodeId !== promo.id) return { ok: false }
   const taggedInvite = promo.metadata?.invite_id
   if (taggedInvite && taggedInvite !== inviteId) return { ok: false }
+  // A free pilot must be able to end by itself (pilot-end.ts): a coupon that
+  // can't be read, or a 100%-off one that is forever or has no month count,
+  // is refused before anything is held.
+  const kind = pilotMonthsOf(promo.promotion?.coupon)
+  if ('refuse' in kind) return { ok: false }
   const held = await holdCode(deps.redis, promo.id, input.holder, left, now())
-  return held ? { ok: true, promoId: promo.id, fullDiscount: isFullDiscount(promo), couponId: couponIdOf(promo) } : { ok: false }
+  if (!held) return { ok: false }
+  return {
+    ok: true,
+    promoId: promo.id,
+    fullDiscount: isFullDiscount(promo),
+    couponId: couponIdOf(promo),
+    ...(kind.pilot ? { pilotMonths: kind.months } : {})
+  }
 }
 
 /** Release the hold a session took (it expired, or its site failed for good): promo_id and invite_id come from its metadata. Nothing to release without both. */

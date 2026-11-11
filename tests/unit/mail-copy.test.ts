@@ -219,7 +219,7 @@ describe('every mail the sign-up site sends can be answered (T-1)', () => {
 
   it('every POST /emails call sends reply_to REPLY_TO and an html part', () => {
     const files = senders()
-    expect(files.sort()).toEqual(['server/utils/billing-mail.ts', 'server/utils/invites.ts', 'server/utils/retry-stop.ts'])
+    expect(files.sort()).toEqual(['server/utils/billing-mail.ts', 'server/utils/invites.ts', 'server/utils/pilot-end.ts', 'server/utils/retry-stop.ts'])
     for (const file of files) {
       const src = read(file)
       const calls = src.split('api.resend.com/emails').slice(1)

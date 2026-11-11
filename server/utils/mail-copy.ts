@@ -293,3 +293,39 @@ export function buildRefundMail(content: RefundMailContent): BuiltMail {
     after: []
   })
 }
+
+/**
+ * The pilot end notice (fresh3 23, pilot end; project rule: a free pilot is
+ * never charged unless its organizer says yes). Sent once, about 14 days
+ * before the free months end, by pilot-end.ts. The words are draft wording,
+ * to be confirmed.
+ */
+export interface PilotEndMailContent {
+  /** "February 26, 2027". */
+  date: string
+  /** "$20 a month". */
+  price: string
+  /** The continue link (pilot-end.ts continueUrl). */
+  link: string
+}
+
+export function pilotEndMailSubject(date: string): string {
+  return `Your free LocalNodes pilot ends on ${date}`
+}
+
+export const PILOT_END_BUTTON = 'Keep my site'
+
+export function buildPilotEndMail(content: PilotEndMailContent): BuiltMail {
+  return renderMail({
+    subject: pilotEndMailSubject(content.date),
+    before: [
+      `Your free pilot ends on ${content.date}.`,
+      `If you'd like to keep your site after that, choose "${PILOT_END_BUTTON}". From then on it costs ${content.price}, charged to the card you saved when you signed up.`
+    ],
+    button: { label: PILOT_END_BUTTON, url: content.link },
+    after: [
+      'If you do nothing, we won\'t charge you anything. Your site stays open so you can export what you need, and we\'ll write to you before we remove it.',
+      'Questions? Reply to this email.'
+    ]
+  })
+}

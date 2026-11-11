@@ -29,7 +29,8 @@ export interface ManifestRedis {
 
 export interface ManifestDeps {
   /** byoKeySecret (NUXT_BYO_KEY_SECRET) opens an organizer's sealed key (23-18); the ack does not need it. */
-  config: { provisionCallbackSecret: string, byoKeySecret?: string }
+  /** hostReportEmail (NUXT_HOST_REPORT_EMAIL): the host's address for page reports, the same for every site. */
+  config: { provisionCallbackSecret: string, byoKeySecret?: string, hostReportEmail?: string }
   redis: ManifestRedis
 }
 
@@ -144,8 +145,18 @@ export async function handleManifest(
     ai_provider: aiProvider,
     ai_key_source: aiKeySource,
     community_seed: seedForManifest({ communitySeed: record.communitySeed, communityName: siteName }),
-    ...(aiKey !== undefined ? { ai_key: aiKey } : {})
+    ...(aiKey !== undefined ? { ai_key: aiKey } : {}),
+    // The host's address for a member's page report (fresh3 23-05: the site
+    // reads HOST_REPORT_EMAIL). One plain address or nothing: anything else is
+    // left out, and the site logs that no host address is set.
+    ...(hostAddress(deps.config.hostReportEmail) ? { host_report_email: hostAddress(deps.config.hostReportEmail) } : {})
   })
+}
+
+/** One plain address (something@domain.tld, no spaces, commas or controls), or ''. */
+function hostAddress(value: unknown): string {
+  const v = typeof value === 'string' ? value.trim() : ''
+  return /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(v) ? v : ''
 }
 
 /**

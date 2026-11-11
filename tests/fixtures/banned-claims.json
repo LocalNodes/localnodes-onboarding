@@ -266,7 +266,9 @@
     "app/utils/reason-copy.ts",
     "app/pages/unsubscribe.vue",
     "app/components/UnsubscribePanel.vue",
-    "app/utils/unsubscribe-flow.ts"
+    "app/utils/unsubscribe-flow.ts",
+    "app/pages/pilot/continue.vue",
+    "app/utils/pilot-continue-flow.ts"
   ],
   "mailSources": [
     "server/utils/mail-copy.ts"

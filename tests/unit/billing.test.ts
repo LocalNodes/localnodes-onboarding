@@ -1414,3 +1414,147 @@ describe('the probe: nothing is charged before the site answers (23-43 Task 6)',
     expect(await state()).toMatchObject({ siteNeverAnswered: true })
   })
 })
+
+// ---------------------------------------------------------------------------
+// The free pilot ends unless its organizer says yes (fresh3 23, pilot end;
+// project rule). A pilot sign-up carries pilotMonths
+// and the frozen pilotEndsAt from checkout; its subscription is created with
+// cancel_at there, and a pilot is never paid by billing.
+describe('billing: the free pilot ends by itself', () => {
+  let redis: FakeRedis
+  let stripe: StripeMock
+  let clock: number
+  let deps: BillingDeps
+  const END = CREATED + 80 * 86400
+
+  beforeEach(async () => {
+    redis = new FakeRedis()
+    stripe = makeStripe()
+    clock = CREATED * 1000
+    deps = {
+      redis,
+      stripe: () => stripe,
+      fetch: vi.fn().mockResolvedValue(activatedReply()),
+      callbackSecret: SECRET,
+      now: () => clock,
+      sleep: vi.fn(async () => {}),
+      log: () => {}
+    }
+    await seedReady(redis, { now: clock })
+    await redis.hset(signupKey, { pilotMonths: 3, pilotEndsAt: END })
+    stripe.subscriptions.create.mockResolvedValue({
+      id: SUB, created: CREATED, status: 'active', cancel_at: END, metadata: { provision_id: PID, pilot: 'ends' }, latest_invoice: { id: INVOICE, status: 'paid' }
+    })
+  })
+
+  const state = () => redis.hgetall<Record<string, unknown>>(stateKey)
+
+  it('subscriptionParams without cancelAt is byte for byte what it was; with it, cancel_at, no proration and the pilot metadata', () => {
+    const base = { customer: CUSTOMER, paymentMethod: PM, price: PRICE, promoId: PROMO, metadata: { provision_id: PID } }
+    expect(JSON.stringify(subscriptionParams(base))).toBe(JSON.stringify({
+      customer: CUSTOMER,
+      items: [{ price: PRICE }],
+      default_payment_method: PM,
+      discounts: [{ promotion_code: PROMO }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      metadata: { provision_id: PID },
+      expand: ['latest_invoice']
+    }))
+    expect(subscriptionParams({ ...base, cancelAt: END })).toMatchObject({
+      cancel_at: END,
+      proration_behavior: 'none',
+      metadata: { provision_id: PID, pilot: 'ends', pilot_ends_at: String(END) }
+    })
+  })
+
+  it('a pilot is created with cancel_at at its frozen end, and its paid-at-creation invoice takes the paid path with no pay call', async () => {
+    await chargeAtReady(SID, deps)
+    expect(stripe.subscriptions.create).toHaveBeenCalledTimes(1)
+    expect(stripe.subscriptions.create.mock.calls[0]![0]).toMatchObject({
+      cancel_at: END,
+      proration_behavior: 'none',
+      discounts: [{ promotion_code: PROMO }],
+      metadata: { provision_id: PID, subdomain: 'cascadia', invite_id: INVITE, pilot: 'ends', pilot_ends_at: String(END) }
+    })
+    expect(stripe.invoices.pay).not.toHaveBeenCalled()
+    expect(await state()).toMatchObject({ subscriptionId: SUB, billing: 'paid' })
+  })
+
+  it('a retried create sends the same frozen end, under the same key, however late it runs', async () => {
+    stripe.subscriptions.create.mockRejectedValueOnce(new Stripe.errors.StripeConnectionError({ message: 'socket hang up' }))
+    await chargeAtReady(SID, deps)
+    clock += 3 * 3600 * 1000
+    await resumeBilling(SID, deps)
+    expect(stripe.subscriptions.create).toHaveBeenCalledTimes(2)
+    expect(stripe.subscriptions.create.mock.calls[1]![0]).toEqual(stripe.subscriptions.create.mock.calls[0]![0])
+    expect(stripe.subscriptions.create.mock.calls[1]![1]).toEqual({ idempotencyKey: `subscribe:${PID}:1`, ...OPTS })
+  })
+
+  it('a pilot with no end, an unreadable end, or one a day away or less is rejected (no_pilot_end): nothing created, nothing paid', async () => {
+    for (const end of ['', 'soon', String(CREATED + 86400)]) {
+      await redis.del(stateKey)
+      await redis.del(signupKey)
+      stripe = makeStripe()
+      await seedReady(redis, { now: clock })
+      await redis.hset(signupKey, { pilotMonths: 3, pilotEndsAt: end })
+      expect(await chargeAtReady(SID, deps)).toBe('rejected')
+      expect(stripe.subscriptions.create).not.toHaveBeenCalled()
+      expect(stripe.invoices.pay).not.toHaveBeenCalled()
+      expect(await state()).toMatchObject({ billing: 'rejected', billingError: 'no_pilot_end' })
+    }
+  })
+
+  it('a pilot whose first invoice is not already paid is never paid (pilot_not_free); Stripe expires it', async () => {
+    stripe.subscriptions.create.mockResolvedValue({
+      id: SUB, created: CREATED, status: 'incomplete', cancel_at: END, metadata: { provision_id: PID, pilot: 'ends' }, latest_invoice: { id: INVOICE, status: 'open' }
+    })
+    expect(await chargeAtReady(SID, deps)).toBe('rejected')
+    expect(stripe.invoices.pay).not.toHaveBeenCalled()
+    expect(await state()).toMatchObject({ billing: 'rejected', billingError: 'pilot_not_free' })
+    // A later run does not pay it either.
+    clock += 60000
+    await resumeBilling(SID, deps)
+    expect(stripe.invoices.pay).not.toHaveBeenCalled()
+  })
+
+  it('an adopted pilot subscription whose cancel_at is not the frozen end is rejected (no_pilot_end), never paid', async () => {
+    stripe.subscriptions.create.mockRejectedValueOnce(new Stripe.errors.StripeConnectionError({ message: 'socket hang up' }))
+    await chargeAtReady(SID, deps)
+    stripe.subscriptions.list.mockResolvedValue({
+      data: [{ id: SUB, created: CREATED, status: 'incomplete', cancel_at: null, metadata: { provision_id: PID }, latest_invoice: { id: INVOICE, status: 'open' } }],
+      has_more: false
+    })
+    clock += 60000
+    expect(await resumeBilling(SID, deps)).toBe('rejected')
+    expect(stripe.invoices.pay).not.toHaveBeenCalled()
+    expect(await state()).toMatchObject({ billing: 'rejected', billingError: 'no_pilot_end' })
+  })
+
+  it('a pilot subscription adopted from the dedupe marker with no end is rejected (no_pilot_end) even when its invoice reads paid', async () => {
+    await redis.hset(`dedupe:${PID}`, { subscriptionId: SUB })
+    const retrieve = vi.fn().mockResolvedValue({
+      id: SUB, created: CREATED, status: 'active', cancel_at: null, metadata: { provision_id: PID }, latest_invoice: { id: INVOICE, status: 'paid' }
+    })
+    ;(stripe.subscriptions as Record<string, unknown>).retrieve = retrieve
+    expect(await chargeAtReady(SID, deps)).toBe('rejected')
+    expect(retrieve).toHaveBeenCalledTimes(1)
+    expect(stripe.subscriptions.create).not.toHaveBeenCalled()
+    expect(stripe.invoices.pay).not.toHaveBeenCalled()
+    expect(await state()).toMatchObject({ billing: 'rejected', billingError: 'no_pilot_end' })
+  })
+
+  it('an adopted pilot subscription with the frozen end and a paid invoice takes the paid path', async () => {
+    stripe.subscriptions.create.mockRejectedValueOnce(new Stripe.errors.StripeConnectionError({ message: 'socket hang up' }))
+    await chargeAtReady(SID, deps)
+    stripe.subscriptions.list.mockResolvedValue({
+      data: [{ id: SUB, created: CREATED, status: 'active', cancel_at: END, metadata: { provision_id: PID, pilot: 'ends' }, latest_invoice: { id: INVOICE, status: 'paid' } }],
+      has_more: false
+    })
+    stripe.invoices.retrieve.mockResolvedValue({ id: INVOICE, status: 'paid', hosted_invoice_url: HOSTED })
+    clock += 60000
+    await resumeBilling(SID, deps)
+    expect(stripe.invoices.pay).not.toHaveBeenCalled()
+    expect(await state()).toMatchObject({ subscriptionId: SUB, billing: 'paid' })
+  })
+})

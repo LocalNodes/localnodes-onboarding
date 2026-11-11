@@ -19,6 +19,8 @@ const BILLING_ZERO = { due: 0, charged: 0, held: 0, declined: 0, pending: 0, act
 /** 23-43 Task 6: the refunds step. */
 const REFUNDS_ZERO = { due: 0, refunded: 0, pending: 0, problems: 0, tornDown: 0, busy: 0, cleared: 0, errors: 0, waiting: 0 }
 /** The held and teardowns steps' counts over empty sweep:held and sweep:teardown (23-37). */
+/** No pilot deps in these sweeps: the pilot notice step reports skipped. */
+const PILOT_SKIPPED = { skipped: true }
 const HELD_ZERO = { due: 0, mailed: 0, confirmed: 0, expired: 0, busy: 0, errors: 0 }
 const TEARDOWNS_ZERO = { due: 0, tornDown: 0, mailed: 0, busy: 0, cleared: 0, errors: 0 }
 
@@ -269,7 +271,7 @@ describe('cron-sweep auth: only a valid QStash signature for the configured URL 
 
   it('a valid token signed with the current key: 200 with numeric counts', async () => {
     const result = await run(request(await valid()))
-    expect(result).toEqual({ status: 200, body: { ok: true, steps: { held: HELD_ZERO, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 } } } })
+    expect(result).toEqual({ status: 200, body: { ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 } } } })
     expect(makeDeps).toHaveBeenCalledTimes(1)
   })
 
@@ -377,13 +379,13 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
 
     // Before the window passes: nothing changes.
     const early = await sweep()
-    expect(early).toEqual({ status: 200, body: { ok: true, steps: { held: HELD_ZERO, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 } } } })
+    expect(early).toEqual({ status: 200, body: { ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 } } } })
     expect(await state()).toMatchObject({ failedAttempts: 1, provisionalUntil: until })
     expect(stripe.setupIntents.retrieve).not.toHaveBeenCalled()
 
     clock = until + 1
     const result = await sweep()
-    expect(result).toEqual({ status: 200, body: { ok: true, steps: { held: HELD_ZERO, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 1, stopped: 1, cleared: 1, busy: 0, errors: 0 } } } })
+    expect(result).toEqual({ status: 200, body: { ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 1, stopped: 1, cleared: 1, busy: 0, errors: 0 } } } })
 
     expect(await state()).toMatchObject({ failedAttempts: 2, stopped: true, canRetry: false })
     expect(await redis.exists(lockKey)).toBe(0)
@@ -405,7 +407,7 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
     await failed(1, 'site')
     clock += PROVISIONAL_MS + 1
     const result = await sweep()
-    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 1, stopped: 0, cleared: 1, busy: 0, errors: 0 } } })
+    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 1, stopped: 0, cleared: 1, busy: 0, errors: 0 } } })
     expect(await state()).toMatchObject({ status: 'failed', failedAttempts: 1, canRetry: true, provisionalUntil: 0 })
     expect(await redis.exists(lockKey)).toBe(0)
     expect(stripe.setupIntents.retrieve).not.toHaveBeenCalled()
@@ -421,7 +423,7 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
     // The ready step itself left sweep:stops (23-43: readyAfterProvisional), so the stops step has nothing due.
     // The ready joined sweep:billing, and this describe wires no billing:
     // the billing step counts it as an error and keeps it (a missing wiring is never skipped silently).
-    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: { ...BILLING_ZERO, due: 1, errors: 1 }, stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 } } })
+    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: { ...BILLING_ZERO, due: 1, errors: 1 }, stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 } } })
     expect(await state()).toMatchObject({ status: 'ready', failedAttempts: 0 })
     expect(await redis.zrange(BILLING_INDEX, '-inf', '+inf', { byScore: true })).toEqual([SID])
     expect(stripe.setupIntents.retrieve).not.toHaveBeenCalled()
@@ -432,7 +434,7 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
   it('a member whose provision hash has expired is removed and never stopped', async () => {
     await redis.zadd(STOPS_INDEX, { score: clock - 1, member: 'cs_test_gone' })
     const result = await sweep()
-    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 0, stopped: 0, cleared: 1, busy: 0, errors: 0 } } })
+    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 0, stopped: 0, cleared: 1, busy: 0, errors: 0 } } })
     expect(stripe.setupIntents.retrieve).not.toHaveBeenCalled()
     expect(await due()).toEqual([])
   })
@@ -441,7 +443,7 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
     await redis.hset(stateKey, { status: 'failed', failedAttempts: 2, countedAttempt: 2, attempt: 2, subscriptionId: 'sub_123' })
     await redis.zadd(STOPS_INDEX, { score: clock - 1, member: SID })
     const result = await sweep()
-    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 0, stopped: 0, cleared: 1, busy: 0, errors: 0 } } })
+    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 0, stopped: 0, cleared: 1, busy: 0, errors: 0 } } })
     expect(await state()).not.toHaveProperty('stopped')
     expect(stripe.setupIntents.retrieve).not.toHaveBeenCalled()
     expect(fetchMock).not.toHaveBeenCalled()
@@ -454,7 +456,7 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
     clock += PROVISIONAL_MS + 1
     const first = await sweep()
     // 23-43 Task 2: the stop's first step moved it to tearing_down and sweep:teardown; the same sweep's teardowns step finishes it.
-    expect(first.body).toEqual({ ok: true, steps: { held: HELD_ZERO, teardowns: { ...TEARDOWNS_ZERO, due: 1, tornDown: 1 }, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 1, stopped: 0, cleared: 0, busy: 0, errors: 0 } } })
+    expect(first.body).toEqual({ ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: { ...TEARDOWNS_ZERO, due: 1, tornDown: 1 }, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 1, settled: 1, stopped: 0, cleared: 0, busy: 0, errors: 0 } } })
     expect(await state()).toMatchObject({ status: 'tearing_down', stopped: true })
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(stripe.paymentMethods.detach).toHaveBeenCalledTimes(1)
@@ -473,7 +475,7 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
 
     clock += 5 * 60 * 1000
     const result = await sweep()
-    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, teardowns: { ...TEARDOWNS_ZERO, due: 1, tornDown: 1 }, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 } } })
+    expect(result.body).toEqual({ ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: { ...TEARDOWNS_ZERO, due: 1, tornDown: 1 }, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 } } })
     expect(await state()).toMatchObject({ stopped: true })
     expect(stripe.paymentMethods.detach).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -589,7 +591,7 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
       return hgetall(key)
     }) as typeof redis.hgetall
     const result = await sweep()
-    expect(result).toEqual({ status: 200, body: { ok: true, steps: { held: HELD_ZERO, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 2, settled: 0, stopped: 0, cleared: 1, busy: 0, errors: 1 } } } })
+    expect(result).toEqual({ status: 200, body: { ok: true, steps: { held: HELD_ZERO, pilotNotice: PILOT_SKIPPED, teardowns: TEARDOWNS_ZERO, refunds: REFUNDS_ZERO, billing: BILLING_ZERO, stops: { due: 2, settled: 0, stopped: 0, cleared: 1, busy: 0, errors: 1 } } } })
     expect(await due()).toEqual(['cs_test_broken'])
   })
 
@@ -598,7 +600,7 @@ describe('cron-sweep (tracer): a site failure on attempt 2 with the tab closed i
       throw new Error('upstash down')
     }) as typeof redis.zrange
     const result = await sweep()
-    expect(result).toEqual({ status: 503, body: { ok: false, steps: { stops: { error: true }, held: { error: true }, billing: { error: true }, refunds: { error: true }, teardowns: { error: true } } } })
+    expect(result).toEqual({ status: 503, body: { ok: false, steps: { stops: { error: true }, held: { error: true }, billing: { error: true }, refunds: { error: true }, teardowns: { error: true }, pilotNotice: PILOT_SKIPPED } } })
   })
 
   it('count-only logs: no session id, provision id or email in any log line or the reply; the D-18 line names only the Coolify app', async () => {
@@ -630,8 +632,8 @@ describe('cron-sweep step list', () => {
     expect(CRON_STEPS[0]!.name).toBe('stops')
   })
 
-  it('CRON_STEPS is [stops, held, billing, refunds, teardowns] (23-32 billing; 23-37 held second, teardowns last; 23-43 refunds fourth)', () => {
-    expect(CRON_STEPS.map(s => s.name)).toEqual(['stops', 'held', 'billing', 'refunds', 'teardowns'])
+  it('CRON_STEPS is [stops, held, billing, refunds, teardowns, pilotNotice] (23-32 billing; 23-37 held second; 23-43 refunds fourth; the pilot notice last)', () => {
+    expect(CRON_STEPS.map(s => s.name)).toEqual(['stops', 'held', 'billing', 'refunds', 'teardowns', 'pilotNotice'])
   })
 
   it('the route\'s factory carries the stop deps (makeStopDeps: the invite secret, the app delete, the paid path)', () => {
@@ -667,7 +669,7 @@ describe('cron-sweep step list', () => {
       log: msg => logs.push(msg)
     }
     const result = await handleCronSweep(request(await valid()), () => ({ redis, billing, log: msg => logs.push(msg) }), { log: msg => logs.push(msg) })
-    expect(result.body).toEqual({ ok: true, steps: { stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 }, held: HELD_ZERO, billing: { due: 1, charged: 0, held: 0, declined: 0, pending: 0, activated: 1, busy: 0, errors: 0, refundStarted: 0, refundBusy: 0 }, refunds: REFUNDS_ZERO, teardowns: TEARDOWNS_ZERO } })
+    expect(result.body).toEqual({ ok: true, steps: { stops: { due: 0, settled: 0, stopped: 0, cleared: 0, busy: 0, errors: 0 }, held: HELD_ZERO, billing: { due: 1, charged: 0, held: 0, declined: 0, pending: 0, activated: 1, busy: 0, errors: 0, refundStarted: 0, refundBusy: 0 }, refunds: REFUNDS_ZERO, teardowns: TEARDOWNS_ZERO, pilotNotice: PILOT_SKIPPED } })
     expect((await redis.hgetall<Record<string, unknown>>(`provision:${SID_B}`))?.status).toBe('complete')
     expect(logs).toContain('cron-sweep: billing due=1 charged=0 held=0 declined=0 pending=0 activated=1 busy=0 errors=0 refundStarted=0 refundBusy=0')
     for (const canary of [SID_B, PID_B, 'sub_b', 'in_b', 'cus_b', EMAIL]) expect(logs.join('\n')).not.toContain(canary)
@@ -716,5 +718,41 @@ describe('cron-sweep route registration', () => {
   it('/api/cron/sweep is not gated: it passes while closed and uninvited', () => {
     expect(GATED_API).not.toContain('/api/cron/sweep')
     expect(gateDecision('/api/cron/sweep', false)).toBe('pass')
+  })
+})
+
+// --- the free pilot's end notice (pilot-end.ts) ------------------------------------
+
+describe('cron-sweep: the pilot notice step', () => {
+  const pilotStep = () => CRON_STEPS.find(s => s.name === 'pilotNotice')!
+
+  it('is the last step', () => {
+    expect(CRON_STEPS[CRON_STEPS.length - 1]!.name).toBe('pilotNotice')
+  })
+
+  it('reports skipped, with no call, when the sweep carries no pilot deps', async () => {
+    expect(await pilotStep().run({ redis: new FakeRedis() } as SweepDeps)).toEqual({ skipped: true })
+  })
+
+  it('runs sweepPilotNotices with the pilot deps: unconfigured mail reports ran=false and lists nothing', async () => {
+    const list = vi.fn()
+    const result = await pilotStep().run({
+      redis: new FakeRedis(),
+      pilot: { redis: { set: vi.fn() }, stripe: { subscriptions: { list, update: vi.fn() } }, fetch: vi.fn(), apiKey: '', from: '', secret: 's' }
+    } as unknown as SweepDeps)
+    expect(result).toEqual({ ran: false, unconfigured: true })
+    expect(list).not.toHaveBeenCalled()
+  })
+
+  it('the route builds the pilot deps in its factory with makePilotNoticeDeps(config)', () => {
+    const src = readFileSync(new URL('../../server/api/cron/sweep.post.ts', import.meta.url), 'utf8')
+    expect(src).toMatch(/pilot: makePilotNoticeDeps\(config\)/)
+  })
+
+  it('makePilotNoticeDeps builds Stripe on first use, so a missing key never fails the sweep setup', () => {
+    const src = readFileSync(new URL('../../server/utils/billing-wiring.ts', import.meta.url), 'utf8')
+    const body = src.slice(src.indexOf('export function makePilotNoticeDeps('))
+    expect(body).not.toMatch(/stripe: useStripe\(\)/)
+    expect(body).toMatch(/list: params => \(useStripe\(\)/)
   })
 })

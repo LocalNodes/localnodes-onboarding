@@ -461,8 +461,8 @@ describe('refundAndTearDown: a paid site never handed over is refunded in full, 
     expect(await sweepBilling({ redis: v.redis as never, billing: v.billing, refund: v.deps, now: () => v.clock.now })).toMatchObject({ due: 1, refundStarted: 0, refundBusy: 1, errors: 0 })
   })
 
-  it('CRON_STEPS is stops, held, billing, refunds, teardowns', () => {
-    expect(CRON_STEPS.map(s => s.name)).toEqual(['stops', 'held', 'billing', 'refunds', 'teardowns'])
+  it('CRON_STEPS is stops, held, billing, refunds, teardowns, pilotNotice', () => {
+    expect(CRON_STEPS.map(s => s.name)).toEqual(['stops', 'held', 'billing', 'refunds', 'teardowns', 'pilotNotice'])
   })
 
   it('a retried refund refunds once: a create whose reply was lost, with a list that does not show it yet, is sent again under the same key refund:{provisionId}', async () => {

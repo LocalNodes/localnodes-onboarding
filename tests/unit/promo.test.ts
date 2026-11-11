@@ -57,6 +57,9 @@ const promoRow = (over: Partial<PromoRow> = {}): PromoRow => ({
   expires_at: null,
   max_redemptions: 1,
   times_redeemed: 0,
+  // Stripe always returns the expanded coupon (checkCode asks for it); since the pilot end
+  // (pilot-end.ts) a coupon that can't be read is refused, so the default row carries one.
+  promotion: { type: 'coupon', coupon: { percent_off: 50, duration: 'once' } },
   ...over
 })
 
@@ -115,20 +118,33 @@ async function setupInvite(redis: FakeRedis, invite: { promoCodeId?: string, pro
 
 describe('checkCode', () => {
   it.each([
-    ['a coupon with percent_off 100', { percent_off: 100 }, true],
-    ['a coupon with percent_off 50', { percent_off: 50 }, false],
-    ['a coupon with amount_off', { amount_off: 500, percent_off: null }, false],
-    ['an unexpanded coupon id', 'coupon_123', false],
-    ['no promotion at all', undefined, false],
-    ['an expanded coupon with its id (23-43 Task 3)', { id: 'coupon_full', percent_off: 100 }, true]
-  ] as const)('fullDiscount for %s is %s (23-32: only a 100%-off coupon counts)', async (_label, coupon, full) => {
+    ['a coupon with percent_off 100, once', { percent_off: 100, duration: 'once' }, true, 1],
+    ['a coupon with percent_off 100, repeating 3 months', { percent_off: 100, duration: 'repeating', duration_in_months: 3 }, true, 3],
+    ['a coupon with percent_off 50', { percent_off: 50, duration: 'forever' }, false, undefined],
+    ['a coupon with amount_off', { amount_off: 500, percent_off: null, duration: 'once' }, false, undefined],
+    ['an expanded coupon with its id (23-43 Task 3)', { id: 'coupon_full', percent_off: 100, duration: 'once' }, true, 1]
+  ] as const)('fullDiscount for %s is %s (23-32: only a 100%-off coupon counts), pilotMonths %s', async (_label, coupon, full, months) => {
     const { redis } = holdRedis()
-    const row = { ...promoRow(), ...(coupon === undefined ? {} : { promotion: { type: 'coupon', coupon } }) }
+    const row = { ...promoRow(), promotion: { type: 'coupon', coupon } }
     const { stripe } = mockStripe([row as PromoRow])
     const r = await checkCode({ code: 'PILOT-AAAA', holder: 'inv_1', invite: null }, { stripe, redis, now: () => T0 })
-    // couponId (23-43 Task 3, D3): the coupon's id, expanded or not; empty when unknown.
-    const couponId = typeof coupon === 'string' ? coupon : coupon && 'id' in coupon ? coupon.id : ''
-    expect(r).toEqual({ ok: true, promoId: 'promo_A', fullDiscount: full, couponId })
+    // couponId (23-43 Task 3, D3): the coupon's id; empty when it has none.
+    const couponId = 'id' in coupon ? coupon.id : ''
+    expect(r).toEqual({ ok: true, promoId: 'promo_A', fullDiscount: full, couponId, ...(months ? { pilotMonths: months } : {}) })
+  })
+
+  it.each([
+    ['an unexpanded coupon id', 'coupon_123'],
+    ['no coupon', null],
+    ['no promotion at all', undefined],
+    ['100% off forever (no end)', { percent_off: 100, duration: 'forever' }],
+    ['100% off repeating with no month count', { percent_off: 100, duration: 'repeating' }]
+  ] as const)('refuses %s before holding anything (pilot end: a free pilot must be able to end)', async (_label, coupon) => {
+    const { redis, holders } = holdRedis()
+    const row = coupon === undefined ? { ...promoRow(), promotion: undefined } : { ...promoRow(), promotion: { type: 'coupon', coupon } }
+    const { stripe } = mockStripe([row as PromoRow])
+    expect(await checkCode({ code: 'PILOT-AAAA', holder: 'inv_1', invite: null }, { stripe, redis, now: () => T0 })).toEqual({ ok: false })
+    expect(holders('promo_A')).toEqual([])
   })
 
   it('accepts an active single-use code and holds it for the holder', async () => {

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { handleManifest, handleManifestAck } from '../../server/utils/provision-manifest'
 import { callbackToken } from '../../server/utils/provision-handlers'
 import { gateDecision } from '../../shared/launch'
@@ -357,5 +358,35 @@ describe('provision-manifest ack: the sealed key slot', () => {
     const out = await handleManifest({ provision_id: PID_A }, bearer(PID_A), { config: CONFIG, redis })
     expect(out.body).not.toHaveProperty('ai_key')
     expect(JSON.stringify(out.body)).not.toContain('sealed-test-blob')
+  })
+})
+
+describe('provision-manifest: the host report address (HOST_REPORT_EMAIL)', () => {
+  let redis: SpyRedis
+  beforeEach(async () => {
+    redis = new SpyRedis()
+    await seedSignup(redis, PID_A)
+  })
+  const call = (hostReportEmail?: string) =>
+    handleManifest({ provision_id: PID_A }, bearer(PID_A), { config: { ...CONFIG, ...(hostReportEmail === undefined ? {} : { hostReportEmail }) }, redis })
+
+  it('sends host_report_email when the app has one, the same for every site', async () => {
+    const out = await call('reports@example.test')
+    expect(out.status).toBe(200)
+    expect(out.body).toMatchObject({ host_report_email: 'reports@example.test', organizer_email: 'organizer@example.test' })
+    expect(Object.keys(out.body).sort()).toEqual([...EIGHT_FIELDS, 'host_report_email'].sort())
+  })
+
+  it('leaves the field out when none is set or the setting is not one plain address, so the site keeps the eight fields', async () => {
+    for (const bad of [undefined, '', '   ', 'no-at-sign', 'a@b.test c@d.test', 'a@b.test\nX-Header: y', 'a@b.test,c@d.test']) {
+      const out = await call(bad)
+      expect(out.status).toBe(200)
+      expect(Object.keys(out.body).sort()).toEqual(EIGHT_FIELDS)
+    }
+  })
+
+  it('the route passes runtimeConfig hostReportEmail (NUXT_HOST_REPORT_EMAIL)', () => {
+    expect(readFileSync(new URL('../../server/api/provision-manifest.get.ts', import.meta.url), 'utf8')).toMatch(/hostReportEmail/)
+    expect(readFileSync(new URL('../../nuxt.config.ts', import.meta.url), 'utf8')).toMatch(/hostReportEmail: ''/)
   })
 })
