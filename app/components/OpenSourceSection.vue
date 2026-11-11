@@ -11,10 +11,10 @@ const repos = [
 <template>
   <section class="bg-muted">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-4">
-      <h2 class="text-3xl font-semibold text-highlighted">
+      <h2 class="text-[28px] leading-tight font-semibold text-highlighted">
         Open source
       </h2>
-      <p class="text-lg leading-relaxed text-muted max-w-3xl">
+      <p class="text-base leading-relaxed text-muted max-w-xl">
         LocalNodes is open source (GPL and AGPL). The community software is
         GPL-2.0-or-later and the sign-up app is AGPL-3.0-or-later. Read the code,
         run it yourself, or let us host it for you.

@@ -19,8 +19,10 @@
 //      labelled a demo; no frame word;
 //   Plus the voice and product rules (PLACE-01, AI-advisory, voice), a
 //   separate list; every FAIL line names the list a hit came from.
-//   3. the sign-up pages (/onboarding, /success, /cancel) for frame and buyer
-//      words (D-05).
+//   3. the sign-up pages and components (fixture list signupSources, plus the
+//      built /onboarding, /success, /cancel, /invite pages when prerendered)
+//      and the Nuxt mail copy (list mailSources) for frame words, buyer words
+//      (D-05) and the voice and product rules, PLACE-01 included (D-22).
 //
 // Usage: node scripts/check-landing-claims.mjs [--root <dir>]
 //        node scripts/check-landing-claims.mjs --stamp   (prebuild: record the build start)
@@ -334,25 +336,37 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     }
   }
 
-  // 3. Sign-up pages: no frame or buyer words (D-05).
+  // 3. Sign-up pages and mail copy: no frame or buyer words (D-05) and none of
+  //    the voice and product rules, PLACE-01 included (D-22). The source lists
+  //    are signupSources (pages and components) and mailSources (the mail
+  //    strings the Nuxt side sends). A listed file that is not there is skipped,
+  //    so a plan can list a page before it builds it; a test checks every listed
+  //    file exists today. Every FAIL line names the list and the file.
   const words = [
-    ...fixture.frameWords.map((w) => ({ re: compileRow({ pattern: w, regex: false }), w, why: 'frame word in the sign-up flow (D-05)' })),
-    ...fixture.buyerWords.map((w) => ({ re: new RegExp(w, 'i'), w, why: 'buyer word in the sign-up flow (D-05)' }))
+    ...fixture.frameWords.map((w) => ({ re: compileRow({ pattern: w, regex: false }), w, type: 'frame' })),
+    ...fixture.buyerWords.map((w) => ({ re: new RegExp(w, 'i'), w, type: 'buyer' }))
   ]
   const signup = []
-  for (const s of fixture.signupSources ?? []) {
-    const p = join(root, s)
-    if (existsSync(p)) signup.push({ file: s, text: stripCss(readFileSync(p, 'utf8')) })
+  const sourceLists = [
+    { list: 'signupSources', where: 'sign-up flow', files: fixture.signupSources ?? [] },
+    { list: 'mailSources', where: 'mail copy', files: fixture.mailSources ?? [] }
+  ]
+  for (const { list, where, files } of sourceLists) {
+    for (const s of files) {
+      const p = join(root, s)
+      if (existsSync(p)) signup.push({ file: s, list, where, text: stripCss(readFileSync(p, 'utf8')) })
+    }
   }
-  for (const route of ['onboarding', 'success', 'cancel']) for (const dir of builtDirs) {
+  for (const route of ['onboarding', 'success', 'cancel', 'invite', 'invite/verify']) for (const dir of builtDirs) {
     const p = join(dir, route, 'index.html')
     if (existsSync(p)) {
       const h = readFileSync(p, 'utf8')
-      signup.push({ file: relative(root, p), text: `${visibleText(h)} \n ${metaText(h)}` })
+      signup.push({ file: relative(root, p), list: 'signupSources (built page)', where: 'sign-up flow', text: `${visibleText(h)} \n ${metaText(h)}` })
     }
   }
-  for (const { file, text: t } of signup) {
-    for (const { re, w, why } of words) if (re.test(t)) fail(file, w, why)
+  for (const { file, list, where, text: t } of signup) {
+    for (const { re, w, type } of words) if (re.test(t)) fail(file, w, `${list}: ${type} word in the ${where} (D-05)`)
+    for (const row of findBannedHits(t, voiceRules)) fail(file, row.pattern, `${list}: voice and product rules, ${row.rule}: ${row.reason}`)
   }
 
   lines.push(failed ? 'RESULT: FAIL' : 'RESULT: PASS')

@@ -1,8 +1,10 @@
 <template>
   <!-- Colours come from the semantic palette vars (D-03), so the 22.1-08
        palette swap recolours it. Reduced motion: main.css flattens the loops. -->
-  <!-- Outer wrapper with v-motion for initial mount animation -->
+  <!-- Outer wrapper with v-motion for initial mount animation. Decorative:
+       hidden from assistive technology (23-UI-SPEC section 4). -->
   <div
+    aria-hidden="true"
     class="relative w-48 h-48 mx-auto"
     v-motion
     :initial="{ opacity: 0, scale: 0.8 }"

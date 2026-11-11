@@ -52,14 +52,14 @@ onBeforeUnmount(unmount)
       </div>
 
       <div
-        class="bg-elevated rounded-lg p-4 flex flex-col gap-3 transition-opacity duration-150 ease-out"
+        class="bg-ln-brand-900 rounded-lg p-4 flex flex-col gap-3 transition-opacity duration-150 ease-out"
         :class="showAnswer ? 'opacity-100' : 'opacity-0'"
       >
         <p class="text-highlighted leading-normal">
           {{ current.a }}
         </p>
         <span
-          class="self-start bg-inverted text-inverted rounded-full px-3 py-1 text-sm font-semibold"
+          class="self-start bg-ln-brand-100 text-inverted rounded-full px-3 py-1 text-sm font-semibold"
         >{{ current.chip }}</span>
       </div>
     </div>
@@ -70,7 +70,6 @@ onBeforeUnmount(unmount)
         :icon="paused ? 'i-lucide-play' : 'i-lucide-pause'"
         variant="ghost"
         color="neutral"
-        size="sm"
         @click="togglePause"
       />
     </div>

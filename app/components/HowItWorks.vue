@@ -11,13 +11,13 @@ const steps = [
 <template>
   <section class="bg-default">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
-      <h2 class="text-3xl font-semibold text-highlighted">
+      <h2 class="text-[28px] leading-tight font-semibold text-highlighted">
         How it works
       </h2>
       <ol class="grid gap-6 md:grid-cols-3">
         <li v-for="(step, i) in steps" :key="step.title" class="flex flex-col gap-2">
           <span class="size-10 rounded-full bg-primary text-inverted inline-flex items-center justify-center font-semibold" aria-hidden="true">{{ i + 1 }}</span>
-          <h3 class="text-lg font-semibold text-highlighted">
+          <h3 class="text-xl font-semibold text-highlighted">
             <span class="sr-only">Step {{ i + 1 }}: </span>{{ step.title }}
           </h3>
           <p class="text-muted">

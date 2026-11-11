@@ -5,7 +5,7 @@
 // D-16 names them), not read from LANDING.md or the fixture, so it isn't
 // circular.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, utimesSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, utimesSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -375,5 +375,109 @@ describe('pre-launch statement (Tom, 2026-11-06, PR #9)', () => {
   it('reads the <title> as meta only, not as visible text', () => {
     const r = run(page(CLEAN_BODY.replace(PRELAUNCH, '')).replace('<title>LocalNodes</title>', '<title data-prelaunch>Launching soon</title>'))
     expect(r.code).toBe(1)
+  })
+})
+
+// Sign-up pages and mail copy (fresh3 23-28, D-22, PLACE-01): the voice and
+// buyer-word rules run over every file in signupSources and mailSources, and
+// the failing line names the list and the file. The temp root holds a copy of
+// each file the fixture lists; the CLI reads the repo's own fixture and joins
+// each listed path to --root, so a planted file lands where the CLI looks.
+describe('sign-up pages and mail copy are wording-checked (23-28)', () => {
+  const INVITE_ENTRY = 'app/pages/invite/index.vue'
+  const INVITE_VERIFY = 'app/pages/invite/verify.vue'
+  const MAIL_COPY = 'server/utils/mail-copy.ts'
+  const listed: string[] = [...(fixture.signupSources ?? []), ...(fixture.mailSources ?? [])]
+  // The files the planting tests need, whether or not the fixture lists them yet.
+  const wanted = [...new Set([...listed, INVITE_ENTRY, INVITE_VERIFY, MAIL_COPY])]
+
+  /** Copy every listed source (and the three named above) from the repo into the temp root. */
+  function copyListed() {
+    for (const rel of wanted) {
+      const from = join(repo, rel)
+      mkdirSync(join(root, dirname(rel)), { recursive: true })
+      writeFileSync(join(root, rel), readFileSync(from, 'utf8'))
+    }
+  }
+  function plant(rel: string, add: string) {
+    writeFileSync(join(root, rel), readFileSync(join(root, rel), 'utf8') + `\n${add}\n`)
+  }
+  const runClean = () => run(page(CLEAN_BODY))
+
+  it('the fixture lists both invite pages in signupSources and the mail copy in mailSources', () => {
+    expect(fixture.signupSources).toEqual(expect.arrayContaining([INVITE_ENTRY, INVITE_VERIFY]))
+    expect(fixture.mailSources).toEqual([MAIL_COPY])
+  })
+
+  it('every listed file exists, so a rename or a typo cannot drop a file out of the check unnoticed', () => {
+    for (const rel of listed) expect(existsSync(join(repo, rel)), rel).toBe(true)
+  })
+
+  it('the unchanged pages and mail copy pass', () => {
+    copyListed()
+    const r = runClean()
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  it('a place word planted in the invite page fails, and the line names signupSources and the file', () => {
+    copyListed()
+    plant(INVITE_ENTRY, '<p>Find groups near you.</p>')
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL app\/pages\/invite\/index\.vue: .*\(signupSources: voice and product rules, PLACE-01:/m)
+  })
+
+  it('a place word planted in the link landing fails the same way', () => {
+    copyListed()
+    plant(INVITE_VERIFY, '<p>Meet people in your town.</p>')
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL app\/pages\/invite\/verify\.vue: .*\(signupSources: voice and product rules, PLACE-01:/m)
+  })
+
+  it('a place word planted in the mail copy fails, and the line names mailSources and the file', () => {
+    copyListed()
+    plant(MAIL_COPY, 'export const planted = \'Find groups near you\'')
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL server\/utils\/mail-copy\.ts: .*\(mailSources: voice and product rules, PLACE-01:/m)
+  })
+
+  it.each(['co-op', 'guild', 'DAO', 'land trust'])('the buyer word "%s" planted in a sign-up page fails and names signupSources', (word) => {
+    copyListed()
+    plant(INVITE_ENTRY, `<p>Set up your ${word}.</p>`)
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL app\/pages\/invite\/index\.vue: .*\(signupSources: buyer word in the sign-up flow \(D-05\)\)/m)
+  })
+
+  it('a buyer word planted in the mail copy fails and names mailSources', () => {
+    copyListed()
+    plant(MAIL_COPY, 'export const planted = \'Welcome, land trust\'')
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL server\/utils\/mail-copy\.ts: .*\(mailSources: buyer word in the mail copy \(D-05\)\)/m)
+  })
+
+  it('a frame word planted in the mail copy fails and names mailSources', () => {
+    copyListed()
+    plant(MAIL_COPY, 'export const planted = \'a network state\'')
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL server\/utils\/mail-copy\.ts: .*\(mailSources: frame word in the mail copy \(D-05\)\)/m)
+  })
+
+  it('a hype word planted in a sign-up page fails as a voice rule', () => {
+    copyListed()
+    plant(INVITE_ENTRY, '<p>A seamless start.</p>')
+    const r = runClean()
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL app\/pages\/invite\/index\.vue: .*\(signupSources: voice and product rules, Voice:/m)
+  })
+
+  it('a listed file that is not in the root is skipped, not a failure (a page not built yet)', () => {
+    const r = runClean()
+    expect(r.out).toContain('RESULT: PASS')
   })
 })

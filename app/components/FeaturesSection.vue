@@ -42,14 +42,14 @@ const features: { title: string, icon: string, body: string }[] = [
 <template>
   <section class="bg-default">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
-      <h2 class="text-3xl font-semibold text-highlighted">
+      <h2 class="text-[28px] leading-tight font-semibold text-highlighted">
         What you get
       </h2>
-      <p class="text-lg text-muted max-w-3xl">
+      <p class="text-base text-muted max-w-xl">
         Your library is your community's second brain: every document, minute and
         decision in one place, ready for any member to ask.
       </p>
-      <p class="text-lg font-semibold text-highlighted">
+      <p class="text-base font-semibold text-highlighted">
         Every answer shows the page it came from.
       </p>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -59,7 +59,7 @@ const features: { title: string, icon: string, body: string }[] = [
           class="rounded-lg border border-default p-5 flex flex-col gap-2"
         >
           <UIcon :name="feature.icon" class="size-6 text-primary" aria-hidden="true" />
-          <h3 class="text-lg font-semibold text-highlighted">
+          <h3 class="text-xl font-semibold text-highlighted">
             {{ feature.title }}
           </h3>
           <p class="leading-relaxed text-muted">

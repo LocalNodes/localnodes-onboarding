@@ -3,21 +3,30 @@
 // words (co-ops, guilds and DAOs, land trusts) are allowed here and in the
 // example groups only (D-14); never in the sign-up flow (D-05). Pre-launch
 // (Tom, 2026-11-06, PR #9): present tense, the finished product, no chips.
+// The four cards and their order are Tom's positioning ruling of 2026-11-09;
+// the Guilds and DAOs text is the orchestrator's correction of 2026-11-11
+// (connecting an existing DAO is parked, so the card does not promise it).
+// tests/unit/homepage-copy.test.ts holds the wording.
 const groups = [
   {
-    title: 'Co-ops',
+    title: 'Neighborhoods and civic groups',
     icon: 'i-lucide-house',
-    body: 'Housing, food, energy or worker co-ops: keep your bylaws, minutes and policies in one place members can ask about, and run your shared money and votes the same way.'
+    body: 'Neighborhood associations, tenant groups and civic clubs keep their minutes and decisions where anyone can ask "what did we decide about the garden?", run a mutual aid fund, and vote together.'
+  },
+  {
+    title: 'Pop-up villages and gatherings',
+    icon: 'i-lucide-tent',
+    body: 'Pop-up villages, residencies and conferences keep their talks, notes and decisions, a shared fund for projects, and a way to decide, during the gathering and after everyone goes home.'
+  },
+  {
+    title: 'Co-ops and land trusts',
+    icon: 'i-lucide-trees',
+    body: 'Housing, food and worker co-ops, land trusts and watershed groups keep bylaws, minutes, deeds and plans in one searchable place, and run shared money and votes there too.'
   },
   {
     title: 'Guilds and DAOs',
     icon: 'i-lucide-users',
-    body: 'Online guilds and DAOs that already make decisions together: a library for your proposals, docs and history, connected to the shared accounts and voting you already use, nothing redeployed.'
-  },
-  {
-    title: 'Land trusts',
-    icon: 'i-lucide-trees',
-    body: 'Community land trusts and watershed groups: one home for deeds, plans, surveys and meeting notes, for the people who steward the land together.'
+    body: 'Online guilds and DAOs that already make decisions together: a library for your proposals, docs and history, with a shared fund and votes alongside.'
   }
 ]
 </script>
@@ -25,13 +34,13 @@ const groups = [
 <template>
   <section class="bg-muted">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col gap-6">
-      <h2 class="text-3xl font-semibold text-highlighted">
+      <h2 class="text-[28px] leading-tight font-semibold text-highlighted">
         Who it's for
       </h2>
-      <p class="text-lg text-muted">
+      <p class="text-base text-muted">
         Groups that hold something in common and run it together.
       </p>
-      <div class="grid gap-4 md:grid-cols-3">
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div
           v-for="group in groups"
           :key="group.title"

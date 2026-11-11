@@ -99,7 +99,7 @@ the smoke harness above instead.
 ## Test
 
 ```bash
-npm run test   # vitest, verified: 111 passed (10 files)
+npm run test   # vitest, verified: 734 passed (25 files), lane/phase-23, 2026-11-08
 ```
 
 ## Gotchas
