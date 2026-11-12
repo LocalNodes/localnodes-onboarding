@@ -63,6 +63,17 @@ export function isLaunchFlagOpen(value) {
   return value === 'true' || value === '1'
 }
 
+/**
+ * Whether a flag value might open sign-ups once the server reads it. The
+ * server decodes env values loosely ("TRUE", " true", "1.0" and a quoted
+ * "true" all read as open), so the build gate counts every value as open
+ * except unset, empty, "false" and "0".
+ */
+export function mightOpen(value) {
+  if (value === undefined) return false
+  return !['', 'false', '0'].includes(value.trim().toLowerCase())
+}
+
 /** Entries not marked ready. Anything other than `ready: true` counts as pending. */
 export function pendingClaims(claims = LAUNCH_CLAIMS) {
   return claims.filter(c => c.ready !== true)
@@ -70,10 +81,10 @@ export function pendingClaims(claims = LAUNCH_CLAIMS) {
 
 /**
  * Why a build with this launch flag must stop, or null when it may go ahead:
- * the flag is open and at least one promise is pending.
+ * the flag might open sign-ups and at least one promise is pending.
  */
 export function launchGateProblem(flag, claims = LAUNCH_CLAIMS) {
-  if (!isLaunchFlagOpen(flag)) return null
+  if (!mightOpen(flag)) return null
   const pending = pendingClaims(claims)
   if (!pending.length) return null
   return [

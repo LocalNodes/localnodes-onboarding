@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { LAUNCH_CLAIMS, isLaunchFlagOpen, pendingClaims, launchGateProblem, missingClaims } from '../../shared/launch-claims.mjs'
+import { LAUNCH_CLAIMS, isLaunchFlagOpen, mightOpen, pendingClaims, launchGateProblem, missingClaims } from '../../shared/launch-claims.mjs'
 import { isLaunchOpen } from '../../shared/launch'
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8')
@@ -27,13 +27,13 @@ describe('the launch flag', () => {
   it('nuxt.config.ts reads the flag and runs the gate through the shared module', () => {
     const config = read('nuxt.config.ts')
     expect(config).toContain('const launchOpen = isLaunchFlagOpen(process.env.NUXT_LAUNCH_OPEN)')
-    expect(config).toContain('launchGateProblem(process.env.NUXT_LAUNCH_OPEN)')
+    expect(config).toContain('launchGateProblem(process.env.NUXT_LAUNCH_OPEN) ?? launchGateProblem(process.env.NITRO_LAUNCH_OPEN)')
     expect(config).toMatch(/if \(problem\) throw new Error\(problem\)/)
-    // The flag is read in these two places only.
     expect(config.match(/process\.env\.NUXT_LAUNCH_OPEN/g)).toHaveLength(2)
-    // The gate skips dev, prepare and test runs only; nothing else turns it off.
+    // The gate skips dev and prepare runs only (neither writes a build); nothing else turns it off.
     const gate = config.slice(config.indexOf('(_options, nuxt) => {'), config.indexOf('if (problem) throw'))
-    expect(gate).toContain('if (nuxt.options.dev || nuxt.options._prepare || nuxt.options.test) return')
+    expect(gate).toContain('if (nuxt.options.dev || nuxt.options._prepare) return')
+    expect(gate).not.toContain('options.test')
     expect(gate.match(/return/g)).toHaveLength(1)
   })
 })
@@ -51,7 +51,14 @@ describe('the build gate', () => {
   })
 
   it('lets a closed build through whatever is pending', () => {
-    for (const flag of [undefined, '', 'false', '0']) expect(launchGateProblem(flag, [pending('b')])).toBeNull()
+    for (const flag of [undefined, '', 'false', '0', ' FALSE ']) expect(launchGateProblem(flag, [pending('b')])).toBeNull()
+  })
+
+  it('stops on any value the server might read as open, not only "true" and "1"', () => {
+    for (const flag of ['TRUE', ' true', '1.0', '"true"', 'yes', 'on']) {
+      expect(mightOpen(flag)).toBe(true)
+      expect(launchGateProblem(flag, [pending('b')])).not.toBeNull()
+    }
   })
 
   it('lets an open build through once every promise is ready', () => {

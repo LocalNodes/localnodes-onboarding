@@ -13,10 +13,12 @@ export default defineNuxtConfig({
     '@vueuse/motion/nuxt',
     // Sign-ups cannot open while a home page promise is pending: a production
     // build with the launch flag open stops here, naming each promise that is
-    // not ready (shared/launch-claims.mjs). Dev, prepare and test runs skip it.
+    // not ready (shared/launch-claims.mjs). The server also reads the flag
+    // as NITRO_LAUNCH_OPEN, so both names are checked. Only dev and prepare
+    // runs skip it: neither writes a build.
     (_options, nuxt) => {
-      if (nuxt.options.dev || nuxt.options._prepare || nuxt.options.test) return
-      const problem = launchGateProblem(process.env.NUXT_LAUNCH_OPEN)
+      if (nuxt.options.dev || nuxt.options._prepare) return
+      const problem = launchGateProblem(process.env.NUXT_LAUNCH_OPEN) ?? launchGateProblem(process.env.NITRO_LAUNCH_OPEN)
       if (problem) throw new Error(problem)
     }
   ],
