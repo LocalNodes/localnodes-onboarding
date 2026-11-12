@@ -60,7 +60,8 @@ export const SUBDOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
 
 /**
  * The closed table of failure reasons. The first ten come from the workflow
- * (23-03, "unknown" is the fallback); the last four from the entrypoint (23-12).
+ * (23-03, "unknown" is the fallback); the last six from the entrypoint (23-12;
+ * the two web3 codes from practice sites, pilot web3 plan B2 and B3).
  * Free text never travels: an unknown code is stored as "unknown".
  */
 export const REASON_CODES = [
@@ -77,7 +78,9 @@ export const REASON_CODES = [
   'install_failed',
   'db_not_empty',
   'platform_enable_failed',
-  'organizer_failed'
+  'organizer_failed',
+  'web3_enable_failed',
+  'web3_check_failed'
 ] as const
 
 export type ReasonCode = (typeof REASON_CODES)[number]

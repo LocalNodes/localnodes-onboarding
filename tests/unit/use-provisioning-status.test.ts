@@ -88,7 +88,7 @@ const read = (path: string) => readFileSync(join(root, path), 'utf8')
 describe('the /success words (23-UI-SPEC sections 4 to 7)', () => {
   it('REASON_SENTENCES has an entry for every REASON_CODES value, and nothing else', () => {
     expect(Object.keys(REASON_SENTENCES).sort()).toEqual([...REASON_CODES].sort())
-    expect(Object.keys(REASON_SENTENCES)).toHaveLength(14)
+    expect(Object.keys(REASON_SENTENCES)).toHaveLength(16)
     for (const code of REASON_CODES) expect(REASON_SENTENCES[code]).toMatch(/^[A-Z].*\.$/)
   })
 
@@ -107,6 +107,8 @@ describe('the /success words (23-UI-SPEC sections 4 to 7)', () => {
       db_not_empty: 'We couldn\'t finish setting up your site.',
       platform_enable_failed: 'We couldn\'t turn on your site\'s features.',
       organizer_failed: 'Your site is built, but we couldn\'t add you to it as its organizer.',
+      web3_enable_failed: 'We couldn\'t turn on your site\'s features.',
+      web3_check_failed: 'We couldn\'t turn on your site\'s features.',
       unknown: 'Something went wrong on our side.'
     })
   })

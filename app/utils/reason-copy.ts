@@ -25,6 +25,8 @@ export const REASON_SENTENCES: Record<ReasonCode, string> = {
   db_not_empty: 'We couldn\'t finish setting up your site.',
   platform_enable_failed: 'We couldn\'t turn on your site\'s features.',
   organizer_failed: 'Your site is built, but we couldn\'t add you to it as its organizer.',
+  web3_enable_failed: 'We couldn\'t turn on your site\'s features.',
+  web3_check_failed: 'We couldn\'t turn on your site\'s features.',
   unknown: 'Something went wrong on our side.'
 }
 

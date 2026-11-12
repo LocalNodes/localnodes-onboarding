@@ -46,6 +46,7 @@ const isHttpsUrl = (value: unknown): value is string => typeof value === 'string
 // codes; any other text becomes "unknown" so a failure is still recorded.
 // source says who reports: the workflow (the default, and the only final
 // "failed") or the site's own entrypoint (a provisional "failed", 23-12).
+const RELAYER_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/
 const callbackBodySchema = v.object({
   provision_id: v.pipe(v.string(), v.regex(PROVISION_ID_PATTERN)),
   attempt: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(2)),
@@ -54,6 +55,10 @@ const callbackBodySchema = v.object({
   site_url: v.optional(v.pipe(v.string(), v.maxLength(200), v.regex(/^https:\/\//))),
   reason: v.optional(v.pipe(v.string(), v.maxLength(64), v.transform(r => (isReasonCode(r) ? r : 'unknown')))),
   app_uuid: v.optional(v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/))),
+  // A practice site's relayer public address (pilot web3 B5), sent with ready only. Anything
+  // but 0x and 40 hex is dropped, not refused: a ready must not be lost over a malformed
+  // address. It is stored for the operator who funds the relayer; the status reply never reads it.
+  relayer_address: v.optional(v.pipe(v.unknown(), v.transform(a => (typeof a === 'string' && RELAYER_ADDRESS_PATTERN.test(a) ? a : undefined)))),
   source: v.optional(v.picklist(['workflow', 'site']), 'workflow')
 })
 
@@ -403,7 +408,8 @@ export async function handleProvisionCallback(
     status: cb.status,
     siteUrl: cb.site_url,
     reason: cb.reason,
-    appUuid: cb.app_uuid
+    appUuid: cb.app_uuid,
+    relayerAddress: cb.status === 'ready' ? cb.relayer_address : undefined
   })
   if (!isApplied(applied)) return { updated: false }
 

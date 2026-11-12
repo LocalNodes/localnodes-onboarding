@@ -60,16 +60,17 @@ describe('callbackToken (server/utils/provision-handlers.ts)', () => {
 })
 
 describe('shared lists (Pitfall 14)', () => {
-  it('holds the twelve statuses and the fourteen reason codes, once (23-32 adds ready, held and declined; 23-43 Task 7 refunding and refunded, page statuses only)', () => {
+  it('holds the twelve statuses and the sixteen reason codes, once (23-32 adds ready, held and declined; 23-43 Task 7 refunding and refunded, page statuses only; pilot web3 B5 the two web3 codes)', () => {
     expect([...PROVISION_STATUSES]).toEqual(
       ['triggered', 'provisioning', 'installing', 'creating_user', 'sending_email', 'ready', 'held', 'declined', 'complete', 'failed', 'refunding', 'refunded']
     )
-    expect(REASON_CODES).toHaveLength(14)
-    expect(new Set(REASON_CODES).size).toBe(14)
+    expect(REASON_CODES).toHaveLength(16)
+    expect(new Set(REASON_CODES).size).toBe(16)
     for (const code of [
       'invalid_request', 'coolify_unreachable', 'subdomain_taken', 'create_failed', 'env_failed', 'deploy_failed',
       'deploy_timeout', 'install_timeout', 'manifest_failed', 'unknown',
-      'install_failed', 'db_not_empty', 'platform_enable_failed', 'organizer_failed'
+      'install_failed', 'db_not_empty', 'platform_enable_failed', 'organizer_failed',
+      'web3_enable_failed', 'web3_check_failed'
     ]) {
       expect(REASON_CODES).toContain(code)
     }
@@ -291,6 +292,49 @@ describe('provision-callback: ready starts billing; only the sign-up app writes 
     handleProvisionCallback(bearer, { provision_id: PID_A, attempt: 1, status: 'ready', site_url: 'https://cascadia.localnodes.xyz', source: 'site', ...over }, CONFIG, redis,
       withBilling ? { billing: { start, nudge }, log: () => {} } : { log: () => {} })
   const state = () => redis.hgetall<Record<string, unknown>>(`provision:${SID_A}`)
+
+  // Pilot web3 B5: a practice site's ready carries its relayer's public address, kept for the
+  // operator who funds the relayer. Never in the status reply; a malformed one is dropped.
+  const RELAYER = '0x00000000000000000000000000000000000000A1'
+  it('a ready with relayer_address stores it, and the status reply never shows it', async () => {
+    expect(await call({ relayer_address: RELAYER })).toEqual({ updated: true })
+    expect(await state()).toMatchObject({ status: 'ready', relayerAddress: RELAYER })
+    const reply = await handleProvisionStatus(SID_A, redis)
+    expect(reply).toMatchObject({ status: 'ready' })
+    expect(JSON.stringify(reply)).not.toContain(RELAYER)
+    expect(Object.keys(reply)).not.toContain('relayerAddress')
+  })
+
+  it('a ready without relayer_address (web3 off) writes no relayerAddress field', async () => {
+    expect(await call()).toEqual({ updated: true })
+    expect(Object.keys((await state()) ?? {})).not.toContain('relayerAddress')
+  })
+
+  it.each([
+    ['too short', '0x1234'],
+    ['not hex', '0xZZ000000000000000000000000000000000000A1'],
+    ['no 0x', '00000000000000000000000000000000000000A1ab'],
+    ['trailing text', `${'0x00000000000000000000000000000000000000A1'} key=abc`],
+    ['a number', 12345],
+    ['an object', { a: 1 }]
+  ])('a malformed relayer_address (%s) is dropped and the ready still applies', async (_label, bad) => {
+    expect(await call({ relayer_address: bad })).toEqual({ updated: true })
+    const st = await state()
+    expect(st).toMatchObject({ status: 'ready' })
+    expect(Object.keys(st ?? {})).not.toContain('relayerAddress')
+  })
+
+  it('a relayer_address on a progress callback is not stored', async () => {
+    await redis.hset(`provision:${SID_A}`, { status: 'installing' })
+    expect(await call({ status: 'creating_user', relayer_address: RELAYER })).toEqual({ updated: true })
+    expect(Object.keys((await state()) ?? {})).not.toContain('relayerAddress')
+  })
+
+  it('a ready over the site\'s own provisional failed (web3_check_failed, then the restart passes) stores the address', async () => {
+    await redis.hset(`provision:${SID_A}`, { status: 'failed', reason: 'web3_check_failed', provisionalUntil: Date.now() + 600_000 })
+    expect(await call({ relayer_address: RELAYER })).toEqual({ updated: true })
+    expect(await state()).toMatchObject({ status: 'ready', relayerAddress: RELAYER, provisionalUntil: 0, reason: '' })
+  })
 
   it('CALLBACK_STATUSES is the status list without held, declined and complete', () => {
     expect([...CALLBACK_STATUSES]).toEqual(['triggered', 'provisioning', 'installing', 'creating_user', 'sending_email', 'ready', 'failed'])

@@ -720,7 +720,7 @@ export const TRANSITIONS = {
     from: BUILDING_STATES,
     build: (p, now) => ({
       guards: [...attemptGuards(p), ['provisionalUntil', 'le', 0], [callbackSeen(p.attempt, 'ready'), 'empty']],
-      set: { status: 'ready', siteUrl: p.siteUrl as string | undefined, appUuid: p.appUuid as string | undefined, updatedAt: iso(now), [callbackSeen(p.attempt, 'ready')]: iso(now) },
+      set: { status: 'ready', siteUrl: p.siteUrl as string | undefined, appUuid: p.appUuid as string | undefined, relayerAddress: p.relayerAddress as string | undefined, updatedAt: iso(now), [callbackSeen(p.attempt, 'ready')]: iso(now) },
       ifEmpty: { readyAt: iso(now), readyAtMs: now },
       zadd: [['billing', now]],
       floor: KEEP_SECONDS
@@ -731,7 +731,7 @@ export const TRANSITIONS = {
     from: ['failed'],
     build: (p, now) => ({
       guards: [...attemptGuards(p), ['provisionalUntil', 'gt', 0], [callbackSeen(p.attempt, 'ready'), 'empty']],
-      set: { status: 'ready', provisionalUntil: 0, reason: '', siteUrl: p.siteUrl as string | undefined, appUuid: p.appUuid as string | undefined, updatedAt: iso(now), [callbackSeen(p.attempt, 'ready')]: iso(now) },
+      set: { status: 'ready', provisionalUntil: 0, reason: '', siteUrl: p.siteUrl as string | undefined, appUuid: p.appUuid as string | undefined, relayerAddress: p.relayerAddress as string | undefined, updatedAt: iso(now), [callbackSeen(p.attempt, 'ready')]: iso(now) },
       ifEmpty: { readyAt: iso(now), readyAtMs: now },
       zadd: [['billing', now]],
       zrem: [['stops']],
