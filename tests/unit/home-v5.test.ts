@@ -385,12 +385,12 @@ describe('each window says what the first pilots get', () => {
   })
 })
 
-describe('the group home page ("Keeps in touch")', () => {
+describe('the group home page ("Shares")', () => {
   it('is the section "How it works" lands on, and says only what a pilot site does today', async () => {
     const html = await render(HomeTogether)
     expect(html).toContain('id="together"')
     const text = seen(html)
-    expect(text).toContain('Share news, plan events and keep in touch.')
+    expect(text).toContain('Post news, plan events and keep in touch.')
     for (const line of ['Posts with photos, comments and likes', 'Events with a sign-up list', 'Longer pages for news and discussions', 'Open groups, and groups you join by invitation or request', 'Newest first, and no ads']) {
       expect(text, line).toContain(line)
     }
