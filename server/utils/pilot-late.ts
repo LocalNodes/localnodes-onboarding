@@ -57,7 +57,15 @@ export const lateKey = (subscriptionId: string) => `pilot:late:${subscriptionId}
 export const lateLockKey = (subscriptionId: string) => `pilot:late:${subscriptionId}:lock`
 
 export interface LateRecord {
-  state: 'open' | 'continued' | 'removing'
+  state: 'opening' | 'open' | 'continued' | 'removing'
+  /**
+   * Opening: the attempt number and the exact request, written before Stripe is
+   * asked for a page. The idempotency key is pilot-late-{pilot}-{attempt}, so
+   * replaying the request gets back the page that attempt made, if it made one,
+   * even when Stripe's reply was lost. Kept on the open record too.
+   */
+  attempt?: number
+  params?: Record<string, unknown>
   /** The open (or paid) Checkout session. */
   sessionId?: string
   url?: string
@@ -188,7 +196,7 @@ function asRecord(raw: unknown): LateRecord | null | 'bad' {
     }
   }
   const o = r as Partial<LateRecord>
-  if (!o || typeof o !== 'object' || !['open', 'continued', 'removing'].includes(String(o.state))) return 'bad'
+  if (!o || typeof o !== 'object' || !['opening', 'open', 'continued', 'removing'].includes(String(o.state))) return 'bad'
   return o as LateRecord
 }
 
@@ -337,6 +345,33 @@ async function releaseLock(deps: LateDeps, pilotSubscriptionId: string, lock: Lo
  * at most one session that can be paid. `removeAt` is the end of the yes
  * window (seconds); `returnUrl` builds the page's own address with a flag.
  */
+/** One key per pilot and attempt: a retry of the same attempt gets the same page. */
+export const lateIdempotencyKey = (pilotSubscriptionId: string, attempt: number) => `pilot-late-${pilotSubscriptionId}-${attempt}`
+
+/** Stripe refused the request itself (not busy, not rate limited, not down): that attempt made no page. */
+function refusedByStripe(err: unknown): boolean {
+  const code = (err as { statusCode?: unknown } | null)?.statusCode
+  return typeof code === 'number' && code >= 400 && code < 500 && code !== 409 && code !== 429
+}
+
+/**
+ * The page the record points at, or null when there is none. An open record
+ * names it; an opening record replays its request under the same key, so a page
+ * whose reply was lost is found too. A replay past the request's expires_at is
+ * skipped: such a page has expired. Any other Stripe error is thrown.
+ */
+async function recordedSession(stripe: LateStripe, pilotSubscriptionId: string, rec: LateRecord | null, nowSec: number): Promise<LateSession | null> {
+  if (rec?.state === 'open' && rec.sessionId) return await stripe.checkout.sessions.retrieve(rec.sessionId)
+  if (rec?.state !== 'opening' || !rec.params || typeof rec.attempt !== 'number') return null
+  if (Number(rec.params.expires_at) <= nowSec) return null
+  try {
+    return await stripe.checkout.sessions.create(rec.params, { idempotencyKey: lateIdempotencyKey(pilotSubscriptionId, rec.attempt), maxNetworkRetries: 0 })
+  } catch (err) {
+    if (refusedByStripe(err)) return null
+    throw err
+  }
+}
+
 export async function startLate(pilot: LatePilot, removeAt: number, nowSec: number, returnUrl: (flag: 'paid' | 'back') => string, deps: LateDeps): Promise<LateAnswer> {
   const { redis, stripe, log } = deps
   let locked: Lock | null
@@ -362,14 +397,14 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
     if (rec?.state === 'removing') return { state: 'ended' }
 
     // An earlier session: reuse it while it has time, record it if it was paid, otherwise expire it.
-    if (rec?.state === 'open' && rec.sessionId) {
-      let old: LateSession
-      try {
-        old = await stripe.checkout.sessions.retrieve(rec.sessionId)
-      } catch {
-        log('pilot-late: stripe unavailable')
-        return { state: 'unavailable' }
-      }
+    let old: LateSession | null
+    try {
+      old = await recordedSession(stripe, pilot.id, rec, nowSec)
+    } catch {
+      log('pilot-late: stripe unavailable')
+      return { state: 'unavailable' }
+    }
+    if (old) {
       if (old.status === 'complete') {
         if (old.payment_status !== 'paid') return { state: 'confirming' }
         try {
@@ -379,7 +414,17 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
           return { state: 'confirming' }
         }
       }
-      if (old.status === 'open' && old.url && (old.expires_at ?? 0) - nowSec > LATE_REUSE_MARGIN_SECONDS) {
+      if (old.status === 'open' && old.url?.startsWith(CHECKOUT_URL_PREFIX) && (old.expires_at ?? 0) - nowSec > LATE_REUSE_MARGIN_SECONDS) {
+        if (rec?.state === 'opening') {
+          // Found by replay: write it down before handing it out.
+          const found: LateRecord = { state: 'open', sessionId: old.id, url: old.url, expiresAt: old.expires_at ?? undefined, attempt: rec.attempt, at: nowSec }
+          try {
+            if (!(await writeIfOwner(deps, pilot.id, locked, found))) throw new Error('lock lost')
+          } catch {
+            log('pilot-late: record unavailable')
+            return { state: 'unavailable' }
+          }
+        }
         return { state: 'checkout', url: old.url }
       }
       if (old.status === 'open') {
@@ -427,19 +472,29 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
       log('pilot-late: lock lost')
       return { state: 'unavailable' }
     }
+    const params: Record<string, unknown> = {
+      mode: 'subscription',
+      customer,
+      line_items: [{ price: priceId, quantity: 1 }],
+      payment_method_types: ['card'],
+      expires_at: expiresAt,
+      success_url: returnUrl('paid'),
+      cancel_url: returnUrl('back'),
+      metadata: { pilot_continued_from: pilot.id },
+      subscription_data: { metadata: subMeta }
+    }
+    // Write the attempt down first: if Stripe's reply is lost, the next yes and
+    // the removal step replay this request and get back the same page.
+    const attempt = (rec?.attempt ?? 0) + 1
+    try {
+      if (!(await writeIfOwner(deps, pilot.id, locked, { state: 'opening', attempt, params, at: nowSec }))) throw new Error('lock lost')
+    } catch {
+      log('pilot-late: record unavailable')
+      return { state: 'unavailable' }
+    }
     let session: LateSession
     try {
-      session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        customer,
-        line_items: [{ price: priceId, quantity: 1 }],
-        payment_method_types: ['card'],
-        expires_at: expiresAt,
-        success_url: returnUrl('paid'),
-        cancel_url: returnUrl('back'),
-        metadata: { pilot_continued_from: pilot.id },
-        subscription_data: { metadata: subMeta }
-      }, { idempotencyKey: `pilot-late-${pilot.id}-${nowSec}`, maxNetworkRetries: 0 })
+      session = await stripe.checkout.sessions.create(params, { idempotencyKey: lateIdempotencyKey(pilot.id, attempt), maxNetworkRetries: 0 })
     } catch {
       log('pilot-late: could not open a payment page')
       return { state: 'unavailable' }
@@ -453,11 +508,11 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
       }
       return { state: 'unavailable' }
     }
-    const next: LateRecord = { state: 'open', sessionId: session.id, url: session.url, expiresAt: session.expires_at ?? expiresAt, at: nowSec }
+    const next: LateRecord = { state: 'open', sessionId: session.id, url: session.url, expiresAt: session.expires_at ?? expiresAt, attempt, at: nowSec }
     try {
       if (!(await writeIfOwner(deps, pilot.id, locked, next))) throw new Error('lock lost')
     } catch {
-      // A session we can't find again must not stay payable.
+      // Not written as open: close it now. The opening record still finds it if this fails.
       log('pilot-late: record unavailable')
       try {
         await stripe.checkout.sessions.expire(session.id)
@@ -491,8 +546,8 @@ export async function markLateRemoval(pilotSubscriptionId: string, nowSec: numbe
   try {
     const rec = await readLateRecord(redis, pilotSubscriptionId)
     if (rec?.state === 'continued') return 'continued'
-    if (rec?.state === 'open' && rec.sessionId) {
-      const session = await stripe.checkout.sessions.retrieve(rec.sessionId)
+    const session = await recordedSession(stripe, pilotSubscriptionId, rec, nowSec)
+    if (session) {
       if (session.status === 'complete') {
         if (session.payment_status === 'paid') await recordLateContinuation(redis, pilotSubscriptionId, session, nowSec, log, stripe.invoices)
         return 'continued'

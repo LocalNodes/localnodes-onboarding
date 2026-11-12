@@ -52,12 +52,41 @@ function lateDeps(sub: Record<string, unknown>, nowSec = LATER, opts: { redis?: 
   const redis = opts.redis ?? new FakeRedis()
   const sessions = new Map<string, LateSession>()
   let n = 0
-  const create = vi.fn(async (params: Record<string, unknown>) => {
+  /** Stripe keeps each idempotency key's request and answer: a replay gets the same answer. */
+  const byKey = new Map<string, { params: string, session?: LateSession, error?: Error }>()
+  const next = { lose: 0, refuse: 0, outage: 0 }
+  const create = vi.fn(async (params: Record<string, unknown>, opts?: { idempotencyKey?: string }) => {
+    const key = String(opts?.idempotencyKey)
+    if (next.outage > 0) {
+      next.outage -= 1
+      throw Object.assign(new Error('Stripe is down'), { statusCode: 500 })
+    }
+    const seen = byKey.get(key)
+    if (seen) {
+      if (seen.params !== JSON.stringify(params)) throw Object.assign(new Error('Keys for idempotent requests can only be used with the same parameters'), { statusCode: 400 })
+      if (seen.error) throw seen.error
+      return seen.session!
+    }
+    if (next.refuse > 0) {
+      next.refuse -= 1
+      const error = Object.assign(new Error('refused'), { statusCode: 400 })
+      byKey.set(key, { params: JSON.stringify(params), error })
+      throw error
+    }
     n += 1
     const s = session({ id: `cs_${n}`, url: `https://checkout.stripe.com/c/pay/cs_${n}`, expires_at: Number(params.expires_at) })
     sessions.set(s.id, s)
+    byKey.set(key, { params: JSON.stringify(params), session: s })
+    if (next.lose > 0) {
+      // Stripe made the session, but its reply never reached us.
+      next.lose -= 1
+      throw Object.assign(new Error('connection reset'), { type: 'StripeConnectionError' })
+    }
     return s
   })
+  /** Sessions Stripe actually made. */
+  const made = () => n
+  const keys = () => create.mock.calls.map(c => (c[1] as { idempotencyKey?: string } | undefined)?.idempotencyKey)
   const retrieve = vi.fn(async (id: string) => {
     const s = sessions.get(id)
     if (!s) throw Object.assign(new Error('no such session'), { statusCode: 404 })
@@ -89,7 +118,7 @@ function lateDeps(sub: Record<string, unknown>, nowSec = LATER, opts: { redis?: 
     Object.assign(s, { status: 'complete', payment_status: 'paid', subscription: 'sub_new', invoice: `in_${id}` })
     paidAts.set(`in_${id}`, paidAt)
   }
-  return { deps, redis, sessions, create, retrieve, expire, update, log, pay, invoices, subRetrieve }
+  return { deps, redis, sessions, create, retrieve, expire, update, log, pay, invoices, subRetrieve, next, made, keys }
 }
 
 const token = () => sealContinueToken('sub_1', END, SECRET)
@@ -215,7 +244,7 @@ describe('a pilot past its free end', () => {
     expect(veryClose.create.mock.calls[0]![0].expires_at).toBe(lastMinutes + LATE_MIN_SESSION_SECONDS)
   })
 
-  it('a yes whose lock was taken over while Stripe answered expires its page and writes nothing', async () => {
+  it('a yes whose lock was taken over while Stripe answered expires its page and writes no open record', async () => {
     const { deps, redis, create, expire } = lateDeps(lapsedSub())
     create.mockImplementationOnce(async (params: Record<string, unknown>) => {
       await redis.del(lateLockKey('sub_1'))
@@ -224,7 +253,8 @@ describe('a pilot past its free end', () => {
     })
     expect(await handlePilotContinue('POST', token(), deps)).toEqual({ status: 503, body: { state: 'unavailable' } })
     expect(expire).toHaveBeenCalledWith('cs_slow')
-    expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
+    // Only the attempt, written before Stripe was asked, is left.
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'opening', attempt: 1 })
     expect(redis.raw(lateLockKey('sub_1'))).toBe('someone-else')
   })
 
@@ -276,7 +306,7 @@ describe('a pilot past its free end', () => {
     expect(create).not.toHaveBeenCalled()
   })
 
-  it('a Stripe call that runs past the lock\'s write deadline: the page is expired, nothing written', async () => {
+  it('a Stripe call that runs past the lock\'s write deadline: the page is expired, no open record written', async () => {
     const { deps, redis, create, expire } = lateDeps(lapsedSub())
     let ms = 1_000_000
     const late = { ...deps.late!, clock: () => ms }
@@ -286,7 +316,7 @@ describe('a pilot past its free end', () => {
     })
     expect(await handlePilotContinue('POST', token(), { ...deps, late })).toEqual({ status: 503, body: { state: 'unavailable' } })
     expect(expire).toHaveBeenCalledWith('cs_slow')
-    expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'opening', attempt: 1 })
   })
 
   it('past the end but not yet ended by Stripe: try again shortly (503), nothing opened', async () => {
@@ -320,11 +350,21 @@ describe('a pilot past its free end', () => {
     expect(create).not.toHaveBeenCalled()
   })
 
-  it('a page whose record could not be written is expired at once', async () => {
-    const { deps, redis, expire } = lateDeps(lapsedSub())
-    redis.failEvals(LATE_WRITE_IF_OWNER_SCRIPT)
+  it('a page whose record could not be written is expired at once; the attempt still finds it', async () => {
+    const { deps, redis, expire, sessions } = lateDeps(lapsedSub())
+    let writes = 0
+    redis.failEvals(LATE_WRITE_IF_OWNER_SCRIPT, 1, () => ++writes === 2)
     expect(await handlePilotContinue('POST', token(), deps)).toEqual({ status: 503, body: { state: 'unavailable' } })
     expect(expire).toHaveBeenCalledWith('cs_1')
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'opening', attempt: 1 })
+    expect(sessions.get('cs_1')!.status).toBe('expired')
+  })
+
+  it('an attempt that cannot be written down opens no page', async () => {
+    const { deps, redis, create } = lateDeps(lapsedSub())
+    redis.failEvals(LATE_WRITE_IF_OWNER_SCRIPT)
+    expect(await handlePilotContinue('POST', token(), deps)).toEqual({ status: 503, body: { state: 'unavailable' } })
+    expect(create).not.toHaveBeenCalled()
     expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
   })
 
@@ -354,6 +394,83 @@ describe('a pilot past its free end', () => {
     pay('cs_1')
     await handlePilotContinue('GET', token(), deps)
     for (const [msg] of log.mock.calls) expect(String(msg)).not.toMatch(/sub_|cs_|cus_|http/)
+  })
+})
+
+describe('a lost reply from Stripe never leaves two payable pages', () => {
+  it('the next yes gets the same page: one key per pilot and attempt, one session made', async () => {
+    const { deps, next, made, keys, sessions } = lateDeps(lapsedSub())
+    next.lose = 1
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ status: 503 })
+    const again = await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 60) * 1000 })
+    expect(again).toMatchObject({ status: 200, body: { state: 'checkout', url: 'https://checkout.stripe.com/c/pay/cs_1' } })
+    expect(made()).toBe(1)
+    expect(keys()).toEqual(['pilot-late-sub_1-1', 'pilot-late-sub_1-1'])
+    expect(sessions.get('cs_1')!.status).toBe('open')
+  })
+
+  it('removal finds the page from a lost reply and closes it', async () => {
+    const { deps, redis, next, made, sessions } = lateDeps(lapsedSub())
+    next.lose = 1
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ status: 503 })
+    expect(await markLateRemoval('sub_1', LATER + 60, { ...deps.late!, log: vi.fn() })).toBe('marked')
+    expect(sessions.get('cs_1')!.status).toBe('expired')
+    expect(made()).toBe(1)
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'removing' })
+  })
+
+  it('removal keeps a site whose lost-reply page was paid', async () => {
+    const { deps, next, pay } = lateDeps(lapsedSub())
+    next.lose = 1
+    await handlePilotContinue('POST', token(), deps)
+    pay('cs_1')
+    expect(await markLateRemoval('sub_1', LATER + 60, { ...deps.late!, log: vi.fn() })).toBe('continued')
+  })
+
+  it('removal marks nothing while Stripe cannot be reached', async () => {
+    const { deps, redis, next } = lateDeps(lapsedSub())
+    next.lose = 1
+    await handlePilotContinue('POST', token(), deps)
+    next.outage = 1
+    await expect(markLateRemoval('sub_1', LATER + 60, { ...deps.late!, log: vi.fn() })).rejects.toThrow()
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!).state).not.toBe('removing')
+  })
+
+  it('a Stripe outage on the retry opens nothing new; the one after gets the same page', async () => {
+    const { deps, next, made, keys } = lateDeps(lapsedSub())
+    next.lose = 1
+    await handlePilotContinue('POST', token(), deps)
+    next.outage = 1
+    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 60) * 1000 })).toMatchObject({ status: 503 })
+    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 120) * 1000 })).toMatchObject({ body: { state: 'checkout', url: 'https://checkout.stripe.com/c/pay/cs_1' } })
+    expect(made()).toBe(1)
+    expect(new Set(keys())).toEqual(new Set(['pilot-late-sub_1-1']))
+  })
+
+  it('an attempt Stripe refused made no page: the next yes opens one under a new key', async () => {
+    const { deps, next, made, keys } = lateDeps(lapsedSub())
+    next.refuse = 1
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ status: 503 })
+    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 60) * 1000 })).toMatchObject({ body: { state: 'checkout', url: 'https://checkout.stripe.com/c/pay/cs_1' } })
+    expect(made()).toBe(1)
+    expect(keys()).toEqual(['pilot-late-sub_1-1', 'pilot-late-sub_1-1', 'pilot-late-sub_1-2'])
+  })
+
+  it('a lost-reply page that has since expired is replaced under the next key', async () => {
+    const { deps, next, made, keys, sessions } = lateDeps(lapsedSub())
+    next.lose = 1
+    await handlePilotContinue('POST', token(), deps)
+    sessions.get('cs_1')!.status = 'expired'
+    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 60) * 1000 })).toMatchObject({ body: { state: 'checkout', url: 'https://checkout.stripe.com/c/pay/cs_2' } })
+    expect(made()).toBe(2)
+    expect(keys().at(-1)).toBe('pilot-late-sub_1-2')
+  })
+
+  it('no page is opened when the attempt cannot be written down first', async () => {
+    const { deps, redis, create } = lateDeps(lapsedSub())
+    vi.spyOn(redis, 'eval').mockRejectedValueOnce(new Error('down'))
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ status: 503 })
+    expect(create).not.toHaveBeenCalled()
   })
 })
 

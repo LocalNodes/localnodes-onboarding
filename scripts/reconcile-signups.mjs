@@ -440,7 +440,7 @@ export async function reconcile({ hours, now }, { redis, stripe, lifecycle }) {
         noticeFrom: endedSec === null ? 'unknown' : iso(endedSec * 1000 + (PILOT_LAPSE_DAYS - PILOT_REMOVAL_NOTICE_DAYS) * DAY).slice(0, 10),
         removeFrom: kept ? 'kept (paid after the end)' : endedSec === null ? 'unknown' : iso(endedSec * 1000 + PILOT_LAPSE_DAYS * DAY).slice(0, 10),
         removalDue: !kept && endedSec !== null && nowMs - endedSec * 1000 >= PILOT_LAPSE_DAYS * DAY,
-        lateYes: { none: 'none', open: 'payment page open', continued: 'kept', removing: 'removal marked' }[lateState] ?? lateState
+        lateYes: { none: 'none', opening: 'payment page opening', open: 'payment page open', continued: 'kept', removing: 'removal marked' }[lateState] ?? lateState
       }
     })
   }
