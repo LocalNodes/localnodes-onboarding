@@ -6,11 +6,12 @@
 //
 // The look is the LocalNodes mail template from 22.1-07: a white card on a grey
 // canvas, the name "LocalNodes" at the top of the card in 20px type with no
-// divider, 16px body text, one button in the brand blue, and the footer under
+// divider, 16px body text, one button in the brand colour, and the footer under
 // the card in 14px muted text. No images, so a mail reads the same with images
-// off. Mail clients don't read CSS variables, so the colours are written out
-// here; tests/unit/mail-copy.test.ts holds each one equal to its role in
-// app/assets/css/ln-tokens.css, so a palette change there fails the test.
+// off. Mail clients don't read CSS variables, so the colours are hex values in
+// mail-colors.generated.ts, which the token generator writes from the same
+// source as app/assets/css/ln-tokens.css; tests/unit/mail-copy.test.ts holds
+// each one equal to its role there.
 //
 // Mail footers carry no "Open source" link (T-5). Mails to the early-access
 // list carry an "Unsubscribe" link; the stopped and renewal card mails go to a
@@ -22,6 +23,10 @@
 // refund mails are 23-43 Task 6's, word for word from 23-UI-SPEC.md "Billing
 // copy additions for 23-43" (P1 with its lateActivation rule, P5); the
 // teardown's mail step sends them for the activation_failed reason.
+
+// The only exporter of MAIL_COLORS under server/utils/: Nitro auto-imports every
+// export there, so this file imports it and does not export it again.
+import { MAIL_COLORS } from './mail-colors.generated'
 
 /**
  * The reply-to on every mail the sign-up site sends (T-1, 2026-11-08). It
@@ -37,24 +42,6 @@ export const UNSUBSCRIBE_LABEL = 'Unsubscribe'
 
 /** The heading at the top of the card. */
 const MAIL_HEADING = 'LocalNodes'
-
-/**
- * The 22.1-07 mail colours, each a role in app/assets/css/ln-tokens.css
- * (canvas --ui-bg-muted, card --ui-bg, border --ui-border, heading and text
- * --ui-text, button --ui-primary, button text --ui-text-inverted, link
- * --color-ln-brand-800, footer --ui-text-muted).
- */
-export const MAIL_COLORS = {
-  canvas: '#f3f3f3',
-  card: '#ffffff',
-  border: '#e6e6e6',
-  heading: '#343434',
-  text: '#343434',
-  button: '#176c93',
-  buttonText: '#ffffff',
-  link: '#145f82',
-  footer: '#555555'
-} as const
 
 const FONT = 'Montserrat, system-ui, sans-serif'
 const RADIUS_CARD = '8px'
