@@ -6,6 +6,10 @@
     "examples": ["co-ops", "markets", "gatherings"],
     "linkText": "Find your group"
   },
+  "exampleWindow": {
+    "label": "Pick a kind of community",
+    "note": "Made-up examples. Every answer shows the page it came from."
+  },
   "kinds": [
     {
       "id": "housing-co-ops",
@@ -16,7 +20,30 @@
         "Add the minutes and repair log.",
         "Ask about the back steps and open the cited page."
       ],
-      "demo": { "name": "housing co-op", "url": "" }
+      "demo": { "name": "housing co-op", "url": "" },
+      "example": {
+        "chip": "housing co-op",
+        "site": "Hollyhock Co-op",
+        "groups": ["Willow House", "Birch House", "Cedar House"],
+        "docs": ["House minutes", "Repair log", "Bylaws", "House rules", "Handbook"],
+        "hit": 0,
+        "q": "Has anyone looked at the back steps?",
+        "a": "Yes. The March meeting agreed to get three quotes before the spring meeting.",
+        "source": "House minutes, March 12",
+        "p": [
+          "Back steps. ",
+          "Two treads are loose. Agreed to get three quotes before the spring meeting.",
+          " Ana will call around."
+        ],
+        "tile": {
+          "type": "post",
+          "who": "Jo",
+          "initials": "JS",
+          "group": "Willow House",
+          "when": "2 days ago",
+          "text": "I can get three quotes by Friday."
+        }
+      }
     },
     {
       "id": "markets",
@@ -27,7 +54,30 @@
         "Add a page showing who sets up where.",
         "Post the next market day or evening market on the calendar."
       ],
-      "demo": { "name": "market", "url": "" }
+      "demo": { "name": "market", "url": "" },
+      "example": {
+        "chip": "market",
+        "site": "Hazel Row Market",
+        "groups": ["Flower stall", "Bread table", "Honey stand"],
+        "docs": ["Stall map", "Vendor handbook", "Load-in guide", "Meeting notes", "Contacts"],
+        "hit": 0,
+        "q": "Where does the flower stall set up this week?",
+        "a": "At the north end of the row, next to the bread table.",
+        "source": "Stall map, June 3",
+        "p": [
+          "North row. ",
+          "Flowers at the north end, next to the bread table.",
+          " Coffee moves to the south corner."
+        ],
+        "tile": {
+          "type": "event",
+          "day": "Thu",
+          "date": "12",
+          "title": "Evening market",
+          "meta": "5 pm, Hazel Row",
+          "going": 24
+        }
+      }
     },
     {
       "id": "neighborhood-associations",
@@ -38,7 +88,33 @@
         "Put the garden day on the calendar.",
         "Run a quick poll: Saturday morning or Sunday afternoon?"
       ],
-      "demo": { "name": "neighborhood", "url": "" }
+      "demo": { "name": "neighborhood", "url": "" },
+      "example": {
+        "chip": "neighborhood",
+        "site": "Maple Street Neighbors",
+        "groups": ["Garden committee", "North block", "South block"],
+        "docs": ["Meeting notes", "Garden plan", "Member handbook", "Tool list", "Work day notes"],
+        "hit": 0,
+        "q": "What did the last meeting agree about the garden?",
+        "a": "Four new raised beds along the south fence. The water question goes to the spring meeting.",
+        "source": "Meeting notes, March 12",
+        "p": [
+          "Garden. ",
+          "Agreed: four new raised beds along the south fence. Water access goes to the spring meeting.",
+          " Tools stay in the shed."
+        ],
+        "tile": {
+          "type": "question",
+          "who": "Rosa",
+          "initials": "RM",
+          "group": "Garden committee",
+          "text": "Garden day: Saturday morning or Sunday afternoon?",
+          "options": [
+            { "label": "Saturday morning", "count": 9 },
+            { "label": "Sunday afternoon", "count": 5 }
+          ]
+        }
+      }
     },
     {
       "id": "makerspaces",
@@ -49,7 +125,30 @@
         "Post the next open house on the calendar.",
         "Save the kiln notes before the person who knows them goes away."
       ],
-      "demo": null
+      "demo": null,
+      "example": {
+        "chip": "makerspace",
+        "site": "Elmwood Makers",
+        "groups": ["Kiln House", "Elm Yard", "Fix-It Shed"],
+        "docs": ["Kiln notes", "Shop rules", "Tool sign-out", "Safety checklist", "Supplier list"],
+        "hit": 0,
+        "q": "How long does the big kiln need to cool?",
+        "a": "A full day. Rosa's notes say to open it only once it reads below 150 degrees.",
+        "source": "Kiln notes, Kiln House",
+        "p": [
+          "Cooling. ",
+          "Leave the big kiln shut for a full day, and open it only below 150 degrees.",
+          " Prop the lid an inch after that."
+        ],
+        "tile": {
+          "type": "event",
+          "day": "Sat",
+          "date": "21",
+          "title": "Open house",
+          "meta": "10 am, Elm Yard",
+          "going": 31
+        }
+      }
     },
     {
       "id": "gatherings-and-conferences",
@@ -60,7 +159,30 @@
         "Add the schedule and session notes; ask which sessions cover food growing and open the source.",
         "Decide the program together, with every organizer who has a say. Pay session grants from the group fund."
       ],
-      "demo": null
+      "demo": null,
+      "example": {
+        "chip": "gathering",
+        "site": "Juniper Unconference",
+        "groups": ["Food track", "Session hosts", "Welcome team"],
+        "docs": ["Session notes", "Schedule", "Arrival guide", "Site map", "Kitchen handover"],
+        "hit": 0,
+        "q": "Which sessions cover food growing?",
+        "a": "Two: seed saving on Saturday morning and the soil workshop on Sunday afternoon.",
+        "source": "Session notes, Food track",
+        "p": [
+          "Food growing. ",
+          "Seed saving runs Saturday morning; the soil workshop runs Sunday afternoon.",
+          " Bring jars for seeds."
+        ],
+        "tile": {
+          "type": "event",
+          "day": "Sat",
+          "date": "7",
+          "title": "Seed saving",
+          "meta": "10 am, the barn",
+          "going": 18
+        }
+      }
     },
     {
       "id": "tenant-unions",
@@ -71,7 +193,30 @@
         "Collect the meeting notes and repair letters.",
         "Ask which repairs the notes mention and check the cited passage."
       ],
-      "demo": null
+      "demo": null,
+      "example": {
+        "chip": "tenant union",
+        "site": "Aspen Court Tenants",
+        "groups": ["Building A", "Building B", "Building C"],
+        "docs": ["Meeting notes", "Repair letters", "Know your rights", "Contact list", "Timeline"],
+        "hit": 0,
+        "q": "Which repairs do the notes mention?",
+        "a": "Three: heat in Building A, the back door lock, and mold in two bathrooms.",
+        "source": "Meeting notes, March 28",
+        "p": [
+          "Repairs. ",
+          "Still open: heat in Building A, the back door lock, mold in two bathrooms.",
+          " Letters go out next week."
+        ],
+        "tile": {
+          "type": "post",
+          "who": "Ana",
+          "initials": "AK",
+          "group": "Building A",
+          "when": "yesterday",
+          "text": "Heat is back on the third floor. Still nothing on the fourth."
+        }
+      }
     },
     {
       "id": "community-gardens",
@@ -82,7 +227,30 @@
         "Put the shed cleanup on the calendar.",
         "Keep watering notes where the next pair of hands can find them."
       ],
-      "demo": null
+      "demo": null,
+      "example": {
+        "chip": "community garden",
+        "site": "Birch Lane Garden",
+        "groups": ["North plots", "South plots", "Compost crew"],
+        "docs": ["Watering notes", "Plot map", "Shed list", "Seed swap notes", "Garden rules"],
+        "hit": 0,
+        "q": "How often do the tomato beds need water?",
+        "a": "Every other morning in July, and every day in a heat wave. Soak the roots, not the leaves.",
+        "source": "Watering notes, North plots",
+        "p": [
+          "Tomatoes. ",
+          "Water every other morning in July, and daily in a heat wave. Soak the roots, not the leaves.",
+          " The long hose is in the shed."
+        ],
+        "tile": {
+          "type": "event",
+          "day": "Sun",
+          "date": "15",
+          "title": "Shed cleanup",
+          "meta": "9 am, the tool shed",
+          "going": 9
+        }
+      }
     },
     {
       "id": "clubs-and-leagues",
@@ -93,7 +261,30 @@
         "Add the next outing or match to the calendar.",
         "Share the gear list before someone forgets the cooler."
       ],
-      "demo": null
+      "demo": null,
+      "example": {
+        "chip": "club or league",
+        "site": "Kestrel Hiking Club",
+        "groups": ["Saturday hikers", "Climbing team", "Trail crew"],
+        "docs": ["Gear list", "Trip reports", "Route notes", "Safety plan", "Member handbook"],
+        "hit": 0,
+        "q": "What's on the gear list for the hut trip?",
+        "a": "A sleeping bag, a headlamp, warm layers and your own mug. The club brings the stove and the cooler.",
+        "source": "Gear list, hut trip",
+        "p": [
+          "Hut trip. ",
+          "Bring a sleeping bag, a headlamp, warm layers and your own mug.",
+          " The club brings the stove and the cooler."
+        ],
+        "tile": {
+          "type": "event",
+          "day": "Sat",
+          "date": "28",
+          "title": "Hut trip",
+          "meta": "7 am, the trailhead",
+          "going": 12
+        }
+      }
     },
     {
       "id": "arts-collectives",
@@ -104,7 +295,30 @@
         "Post the open-studio date on the calendar.",
         "Save the hanging plan and installation notes in the group's library."
       ],
-      "demo": null
+      "demo": null,
+      "example": {
+        "chip": "arts collective",
+        "site": "Lantern Print Collective",
+        "groups": ["Spring show", "Print shop", "Mural team"],
+        "docs": ["Hanging plan", "Installation notes", "Studio rules", "Show checklist", "Contacts"],
+        "hit": 0,
+        "q": "How high do we hang the big prints?",
+        "a": "Centered at 57 inches from the floor, as the hanging plan says.",
+        "source": "Hanging plan, Spring show",
+        "p": [
+          "Big prints. ",
+          "Hang the large prints centered at 57 inches.",
+          " Small works go in pairs on the east wall."
+        ],
+        "tile": {
+          "type": "event",
+          "day": "Fri",
+          "date": "3",
+          "title": "Open studio",
+          "meta": "6 pm, the print shop",
+          "going": 27
+        }
+      }
     },
     {
       "id": "parent-teacher-groups",
@@ -115,7 +329,33 @@
         "Ask which event dates work in a quick poll.",
         "Keep the handover notes for next year's volunteers."
       ],
-      "demo": null
+      "demo": null,
+      "example": {
+        "chip": "parent-teacher group",
+        "site": "Wren Hill School Parents",
+        "groups": ["Potluck committee", "Book fair", "Garden club"],
+        "docs": ["Handover notes", "Meeting notes", "Volunteer list", "Event checklist", "Contacts"],
+        "hit": 0,
+        "q": "Who booked the tables for last year's potluck?",
+        "a": "Ana did, through the school office, two weeks ahead. Ask for the long tables.",
+        "source": "Handover notes, last spring",
+        "p": [
+          "Potluck. ",
+          "Ana booked the tables through the school office, two weeks ahead.",
+          " Ask for the long ones."
+        ],
+        "tile": {
+          "type": "question",
+          "who": "Jo",
+          "initials": "JS",
+          "group": "Potluck committee",
+          "text": "Which date works for the spring potluck?",
+          "options": [
+            { "label": "Friday, April 23", "count": 11 },
+            { "label": "Friday, April 30", "count": 7 }
+          ]
+        }
+      }
     },
     {
       "id": "tool-libraries-and-mutual-aid",
@@ -126,7 +366,30 @@
         "Put pick-up days and volunteer meetups on the calendar.",
         "Collect the handover notes so new volunteers can get their bearings."
       ],
-      "demo": null
+      "demo": null,
+      "example": {
+        "chip": "tool library",
+        "site": "Fir Street Tool Library",
+        "groups": ["Main branch", "Pantry team", "Repair crew"],
+        "docs": ["Handover notes", "Checkout guide", "Volunteer list", "Tool list", "Safety notes"],
+        "hit": 0,
+        "q": "How do I check out a drill for someone?",
+        "a": "Scan their card, then the drill's tag. Charge the battery before it goes out.",
+        "source": "Handover notes, tool desk",
+        "p": [
+          "Checkout. ",
+          "Scan the member's card, then the tool's tag.",
+          " Charge batteries before they go out."
+        ],
+        "tile": {
+          "type": "event",
+          "day": "Wed",
+          "date": "11",
+          "title": "Pick-up day",
+          "meta": "4 pm, Fir Street",
+          "going": 16
+        }
+      }
     }
   ]
 }
