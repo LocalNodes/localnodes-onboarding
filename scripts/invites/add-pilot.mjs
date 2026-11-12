@@ -10,9 +10,11 @@
 // before it takes the code (23-15).
 //
 // Usage:
-//   node scripts/invites/add-pilot.mjs --email <address> [--coupon <coupon id>] [--test] [--wave <label>] [--dry-run]
+//   node scripts/invites/add-pilot.mjs --email <address> [--coupon <coupon id>] [--template <id>] [--test] [--wave <label>] [--dry-run]
 //
 //   --coupon COUPON_ID  create a single-use promotion code on that Stripe coupon
+//   --template ID       the community kind the site is built from: housing_coop,
+//                       single_house, market or neighbourhood_association
 //   --test              mark the invite as a test pilot (field "test"), for dry runs
 //                       that must not count as a real pilot
 //   --wave LABEL        wave label stored on the invite (default "pilot")
@@ -38,7 +40,12 @@ import { parseArgs as nodeParseArgs } from 'node:util'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-const USAGE = 'Usage: node scripts/invites/add-pilot.mjs --email <address> [--coupon <coupon id>] [--test] [--wave <label>] [--dry-run]'
+const USAGE = 'Usage: node scripts/invites/add-pilot.mjs --email <address> [--coupon <coupon id>] [--template <id>] [--test] [--wave <label>] [--dry-run]'
+
+// Must match COMMUNITY_TEMPLATES in server/utils/invites.ts; a test checks it.
+// invites.ts is loaded only at run time (through jiti), so parseArgs checks
+// --template against this copy offline.
+export const COMMUNITY_TEMPLATES = ['housing_coop', 'single_house', 'market', 'neighbourhood_association']
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 class UsageError extends Error {}
@@ -52,6 +59,7 @@ export function parseArgs(argv) {
       options: {
         'email': { type: 'string' },
         'coupon': { type: 'string' },
+        'template': { type: 'string' },
         'test': { type: 'boolean' },
         'wave': { type: 'string' },
         'dry-run': { type: 'boolean' }
@@ -65,6 +73,10 @@ export function parseArgs(argv) {
   const email = (values.email ?? '').trim()
   if (!EMAIL_RE.test(email) || email.length > 254) throw new UsageError('--email is required and must be one email address.')
   if (values.coupon !== undefined && !values.coupon.trim()) throw new UsageError('--coupon needs a Stripe coupon id.')
+  const template = values.template === undefined ? '' : values.template.trim()
+  if (values.template !== undefined && !COMMUNITY_TEMPLATES.includes(template)) {
+    throw new UsageError(`--template must be one of: ${COMMUNITY_TEMPLATES.join(', ')}.`)
+  }
   const wave = (values.wave ?? 'pilot').trim()
   if (!/^[A-Za-z0-9._-]{1,32}$/.test(wave)) throw new UsageError('--wave must be a short label (letters, digits, . _ -).')
   return {
@@ -72,7 +84,8 @@ export function parseArgs(argv) {
     coupon: values.coupon === undefined ? undefined : values.coupon.trim(),
     test: values.test === true,
     wave,
-    dryRun: values['dry-run'] === true
+    dryRun: values['dry-run'] === true,
+    template
   }
 }
 
@@ -83,7 +96,7 @@ const statusOf = err => err?.statusCode ?? err?.status ?? undefined
  * Add the pilot. Returns { inviteId, promoCode?, promoCodeId?, test, replaced, dryRun }.
  * Throws an Error with a message that never contains the address.
  */
-export async function addPilot({ email, coupon, test, wave, dryRun }, deps) {
+export async function addPilot({ email, coupon, test, wave, dryRun, template }, deps) {
   const { redis, secret, stripe, invites } = deps
   const key = invites.inviteKey(invites.emailKey(secret, email))
   const existing = await redis.hgetall(key)
@@ -93,7 +106,7 @@ export async function addPilot({ email, coupon, test, wave, dryRun }, deps) {
   const replaced = Boolean(existing)
   if (dryRun) return { inviteId: undefined, test, replaced, dryRun: true }
 
-  const { inviteId } = await invites.addInvite(redis, secret, { email, kind: 'pilot', wave })
+  const { inviteId } = await invites.addInvite(redis, secret, { email, kind: 'pilot', wave, communityTemplate: template ?? '' })
   const result = { inviteId, test, replaced, dryRun: false }
   if (test) await redis.hset(key, { test: true })
 
@@ -149,10 +162,12 @@ export async function main(argv, env, io, makeDeps = defaultDeps) {
     io.out(result.replaced ? 'An open invite exists for that address; a real run would replace it.' : 'No invite exists for that address; a real run would add one.')
     if (args.coupon) io.out('A real run would create one single-use promotion code on the chosen coupon.')
     if (args.test) io.out('A real run would mark the invite as a test pilot.')
+    if (args.template) io.out(`A real run would store the community template ${args.template}.`)
     return 0
   }
   io.out('1 pilot invite added' + (result.replaced ? ' (replaced an open invite)' : '') + '.')
   if (args.test) io.out('Marked as a test pilot.')
+  if (args.template) io.out(`Community template: ${args.template}.`)
   if (result.promoCode) {
     io.out(`Promotion code: ${result.promoCode}`)
     io.out('1 promotion code created: single use, bound to this invite.')
