@@ -21,11 +21,11 @@
     {
       "id": "markets",
       "heading": "Markets and local business groups",
-      "who": "Stallholders and shopkeepers keep local trade moving.",
+      "who": "Vendors and shopkeepers keep local trade moving.",
       "shape": "A market or business association has one site, with vendors or shops as groups.",
       "firstWeek": [
         "Add a page showing who sets up where.",
-        "Post the next market day or late-opening evening on the calendar."
+        "Post the next market day or evening market on the calendar."
       ],
       "demo": { "name": "market", "url": "" }
     },
@@ -46,7 +46,7 @@
       "who": "Makers and studio members swap tips across town.",
       "shape": "The town's spaces share one site, with a group for each space.",
       "firstWeek": [
-        "Post the next open evening on the calendar.",
+        "Post the next open house on the calendar.",
         "Save the kiln notes before the person who knows them goes away."
       ],
       "demo": null
@@ -79,7 +79,7 @@
       "who": "Gardeners share space, tools and know-how.",
       "shape": "One garden has a site, with plots or work crews as groups.",
       "firstWeek": [
-        "Put the shed clear-out on the calendar.",
+        "Put the shed cleanup on the calendar.",
         "Keep watering notes where the next pair of hands can find them."
       ],
       "demo": null
@@ -87,11 +87,11 @@
     {
       "id": "clubs-and-leagues",
       "heading": "Outdoor clubs, climbing clubs and sports leagues",
-      "who": "You're planning a climb, a muddy walk or the next match.",
+      "who": "You're planning a climb, a muddy hike or the next match.",
       "shape": "A club or league has one site, with groups for its teams.",
       "firstWeek": [
         "Add the next outing or match to the calendar.",
-        "Share the kit list before someone forgets the kettle."
+        "Share the gear list before someone forgets the cooler."
       ],
       "demo": null
     },
@@ -109,7 +109,7 @@
     {
       "id": "parent-teacher-groups",
       "heading": "Parent-teacher groups, congregations and student organizations",
-      "who": "You're planning the fête, shared meal or next term's event.",
+      "who": "You're planning the fundraiser, potluck or next semester's event.",
       "shape": "Each organization has a site, with committees or clubs as groups.",
       "firstWeek": [
         "Ask which event dates work in a quick poll.",
@@ -124,7 +124,7 @@
       "shape": "One network has a site, with groups for branches or volunteer teams.",
       "firstWeek": [
         "Put pick-up days and volunteer meetups on the calendar.",
-        "Collect the handover notes so new volunteers can find their feet."
+        "Collect the handover notes so new volunteers can get their bearings."
       ],
       "demo": null
     }
