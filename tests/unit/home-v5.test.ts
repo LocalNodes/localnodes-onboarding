@@ -357,7 +357,7 @@ describe('each window says what the first pilots get', () => {
     ['hero', HomeHero, 'In the first pilots'],
     ['together', HomeTogether, 'In the first pilots'],
     ['decide', HomeDecide, 'Coming. Not in the first pilots.'],
-    ['fund', HomeFund, 'Coming later. Off for the first pilots.'],
+    ['fund', HomeFund, 'In the first pilots, with practice money. Real money comes later.'],
     ['yours', HomeYours, 'Export button coming. The archive works today.']
   ]
   for (const [name, comp, words] of TAGS) {
@@ -373,9 +373,9 @@ describe('each window says what the first pilots get', () => {
     })
   }
 
-  it('the fund description names its payment as a planned example', async () => {
+  it('the fund description says its dollar payment is how it works once real money comes', async () => {
     const html = await render(HomeFund)
-    expect(seen(inside(html, 'class="home-alt"'))).toContain('Planned example: back steps repair paid to Marlow Carpentry, the lowest quote')
+    expect(seen(inside(html, 'class="home-alt"'))).toContain('Example once real money comes: back steps repair paid to Marlow Carpentry, the lowest quote')
   })
 
   it('the export description names its screen as a planned example', async () => {

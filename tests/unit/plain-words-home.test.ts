@@ -19,7 +19,15 @@ export const BANNED_HOME_PHRASES: Array<{ id: string, re: RegExp }> = [
   { id: 'H03', re: /holds? the money/i },
   { id: 'H03', re: /money sits in one person/i },
   { id: 'H04', re: /\bDAOs?\b/ },
-  { id: 'H05', re: /own the infrastructure/i }
+  { id: 'H05', re: /own the infrastructure/i },
+  // The first pilots run the fund and its payment votes with practice money.
+  { id: 'H06', re: /coming later\.? off for the first pilots/i },
+  { id: 'H06', re: /planned example: back steps repair/i },
+  // Plain words for practice money.
+  { id: 'H07', re: /\btestnets?\b/i },
+  { id: 'H07', re: /\btokens?\b/i },
+  { id: 'H07', re: /\bsepolia\b/i },
+  { id: 'H07', re: /\bblockchains?\b/i }
 ]
 
 /** Text a reader sees in a Vue template or HTML: scripts, styles and tags dropped. */
@@ -53,6 +61,7 @@ const HOME_SFCS = [
   'app/components/HomeScatter.vue',
   'app/components/HomeDecide.vue',
   'app/components/HomeFund.vue',
+  'app/components/HomeTogether.vue',
   'app/components/HomeYours.vue',
   'app/components/LandingCTA.vue',
   'app/components/EarlyAccessForm.vue',
@@ -61,8 +70,16 @@ const HOME_SFCS = [
 ]
 
 describe('plain words on the home page', () => {
+  it('each banned rule fires on its own probe', () => {
+    const probes = ['No fees for members.', 'Members never pay network fees', 'Link the group\'s shared account', 'One person holds the money', 'The money sits in one person\'s account.', 'Guilds and DAOs', 'Own the infrastructure.', 'Coming later. Off for the first pilots.', 'Planned example: back steps repair paid to Marlow Carpentry', 'On a testnet', 'One token', 'Sepolia', 'A blockchain']
+    expect(probes).toHaveLength(BANNED_HOME_PHRASES.length)
+    BANNED_HOME_PHRASES.forEach((b, i) => expect(b.re.test(probes[i]!), `${b.re} on ${probes[i]}`).toBe(true))
+    for (const w of ['testnets', 'tokens', 'blockchains']) expect(hits(w), w).not.toEqual([])
+    for (const ok of ['Approvers sign off for the first pilots.', 'tokenize']) expect(hits(ok), ok).toEqual([])
+  })
+
   it('the banned list fires on each phrase it names (probe)', () => {
-    for (const probe of ['No fees for members.', 'Members never pay network fees', 'Link the group\'s shared account', 'One person holds the money', 'The money sits in one person\'s account.', 'Guilds and DAOs', 'Own the infrastructure.']) {
+    for (const probe of ['No fees for members.', 'Members never pay network fees', 'Link the group\'s shared account', 'One person holds the money', 'The money sits in one person\'s account.', 'Guilds and DAOs', 'Own the infrastructure.', 'Coming later. Off for the first pilots.', 'Planned example: back steps repair paid to Marlow Carpentry', 'Paid in Sepolia test tokens on a blockchain']) {
       expect(hits(probe), probe).not.toEqual([])
     }
     expect(hits('Online community or working group')).toEqual([])
