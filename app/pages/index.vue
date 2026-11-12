@@ -9,6 +9,7 @@
   >
     <HomeHero />
     <HomeScatter />
+    <HomeKinds />
     <HomeTogether />
     <HomeDecide />
     <HomeFund />

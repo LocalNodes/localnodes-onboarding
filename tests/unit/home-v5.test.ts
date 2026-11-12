@@ -78,8 +78,8 @@ describe('the page', () => {
     expect(page).toMatch(/onBeforeUnmount\(\(\) => demos\.unmount\(\)\)/)
   })
 
-  it('shows hero, six places, the group home page, decide, fund, yours and the close, in that order, and no old section', () => {
-    const order = ['<HomeHero', '<HomeScatter', '<HomeTogether', '<HomeDecide', '<HomeFund', '<HomeYours', '<LandingCTA'].map(t => page.indexOf(t))
+  it('shows hero, six places, the kinds row, the group home page, decide, fund, yours and the close, in that order, and no old section', () => {
+    const order = ['<HomeHero', '<HomeScatter', '<HomeKinds', '<HomeTogether', '<HomeDecide', '<HomeFund', '<HomeYours', '<LandingCTA'].map(t => page.indexOf(t))
     expect(order.every(i => i > -1)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
     for (const old of ['HeroSection', 'ProblemSection', 'WhoItsFor', 'FeaturesSection', 'RoadmapSection', 'SocialProof', 'HowItWorks', 'OpenSourceSection']) {

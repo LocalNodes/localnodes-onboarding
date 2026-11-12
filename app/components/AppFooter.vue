@@ -26,6 +26,9 @@ const year = new Date().getFullYear()
           <span>Home base for communities that run things together.</span>
         </div>
         <nav aria-label="Footer" class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <NuxtLink to="/for" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Who it's for
+          </NuxtLink>
           <a href="https://cascadia.localnodes.xyz" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-primary underline-offset-2 hover:underline">
             Cascadia demo<span class="sr-only"> (opens in a new tab)</span>
           </a>
