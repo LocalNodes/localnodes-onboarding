@@ -22,19 +22,19 @@ function prop(css: string, name: string): string {
   return m![1].trim().toLowerCase()
 }
 
-describe('the dark bands are the approved band blue, not zinc (BRAND.md section 5)', () => {
+describe('the dark bands are near-black, as the landing page draws them (BRAND.md section 5)', () => {
   // Read the expected colours from the same generated file, not as literals:
-  // the band roles alias the brand scale, so a palette swap in the token source
-  // must keep this test green.
+  // the button roles alias the brand scale, so a palette swap in the token
+  // source must keep this test green.
   const tokens = read('app/assets/css/ln-tokens.css')
   const dark = block(tokens, '.dark')
   const brand = (step: number) => prop(tokens, `--color-ln-brand-${step}`)
+  const neutral = (step: number) => prop(tokens, `--color-ln-neutral-${step}`)
 
-  it('takes the band background, muted text and button text from the token source', () => {
-    expect(prop(dark, '--ui-bg')).toBe(brand(950))
-    expect(prop(dark, '--ui-text-muted')).toBe(brand(200))
+  it('takes the band background from the neutral scale, and the button and its text from the brand scale', () => {
+    expect(prop(dark, '--ui-bg')).toBe(neutral(950))
+    expect(prop(dark, '--ui-primary')).toBe(brand(100))
     expect(prop(dark, '--ui-text-inverted')).toBe(brand(950))
-    expect(dark).not.toContain('#09090b')
   })
 })
 

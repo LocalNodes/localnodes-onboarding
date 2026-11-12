@@ -13,17 +13,17 @@
   --font-sans: 'Montserrat', system-ui, sans-serif;
 
   /* Brand: primary actions, links and focus */
-  --color-ln-brand-50: #f0f9ff;
-  --color-ln-brand-100: #e0f2fe;
-  --color-ln-brand-200: #bae6fd;
-  --color-ln-brand-300: #7dd3fc;
-  --color-ln-brand-400: #38bdf8;
-  --color-ln-brand-500: #0ea5e9;
-  --color-ln-brand-600: #0284c7;
-  --color-ln-brand-700: #176c93;
-  --color-ln-brand-800: #145f82;
-  --color-ln-brand-900: #0f4f6d;
-  --color-ln-brand-950: #082f49;
+  --color-ln-brand-50: #f0fdfa;
+  --color-ln-brand-100: #ccfbf1;
+  --color-ln-brand-200: #99f6e4;
+  --color-ln-brand-300: #5eead4;
+  --color-ln-brand-400: #2dd4bf;
+  --color-ln-brand-500: #14b8a6;
+  --color-ln-brand-600: #0d9488;
+  --color-ln-brand-700: #0f766e;
+  --color-ln-brand-800: #115e59;
+  --color-ln-brand-900: #134e4a;
+  --color-ln-brand-950: #042f2e;
 
   /* Accent: highlights */
   --color-ln-accent-50: #fffbeb;
@@ -54,7 +54,7 @@
 
 /* Light: the task pages (/onboarding, /success, /cancel) force this mode. */
 :root {
-  --ui-primary: #176c93;
+  --ui-primary: #0f766e;
   --ui-secondary: #ffc142;
   --ui-text: #343434;
   --ui-text-muted: #555555;
@@ -65,7 +65,7 @@
   --ui-bg: #ffffff;
   --ui-bg-muted: #f3f3f3;
   --ui-bg-elevated: #f4f4f5;
-  --ui-bg-accented: #e4e4e7;
+  --ui-bg-accented: #f4f4f5;
   --ui-border: #e6e6e6;
   --ui-border-accented: #8a8a8a;
   --ui-error: #b42318;
@@ -80,20 +80,20 @@
  * unlayered rules outrank Nuxt UI's own layered .dark values.
  */
 .dark {
-  --ui-primary: #38bdf8;
-  --ui-secondary: #ffc142;
-  --ui-text: #ffffff;
-  --ui-text-muted: #bae6fd;
+  --ui-primary: #ccfbf1;
+  --ui-secondary: #fbbf24;
+  --ui-text: #fafaf9;
+  --ui-text-muted: #a9aeaa;
   --ui-text-toned: #d4d4d8;
-  --ui-text-dimmed: #a1a1aa;
-  --ui-text-highlighted: #ffffff;
-  --ui-text-inverted: #082f49;
-  --ui-bg: #082f49;
-  --ui-bg-muted: #18181b;
-  --ui-bg-elevated: #27272a;
-  --ui-bg-accented: #3f3f46;
-  --ui-border: #27272a;
-  --ui-border-accented: #a1a1aa;
+  --ui-text-dimmed: #a9aeaa;
+  --ui-text-highlighted: #fafaf9;
+  --ui-text-inverted: #042f2e;
+  --ui-bg: #09090b;
+  --ui-bg-muted: #0c0f0e;
+  --ui-bg-elevated: #121514;
+  --ui-bg-accented: #1a1e1c;
+  --ui-border: #2a2f2c;
+  --ui-border-accented: #7d847f;
   --ui-error: #f87171;
   --ui-success: #4ade80;
   --ui-warning: #fbbf24;
