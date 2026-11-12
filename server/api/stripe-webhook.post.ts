@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
       const from = session.metadata?.pilot_continued_from
       if (!from) return
       const redis = useRedis()
-      await recordLateContinuation({ get: key => redis.get(key), set: (key, value, opts) => redis.set(key, value, opts as never), del: (...keys) => redis.del(...keys), eval: (script, keys, args) => redis.eval(script, keys, args as never) }, from, session as unknown as LateSession, Math.floor(Date.now() / 1000), msg => console.log(msg))
+      await recordLateContinuation({ get: key => redis.get(key), set: (key, value, opts) => redis.set(key, value, opts as never), del: (...keys) => redis.del(...keys), eval: (script, keys, args) => redis.eval(script, keys, args as never) }, from, session as unknown as LateSession, Math.floor(Date.now() / 1000), msg => console.log(msg), { retrieve: id => useStripe().invoices.retrieve(id) as never })
     },
     onCheckoutCompleted: async (session: Stripe.Checkout.Session) => {
       console.log('Checkout session completed:', { sessionId: session.id, subscriptionId: session.subscription })

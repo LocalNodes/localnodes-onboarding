@@ -117,6 +117,19 @@ export interface LateSession {
   currency?: string | null
   created?: number | null
   metadata?: Record<string, string> | null
+  /** The new subscription's first invoice (subscription mode): an id, or expanded. */
+  invoice?: string | LateInvoice | null
+}
+
+/** The part of an invoice that says when Stripe took the payment. */
+export interface LateInvoice {
+  id?: string
+  status_transitions?: { paid_at?: number | null } | null
+}
+
+/** Reads an invoice: the receipt's date is when Stripe says it was paid. */
+export interface LateInvoices {
+  retrieve: (id: string) => Promise<LateInvoice>
 }
 
 export interface LateStripe {
@@ -127,6 +140,7 @@ export interface LateStripe {
       expire: (id: string) => Promise<LateSession>
     }
   }
+  invoices: LateInvoices
 }
 
 /** The pilot subscription as the continue route has it. */
@@ -194,7 +208,20 @@ function receipt(rec: LateRecord): LateAnswer {
  * every older session should rule out) is kept as `duplicate` and logged, for a
  * person to refund. Only a paid session counts. Returns the record now stored.
  */
-export async function recordLateContinuation(redis: LateRedis, pilotSubscriptionId: string, session: LateSession, nowSec: number, log: (msg: string) => void): Promise<LateRecord | null> {
+/**
+ * When Stripe took the payment: the first invoice's paid_at. A read error is
+ * thrown (nothing is recorded, and the webhook is sent again); a session with
+ * no invoice answers undefined, and the receipt then leaves the date out.
+ */
+async function stripePaidAt(session: LateSession, invoices: LateInvoices): Promise<number | undefined> {
+  const inv = session.invoice
+  if (!inv) return undefined
+  const read = typeof inv === 'string' ? await invoices.retrieve(inv) : inv
+  const at = read?.status_transitions?.paid_at
+  return typeof at === 'number' ? at : undefined
+}
+
+export async function recordLateContinuation(redis: LateRedis, pilotSubscriptionId: string, session: LateSession, nowSec: number, log: (msg: string) => void, invoices: LateInvoices): Promise<LateRecord | null> {
   if (session.status !== 'complete' || session.payment_status !== 'paid') return null
   const newSub = subId(session.subscription)
   const rec = await readLateRecord(redis, pilotSubscriptionId)
@@ -208,13 +235,14 @@ export async function recordLateContinuation(redis: LateRedis, pilotSubscription
   // A paid session wins over a removal mark: the money is taken, so the site stays
   // (the removal step refuses a complete session before it marks, so this is a race).
   if (rec?.state === 'removing') log('pilot-late: paid while marked for removal, the site stays')
+  const paidAt = await stripePaidAt(session, invoices)
   const next: LateRecord = {
     state: 'continued',
     sessionId: session.id,
     newSubscriptionId: newSub,
     amountPaid: typeof session.amount_total === 'number' ? session.amount_total : undefined,
     currency: session.currency ? String(session.currency).toLowerCase() : undefined,
-    paidAt: nowSec,
+    paidAt,
     at: nowSec
   }
   await redis.set(lateKey(pilotSubscriptionId), JSON.stringify(next))
@@ -244,7 +272,7 @@ export async function readLate(pilotSubscriptionId: string, nowSec: number, deps
     if (session.status === 'complete') {
       if (session.payment_status !== 'paid') return { state: 'confirming' }
       try {
-        const done = await recordLateContinuation(deps.redis, pilotSubscriptionId, session, nowSec, deps.log)
+        const done = await recordLateContinuation(deps.redis, pilotSubscriptionId, session, nowSec, deps.log, deps.stripe.invoices)
         return done ? receipt(done) : { state: 'confirming' }
       } catch {
         deps.log('pilot-late: record unavailable')
@@ -336,7 +364,7 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
       if (old.status === 'complete') {
         if (old.payment_status !== 'paid') return { state: 'confirming' }
         try {
-          const done = await recordLateContinuation(redis, pilot.id, old, nowSec, log)
+          const done = await recordLateContinuation(redis, pilot.id, old, nowSec, log, stripe.invoices)
           return done ? receipt(done) : { state: 'confirming' }
         } catch {
           return { state: 'confirming' }
@@ -358,7 +386,7 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
           }
           if (again?.status === 'complete' && again.payment_status === 'paid') {
             try {
-              const done = await recordLateContinuation(redis, pilot.id, again, nowSec, log)
+              const done = await recordLateContinuation(redis, pilot.id, again, nowSec, log, stripe.invoices)
               if (done) return receipt(done)
             } catch {
               // fall through
@@ -453,7 +481,7 @@ export async function markLateRemoval(pilotSubscriptionId: string, nowSec: numbe
     if (rec?.state === 'open' && rec.sessionId) {
       const session = await stripe.checkout.sessions.retrieve(rec.sessionId)
       if (session.status === 'complete') {
-        if (session.payment_status === 'paid') await recordLateContinuation(redis, pilotSubscriptionId, session, nowSec, log)
+        if (session.payment_status === 'paid') await recordLateContinuation(redis, pilotSubscriptionId, session, nowSec, log, stripe.invoices)
         return 'continued'
       }
       if (session.status === 'open') {
@@ -462,7 +490,7 @@ export async function markLateRemoval(pilotSubscriptionId: string, nowSec: numbe
         } catch {
           const again = await stripe.checkout.sessions.retrieve(session.id)
           if (again.status === 'complete') {
-            if (again.payment_status === 'paid') await recordLateContinuation(redis, pilotSubscriptionId, again, nowSec, log)
+            if (again.payment_status === 'paid') await recordLateContinuation(redis, pilotSubscriptionId, again, nowSec, log, stripe.invoices)
             return 'continued'
           }
           if (again.status !== 'expired') return 'session-still-open'

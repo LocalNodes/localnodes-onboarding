@@ -69,6 +69,9 @@ function lateDeps(sub: Record<string, unknown>, nowSec = LATER, opts: { redis?: 
     s.status = 'expired'
     return s
   })
+  /** When Stripe says each invoice was paid. */
+  const paidAts = new Map<string, number>()
+  const invoices = { retrieve: vi.fn(async (id: string) => ({ id, status_transitions: { paid_at: paidAts.get(id) ?? null } })) }
   const update = vi.fn()
   const log = vi.fn()
   const deps: PilotContinueDeps = {
@@ -77,14 +80,15 @@ function lateDeps(sub: Record<string, unknown>, nowSec = LATER, opts: { redis?: 
     now: () => nowSec * 1000,
     log,
     origin: ORIGIN,
-    late: { redis, stripe: { checkout: { sessions: { create, retrieve, expire } } } }
+    late: { redis, stripe: { checkout: { sessions: { create, retrieve, expire } }, invoices } }
   }
-  /** Stripe-side: the organizer pays session `id` on the page. */
-  const pay = (id: string) => {
+  /** Stripe-side: the organizer pays session `id` on the page, a day before we read it unless told otherwise. */
+  const pay = (id: string, paidAt = nowSec - 86400) => {
     const s = sessions.get(id)!
-    Object.assign(s, { status: 'complete', payment_status: 'paid', subscription: 'sub_new' })
+    Object.assign(s, { status: 'complete', payment_status: 'paid', subscription: 'sub_new', invoice: `in_${id}` })
+    paidAts.set(`in_${id}`, paidAt)
   }
-  return { deps, redis, sessions, create, retrieve, expire, update, log, pay }
+  return { deps, redis, sessions, create, retrieve, expire, update, log, pay, invoices }
 }
 
 const token = () => sealContinueToken('sub_1', END, SECRET)
@@ -149,15 +153,16 @@ describe('a pilot past its free end', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
-  it('paid on the page: the read records it and shows what was charged and when', async () => {
+  it('paid on the page: the read records it and shows what was charged and when Stripe took it', async () => {
     const { deps, pay, redis } = lateDeps(lapsedSub())
     await handlePilotContinue('POST', token(), deps)
-    pay('cs_1')
+    // Paid on March 2; the organizer comes back and we read it on March 3.
+    pay('cs_1', LATER - 86400)
     expect(await handlePilotContinue('GET', token(), deps)).toEqual({
       status: 200,
-      body: { state: 'continued', date: 'February 26, 2027', price: '$20 a month', charged: '$20', chargedOn: 'March 3, 2027' }
+      body: { state: 'continued', date: 'February 26, 2027', price: '$20 a month', charged: '$20', chargedOn: 'March 2, 2027' }
     })
-    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'continued', newSubscriptionId: 'sub_new', amountPaid: 2000 })
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'continued', newSubscriptionId: 'sub_new', amountPaid: 2000, paidAt: LATER - 86400 })
   })
 
   it('a yes after paying answers continued and opens no new page', async () => {
@@ -352,27 +357,52 @@ describe('a pilot past its free end', () => {
 })
 
 describe('recordLateContinuation', () => {
-  const paid = (over: Partial<LateSession> = {}) => session({ status: 'complete', payment_status: 'paid', subscription: 'sub_new', ...over })
+  const paid = (over: Partial<LateSession> = {}) => session({ status: 'complete', payment_status: 'paid', subscription: 'sub_new', invoice: 'in_a', ...over })
+  const PAID_AT = LATER - 3 * 86400
+  const invoices = () => ({ retrieve: vi.fn(async (id: string) => ({ id, status_transitions: { paid_at: PAID_AT } })) })
+
+  it('dates the payment by Stripe\'s paid time, read from the invoice, not by when it is recorded', async () => {
+    const redis = new FakeRedis()
+    const inv = invoices()
+    const rec = await recordLateContinuation(redis, 'sub_1', paid(), LATER, vi.fn(), inv)
+    expect(inv.retrieve).toHaveBeenCalledWith('in_a')
+    expect(rec).toMatchObject({ paidAt: PAID_AT })
+  })
+
+  it('uses an invoice that came expanded without another call', async () => {
+    const redis = new FakeRedis()
+    const inv = invoices()
+    const rec = await recordLateContinuation(redis, 'sub_1', paid({ invoice: { id: 'in_a', status_transitions: { paid_at: PAID_AT - 60 } } }), LATER, vi.fn(), inv)
+    expect(inv.retrieve).not.toHaveBeenCalled()
+    expect(rec).toMatchObject({ paidAt: PAID_AT - 60 })
+  })
+
+  it('records nothing when the invoice can\'t be read, so the webhook is retried', async () => {
+    const redis = new FakeRedis()
+    const inv = { retrieve: vi.fn(async () => { throw new Error('down') }) }
+    await expect(recordLateContinuation(redis, 'sub_1', paid(), LATER, vi.fn(), inv)).rejects.toThrow()
+    expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
+  })
 
   it('ignores a session that is not paid', async () => {
     const redis = new FakeRedis()
-    expect(await recordLateContinuation(redis, 'sub_1', session(), LATER, vi.fn())).toBeNull()
+    expect(await recordLateContinuation(redis, 'sub_1', session(), LATER, vi.fn(), invoices())).toBeNull()
     expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
   })
 
   it('is idempotent for the same session', async () => {
     const redis = new FakeRedis()
-    await recordLateContinuation(redis, 'sub_1', paid(), LATER, vi.fn())
+    await recordLateContinuation(redis, 'sub_1', paid(), LATER, vi.fn(), invoices())
     const first = redis.raw(lateKey('sub_1'))
-    await recordLateContinuation(redis, 'sub_1', paid(), LATER + 50, vi.fn())
+    await recordLateContinuation(redis, 'sub_1', paid(), LATER + 50, vi.fn(), invoices())
     expect(redis.raw(lateKey('sub_1'))).toBe(first)
   })
 
   it('a second paid session is flagged for a person, the first kept', async () => {
     const redis = new FakeRedis()
     const log = vi.fn()
-    await recordLateContinuation(redis, 'sub_1', paid(), LATER, log)
-    await recordLateContinuation(redis, 'sub_1', paid({ id: 'cs_b', subscription: 'sub_other' }), LATER, log)
+    await recordLateContinuation(redis, 'sub_1', paid(), LATER, log, invoices())
+    await recordLateContinuation(redis, 'sub_1', paid({ id: 'cs_b', subscription: 'sub_other' }), LATER, log, invoices())
     expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'continued', sessionId: 'cs_a', newSubscriptionId: 'sub_new', duplicate: 'cs_b' })
     expect(log).toHaveBeenCalledWith('pilot-late: a second paid session for one pilot, refund one by hand')
   })

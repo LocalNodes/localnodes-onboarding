@@ -39,7 +39,8 @@ export default defineEventHandler(async (event) => {
             retrieve: id => (useStripe() as unknown as LateStripe).checkout.sessions.retrieve(id),
             expire: id => (useStripe() as unknown as LateStripe).checkout.sessions.expire(id)
           }
-        }
+        },
+        invoices: { retrieve: id => (useStripe() as unknown as LateStripe).invoices.retrieve(id) }
       }
     },
     secret: String(config.inviteHashSecret ?? ''),
