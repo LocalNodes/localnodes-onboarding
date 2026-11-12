@@ -142,3 +142,13 @@ describe('landing Privacy section says what the sign-in and sign-up code keeps, 
     expect(read('app/components/LandingCTA.vue')).not.toMatch(/draft for Tom/i)
   })
 })
+
+describe('sign-up footer: "Who it\'s for"', () => {
+  it('is the first footer link, to /for, in sentence case', () => {
+    const first = footerNav()[0]!
+    expect(first.tag).toBe('NuxtLink')
+    expect(first.target).toBe('/for')
+    expect(first.text).toBe('Who it\'s for')
+    expect(first.attrs).not.toMatch(/target=/)
+  })
+})

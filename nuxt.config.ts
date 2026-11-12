@@ -105,6 +105,8 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/': { prerender: true },
+    // Public page, not gated (shared/launch.ts does not list it), so it can be prerendered.
+    '/for': { prerender: true },
     // The page carries the invited address in its payload (23-19), so it is never cached.
     '/onboarding': { ssr: true, headers: { 'Cache-Control': 'no-store' } },
     '/success': { ssr: true },
