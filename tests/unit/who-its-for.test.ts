@@ -11,6 +11,7 @@ import data from '~/data/who-its-for.json'
 import WhoItsForKind from '~/components/WhoItsForKind.vue'
 import HomeKinds from '~/components/HomeKinds.vue'
 import { gateDecision } from '../../shared/launch'
+import { claimsOn, missingClaims } from '../../shared/launch-claims.mjs'
 
 const root = resolve(__dirname, '../..')
 const read = (rel: string) => readFileSync(join(root, rel), 'utf8')
@@ -191,6 +192,12 @@ describe('the /for page', () => {
     expect(page).toMatch(/<p\b[^>]*data-prelaunch[^>]*>\s*Launching soon\.\s*<\/p>/)
     expect(page.match(/<UButton\b/g)).toHaveLength(1)
     expect(page).toMatch(/<UButton\b[^>]*to="\/#early-access"/)
+  })
+
+  it('renders every one of its promises in the launch claims list word for word', async () => {
+    const page = text((await Promise.all(kinds.map(kind => render(WhoItsForKind, { kind })))).join(' '))
+    expect(claimsOn('/for').length).toBeGreaterThan(0)
+    expect(missingClaims(page, claimsOn('/for')).map(c => c.id)).toEqual([])
   })
 
   it('is prerendered and never gated', () => {

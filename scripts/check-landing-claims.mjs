@@ -17,16 +17,17 @@
 //      pre-launch statement (an element with data-prelaunch saying
 //      "Launching soon"; Tom, 2026-11-06, PR #9); every demo-site link
 //      labelled a demo; no frame word;
-//   2b. every sentence in the launch claims list (shared/launch-claims.mjs) is
-//      on the built page word for word;
+//   2b. every home page sentence in the launch claims list
+//      (shared/launch-claims.mjs, page '/') is on the built page word for word;
 //   Plus the voice and product rules (PLACE-01, AI-advisory, voice), a
 //   separate list; every FAIL line names the list a hit came from.
 //   2c. the public "Who it's for" page (fixture forPage): the built /for page
-//      gets the honesty bans, the voice rules and the required claims of rule
-//      2 (not 2b, and no buyer-word rule); its data file gets the honesty bans
+//      gets the honesty bans, the voice rules, the required claims of rule 2,
+//      and rule 2b for its own sentences in the launch claims list (page
+//      '/for'), but no buyer-word rule; its data file gets the honesty bans
 //      and voice rules; and the built page, its meta, the data file and the
 //      listed sources get three more lists, cryptoWords, priceWords and
-//      pendingTopicWords (the last with the launch-claims sentences taken out
+//      pendingTopicWords (the last with every launch-claims sentence taken out
 //      first, word for word). A repo with the page source and no built /for
 //      page fails.
 //   3. the sign-up pages and components (fixture list signupSources, plus the
@@ -42,7 +43,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { LAUNCH_CLAIMS, missingClaims } from '../shared/launch-claims.mjs'
+import { LAUNCH_CLAIMS, claimsOn, missingClaims } from '../shared/launch-claims.mjs'
 
 const ALNUM = /[A-Za-z0-9]/
 
@@ -491,7 +492,8 @@ export function withoutLaunchClaims(text, claims = LAUNCH_CLAIMS) {
 
 /**
  * The "Who it's for" checks (rule 2c). `builtDirs` are the directories the
- * home page was found in; `rowChecks` runs rule 2's required claims on a page.
+ * home page was found in; `rowChecks` runs rule 2's required claims and the
+ * page's own launch claims (rule 2b) on a page.
  */
 function forPageChecks(root, fixture, builtDirs, voiceRules, fail, lines, rowChecks) {
   const spec = fixture.forPage
@@ -619,6 +621,14 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
       }
     }
   }
+  // 2b. Every promise one page makes (shared/launch-claims.mjs) is on that
+  //     built page word for word, so a reworded or removed sentence can't slip
+  //     out of the list that keeps sign-ups closed.
+  const claimChecks = (builtRel, text, claimPage) => {
+    for (const c of missingClaims(text, claimsOn(claimPage))) {
+      fail(builtRel, `launch claim "${c.id}"`, `not on the page word for word: "${c.text}". Update shared/launch-claims.mjs with the page`)
+    }
+  }
   const frameChecks = (builtRel, text, meta) => {
     if (fixture.frameWordAllowed) return
     for (const w of fixture.frameWords) {
@@ -672,19 +682,17 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     // 2. Required claims on the built page.
     requiredChecks(builtRel, html, text, meta)
 
-    // 2b. Every pending home page promise (shared/launch-claims.mjs) is on the
-    //     built page word for word, so a reworded or removed sentence can't
-    //     slip out of the list that keeps sign-ups closed.
-    for (const c of missingClaims(text, LAUNCH_CLAIMS)) {
-      fail(builtRel, `launch claim "${c.id}"`, `not on the page word for word: "${c.text}". Update shared/launch-claims.mjs with the page`)
-    }
+    // 2b. The home page's promises.
+    claimChecks(builtRel, text, '/')
 
     frameChecks(builtRel, text, meta)
   }
 
-  // 2c. The "Who it's for" page, its data file and its sources.
+  // 2c. The "Who it's for" page, its data file and its sources, with its own
+  //     promises (rule 2b for page '/for').
   forPageChecks(root, fixture, builtDirs, voiceRules, fail, lines, (rel, html, text, meta) => {
     requiredChecks(rel, html, text, meta)
+    claimChecks(rel, text, '/for')
     frameChecks(rel, text, meta)
   })
 

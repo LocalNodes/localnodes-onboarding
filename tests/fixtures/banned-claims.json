@@ -416,7 +416,7 @@
     ]
   },
   "forPage": {
-    "description": "The public \"Who it's for\" page (/for). It gets the home page's honesty bans, voice rules, licence, pre-launch, demo-label and frame-word checks, but not the launch-claims or buyer-word rules. The three lists below apply to the built page and its meta, the data file and these sources.",
+    "description": "The public \"Who it's for\" page (/for). It gets the home page's honesty bans, voice rules, licence, pre-launch, demo-label and frame-word checks, and the launch-claims rule for its own sentences (page '/for' in shared/launch-claims.mjs), but not the buyer-word rule. The three lists below apply to the built page and its meta, the data file and these sources.",
     "page": "app/pages/for.vue",
     "builtRoute": "for",
     "dataFile": "app/data/who-its-for.json",
@@ -487,7 +487,9 @@
       "owned",
       "owns",
       "owners?",
-      "ownership"
+      "ownership",
+      "polls?",
+      "calendars?"
     ]
   }
 }

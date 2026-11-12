@@ -13,7 +13,7 @@ import { serverLaunchOpen } from '#shared/launch-claims.mjs'
 // any Redis trouble counts as not invited. Requests the gate already passes
 // never touch Redis.
 export default defineEventHandler(async (event) => {
-  // A production server stays closed while a home page promise is pending
+  // A production server stays closed while a page promise is pending
   // (shared/launch-claims.mjs), even with the flag set when it starts.
   const open = serverLaunchOpen(isLaunchOpen(useRuntimeConfig(event).launchOpen), { dev: import.meta.dev })
   const path = getRequestURL(event).pathname

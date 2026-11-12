@@ -18,7 +18,7 @@ import HomeDecide from '~/components/HomeDecide.vue'
 import HomeFund from '~/components/HomeFund.vue'
 import HomeYours from '~/components/HomeYours.vue'
 import LandingCTA from '~/components/LandingCTA.vue'
-import { LAUNCH_CLAIMS, missingClaims } from '../../shared/launch-claims.mjs'
+import { claimsOn, missingClaims } from '../../shared/launch-claims.mjs'
 import demo from '~/data/home-demo.json'
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8')
@@ -388,11 +388,12 @@ describe('the page describes the product as it will be at launch', () => {
     expect(words.indexOf('Start with practice money')).toBeGreaterThan(words.indexOf('The money moves only when'))
   })
 
-  it('every pending promise in the launch claims list is on the rendered page word for word', async () => {
+  it('every home page promise in the launch claims list is on the rendered page word for word', async () => {
     const page = (await Promise.all([HomeHero, HomeScatter, HomeTogether, HomeDecide, HomeFund, HomeYours, LandingCTA].map(render))).map(seen).join(' ')
-    expect(LAUNCH_CLAIMS.length).toBeGreaterThan(0)
-    expect(missingClaims(page).map(c => c.id)).toEqual([])
-    for (const c of LAUNCH_CLAIMS) expect(page).toContain(c.text)
+    const home = claimsOn('/')
+    expect(home.length).toBeGreaterThan(0)
+    expect(missingClaims(page, home).map(c => c.id)).toEqual([])
+    for (const c of home) expect(page).toContain(c.text)
   })
 
   it('the fund description names the example payment, with no "not yet" wording', async () => {
