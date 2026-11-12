@@ -42,7 +42,7 @@ defineProps<{ kind: Kind }>()
       </dd>
     </dl>
     <p v-if="kind.demo?.url" class="mt-4 text-base leading-normal">
-      <a :href="kind.demo.url" target="_blank" rel="noopener noreferrer" class="text-[#115e59] underline underline-offset-2">Look around the {{ kind.demo.name }} demo site (a demo)<span class="sr-only"> (opens in a new tab)</span></a>
+      <a :href="kind.demo.url" target="_blank" rel="noopener noreferrer" class="text-primary underline underline-offset-2">Look around the {{ kind.demo.name }} demo site (a demo)<span class="sr-only"> (opens in a new tab)</span></a>
     </p>
   </section>
 </template>
