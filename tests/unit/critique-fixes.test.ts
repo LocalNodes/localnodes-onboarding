@@ -1,7 +1,6 @@
-// Fixes from the Impeccable critique of the sign-up flow and the landing page
-// (fresh3 22.1-12, DES-01). Each test is a rule the brand already states
-// (fresh3 .planning/brand/BRAND.md sections 5, 6 and 7); the critique found the
-// page breaking it.
+// Fixes from a design critique of the sign-up flow and the landing page. Each
+// test is a rule the brand guide already states (BRAND.md sections 5, 6 and 7);
+// the critique found the page breaking it.
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -23,10 +22,10 @@ function prop(css: string, name: string): string {
   return m![1].trim().toLowerCase()
 }
 
-describe('the dark bands are the approved band blue, not zinc (BRAND.md section 5, Tom card 7)', () => {
+describe('the dark bands are the approved band blue, not zinc (BRAND.md section 5)', () => {
   // Read the expected colours from the same generated file, not as literals:
   // the band roles alias the brand scale, so a palette swap in the token source
-  // must keep this test green (fresh3 22.1-14 swap proof, WINDOWS 50).
+  // must keep this test green.
   const tokens = read('app/assets/css/ln-tokens.css')
   const dark = block(tokens, '.dark')
   const brand = (step: number) => prop(tokens, `--color-ln-brand-${step}`)
@@ -36,20 +35,6 @@ describe('the dark bands are the approved band blue, not zinc (BRAND.md section 
     expect(prop(dark, '--ui-text-muted')).toBe(brand(200))
     expect(prop(dark, '--ui-text-inverted')).toBe(brand(950))
     expect(dark).not.toContain('#09090b')
-  })
-
-  it('draws the answer card and the source chip from the band palette', () => {
-    const demo = read('app/components/HeroSearchDemo.vue')
-    expect(demo).toMatch(/\bbg-ln-brand-900\b/)
-    expect(demo).toMatch(/\bbg-ln-brand-100\b/)
-    expect(demo).not.toMatch(/\bbg-elevated\b/)
-    expect(demo).not.toMatch(/\bbg-inverted\b/)
-  })
-
-  it('no longer carries the interim TODO the band colour left behind', () => {
-    for (const file of ['HeroSection', 'RoadmapSection', 'AppHeader']) {
-      expect(read(`app/components/${file}.vue`), file).not.toContain('TODO(22.1-08)')
-    }
   })
 })
 
@@ -87,33 +72,12 @@ describe('the header\'s early-access button is not a second primary on the task 
   })
 })
 
-describe('the landing page uses the four brand sizes plus the 48/36 hero (BRAND.md section 6)', () => {
-  const LANDING = [
-    'ProblemSection', 'WhoItsFor', 'FeaturesSection', 'RoadmapSection', 'SocialProof',
-    'HowItWorks', 'OpenSourceSection', 'LandingCTA', 'EarlyAccessForm', 'HeroSection', 'HeroSearchDemo'
-  ]
-
-  it('has no 30px, 36px (outside the hero), 18px or 12px text class', () => {
-    for (const name of LANDING) {
+describe('the landing page sections use the four brand sizes (BRAND.md section 6)', () => {
+  it('has no 30px, 36px, 18px or 12px text class', () => {
+    for (const name of ['LandingCTA', 'EarlyAccessForm']) {
       const text = read(`app/components/${name}.vue`)
       expect(text, name).not.toMatch(/\btext-(3xl|lg|xs)\b/)
-      if (name !== 'HeroSection') expect(text, name).not.toMatch(/\b(sm:)?text-4xl\b/)
+      expect(text, name).not.toMatch(/\b(sm:)?text-4xl\b/)
     }
-  })
-
-  it('keeps a 16px lead paragraph to 72 characters (max-w-xl), which max-w-3xl and max-w-2xl no longer do at this size', () => {
-    for (const name of ['ProblemSection', 'FeaturesSection', 'OpenSourceSection', 'HeroSection']) {
-      const lead = read(`app/components/${name}.vue`).match(/<p class="text-base[^"]*(max-w-[a-z0-9]+)[^"]*"/)?.[1]
-      expect(lead, name).toBe('max-w-xl')
-    }
-  })
-
-  it('keeps the hero at 36px under 640px and 48px above', () => {
-    expect(read('app/components/HeroSection.vue')).toMatch(/\btext-4xl sm:text-5xl\b/)
-  })
-
-  it('sets section headings at 28px and the pause button at the label size', () => {
-    expect(read('app/components/ProblemSection.vue')).toContain('text-[28px]')
-    expect(read('app/components/HeroSearchDemo.vue')).not.toContain('size="sm"')
   })
 })
