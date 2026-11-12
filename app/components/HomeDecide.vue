@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Act one, "Decides". The server renders the finished decision; the controller
+// Act one, "Decide". The server renders the finished decision; the controller
 // replays it when the window scrolls into view and from "Play again". The window is a picture
 // (hidden from the accessibility tree); the sentence in `home-alt` is its finished state, built
 // from the same numbers, so the two cannot disagree.
@@ -25,7 +25,7 @@ onMounted(() => {
   <section id="decide" class="home-act home-band-tint">
     <div class="home-wrap">
       <div class="home-words">
-        <span class="home-mono">Decides</span>
+        <span class="home-mono">Decide</span>
         <h2 class="home-h2">Decide in the open, with everyone who has a say.</h2>
         <p>Anyone can put a proposal to the group. Each member agrees, stands aside or blocks, and the result is kept with the count and the date.</p>
         <ul>

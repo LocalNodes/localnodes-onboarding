@@ -61,7 +61,7 @@ describe('launch gate (middleware)', () => {
     expect((await h(post('/api/early-access'))).status).toBe(200)
   })
 
-  it('stays closed with NUXT_LAUNCH_OPEN "true" while a home page promise is pending (a closed build started with the flag set)', async () => {
+  it('stays closed with NUXT_LAUNCH_OPEN "true" while a page promise is pending (a closed build started with the flag set)', async () => {
     launchOpen = 'true'
     const h = await app()
     expect((await h(new Request('http://localhost/api/price'))).status).toBe(404)

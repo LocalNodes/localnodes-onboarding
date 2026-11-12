@@ -18,7 +18,7 @@ import HomeDecide from '~/components/HomeDecide.vue'
 import HomeFund from '~/components/HomeFund.vue'
 import HomeYours from '~/components/HomeYours.vue'
 import LandingCTA from '~/components/LandingCTA.vue'
-import { LAUNCH_CLAIMS, missingClaims } from '../../shared/launch-claims.mjs'
+import { claimsOn, missingClaims } from '../../shared/launch-claims.mjs'
 import demo from '~/data/home-demo.json'
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8')
@@ -78,8 +78,8 @@ describe('the page', () => {
     expect(page).toMatch(/onBeforeUnmount\(\(\) => demos\.unmount\(\)\)/)
   })
 
-  it('shows hero, six places, the group home page, decide, fund, yours and the close, in that order, and no old section', () => {
-    const order = ['<HomeHero', '<HomeScatter', '<HomeTogether', '<HomeDecide', '<HomeFund', '<HomeYours', '<LandingCTA'].map(t => page.indexOf(t))
+  it('shows hero, six places, the group home page, decide, fund, own, the kinds row and the close, in that order, and no old section', () => {
+    const order = ['<HomeHero', '<HomeScatter', '<HomeTogether', '<HomeDecide', '<HomeFund', '<HomeYours', '<HomeKinds', '<LandingCTA'].map(t => page.indexOf(t))
     expect(order.every(i => i > -1)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
     for (const old of ['HeroSection', 'ProblemSection', 'WhoItsFor', 'FeaturesSection', 'RoadmapSection', 'SocialProof', 'HowItWorks', 'OpenSourceSection']) {
@@ -105,6 +105,17 @@ describe('header and footer on the home page', () => {
     expect(header).not.toMatch(/who-its-for|see-it-in-action|open-source'/)
   })
 
+  it('is one header on every page: never switched off, links never centred, the landing container', () => {
+    expect(header).toContain('class="dark home-dark home-header bg-default border-default"')
+    expect(header).not.toMatch(/:class="onLanding/)
+    expect(header).toContain(`:ui="{ left: 'lg:flex-none', right: 'lg:flex-1 lg:justify-end', content: 'dark home-dark' }"`)
+    expect(header.match(/<UNavigationMenu\b/g)).toHaveLength(2)
+    expect(header).not.toMatch(/<UNavigationMenu[^>]*v-if/)
+    expect(header).toContain('<AppLogo reversed />')
+    const main = read('app/assets/css/main.css')
+    expect(main).toMatch(/\.home-header \[data-slot='container'\] \{\s*max-width: 1200px;\s*padding-left: max\(16px/)
+  })
+
   it('is dark on the home page, with the logo left and the nav on the right', () => {
     expect(header).toContain('dark home-dark home-header bg-default border-default')
     expect(header).toMatch(/<template #right>[\s\S]*<UNavigationMenu[^>]*hidden lg:flex/)
@@ -118,7 +129,8 @@ describe('header and footer on the home page', () => {
     expect(header).toContain(`:color="onLanding ? 'primary' : 'neutral'"`)
   })
 
-  it('has a dark footer on the home page only, with its links as they were', () => {
+  it('has a dark footer on the public pages (/ and /for) only, with its links as they were', () => {
+    expect(footer).toContain('PUBLIC_PAGES.includes(route.path)')
     expect(footer).toContain('home-dark')
     expect(footer).toContain('onLanding')
     expect(footer).toContain('hello@localnodes.xyz')
@@ -221,7 +233,7 @@ describe('the decide act as the server renders it', () => {
     const html = await render(HomeDecide)
     const text = seen(html)
     expect(html).toContain('id="decide"')
-    expect(text).toContain('Decides')
+    expect(html).toContain('<span class="home-mono">Decide</span>')
     expect(text).toContain('Decide in the open, with everyone who has a say.')
     expect(text).toContain('Anyone can put a proposal to the group. Each member agrees, stands aside or blocks, and the result is kept with the count and the date.')
     for (const li of ['One person, one response', 'A clear closing date on every proposal', 'The record stays, so next year\'s members can ask what was decided']) expect(text).toContain(li)
@@ -255,7 +267,7 @@ describe('the fund act as the server renders it', () => {
     const html = await render(HomeFund)
     const text = seen(html)
     expect(html).toContain('id="fund"')
-    expect(text).toContain('Funds')
+    expect(html).toContain('<span class="home-mono">Fund</span>')
     expect(text).toContain('A fund the group controls, and can see.')
     expect(text).toContain('The money moves only when the approvers your group chose sign off. Every payment shows who approved it and what it was for.')
     expect(text).toContain('No single person holds the purse')
@@ -302,7 +314,7 @@ describe('the yours act as the server renders it', () => {
     const html = await render(HomeYours)
     const text = seen(html)
     expect(html).toContain('id="yours"')
-    expect(text).toContain('Yours')
+    expect(html).toContain('<span class="home-mono">Own</span>')
     expect(text).toContain('It\'s your site. Take it with you.')
     expect(text).toContain('LocalNodes is open source (GPL and AGPL). Run it with us or on your own server. If you ever want to move, one button will give you everything your community has put here.')
     for (const li of ['Your pages, files, members and settings in one download', 'A step-by-step guide to setting it up somewhere else', 'The same software anyone can install for a new community']) expect(text).toContain(li)
@@ -376,11 +388,12 @@ describe('the page describes the product as it will be at launch', () => {
     expect(words.indexOf('Start with practice money')).toBeGreaterThan(words.indexOf('The money moves only when'))
   })
 
-  it('every pending promise in the launch claims list is on the rendered page word for word', async () => {
+  it('every home page promise in the launch claims list is on the rendered page word for word', async () => {
     const page = (await Promise.all([HomeHero, HomeScatter, HomeTogether, HomeDecide, HomeFund, HomeYours, LandingCTA].map(render))).map(seen).join(' ')
-    expect(LAUNCH_CLAIMS.length).toBeGreaterThan(0)
-    expect(missingClaims(page).map(c => c.id)).toEqual([])
-    for (const c of LAUNCH_CLAIMS) expect(page).toContain(c.text)
+    const home = claimsOn('/')
+    expect(home.length).toBeGreaterThan(0)
+    expect(missingClaims(page, home).map(c => c.id)).toEqual([])
+    for (const c of home) expect(page).toContain(c.text)
   })
 
   it('the fund description names the example payment, with no "not yet" wording', async () => {
@@ -395,10 +408,11 @@ describe('the page describes the product as it will be at launch', () => {
   })
 })
 
-describe('the group home page ("Shares")', () => {
+describe('the group home page ("Share")', () => {
   it('is the section "How it works" lands on, and says only what a pilot site does today', async () => {
     const html = await render(HomeTogether)
     expect(html).toContain('id="together"')
+    expect(html).toContain('<span class="home-mono">Share</span>')
     const text = seen(html)
     expect(text).toContain('Post news, plan events and keep in touch.')
     for (const line of ['Posts with photos, comments and likes', 'Events with a sign-up list', 'Longer pages for news and discussions', 'Open groups, and groups you join by invitation or request', 'Newest first, and no ads']) {

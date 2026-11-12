@@ -534,15 +534,20 @@ describe('the home colour file (app/assets/css/home-v5.css)', () => {
     expect(v['--ui-primary']).toMatch(/^#[0-9a-f]{6}$/i)
   })
 
-  it('only app/pages/index.vue imports the file or sets the ln-home class', () => {
+  it('only the public reading pages (/ and /for) import the file and set the ln-home class', () => {
     const users = walk(appDir)
       .filter((f) => TEXT_FILE.test(f) && f !== HOME_CSS)
       .filter((f) => /home-v5|\bln-home\b/.test(read(f)))
       .map((f) => f.slice(root.length + 1))
-    expect(users).toEqual(['app/pages/index.vue'])
-    const index = read(join(appDir, 'pages/index.vue'))
-    expect(index).toMatch(/home-v5\.css/)
-    expect(index).toMatch(/ln-home/)
+      .sort()
+    expect(users).toEqual(['app/pages/for.vue', 'app/pages/index.vue'])
+    for (const page of ['pages/index.vue', 'pages/for.vue']) {
+      const src = read(join(appDir, page))
+      expect(src, page).toMatch(/import '~\/assets\/css\/home-v5\.css'/)
+      expect(src, page).toMatch(/useHead\(\{ htmlAttrs: \{ class: 'ln-home' \} \}\)/)
+    }
+    // The header and footer read the same two routes as their public pages.
+    expect(read(join(appDir, 'utils/public-pages.ts'))).toMatch(/PUBLIC_PAGES: readonly string\[\] = \['\/', '\/for'\]/)
   })
 
   // Every pair the home page draws, measured from the file itself. The browser

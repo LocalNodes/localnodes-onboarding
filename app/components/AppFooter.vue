@@ -6,11 +6,14 @@
 // "Open source" goes to the public repository (T-5, 2026-11-08). "Get help"
 // (T-1, 2026-11-08) is a mailto: to hello@localnodes.xyz, in the same place on
 // every screen, which is what WCAG 3.2.6 asks of a help link.
-// On the home page the footer is a dark band like the header and the closing section;
-// on the sign-up pages it stays light. On the home page it also takes the page's own width and
-// side gutter, so its left edge lines up with the header and the sections above it.
+// On the public reading pages (/ and /for) the footer is a dark band like the header and the
+// landing's closing section; on the sign-up pages it stays light. On the public pages it also
+// takes the landing's own width and side gutter, so its left edge lines up with the header and
+// the sections above it.
+import { PUBLIC_PAGES } from '~/utils/public-pages'
+
 const route = useRoute()
-const onLanding = computed(() => route.path === '/')
+const onLanding = computed(() => PUBLIC_PAGES.includes(route.path))
 const year = new Date().getFullYear()
 </script>
 
@@ -26,6 +29,9 @@ const year = new Date().getFullYear()
           <span>Home base for communities that run things together.</span>
         </div>
         <nav aria-label="Footer" class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <NuxtLink to="/for" class="text-muted hover:text-primary underline-offset-2 hover:underline">
+            Who it's for
+          </NuxtLink>
           <a href="https://cascadia.localnodes.xyz" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-primary underline-offset-2 hover:underline">
             Cascadia demo<span class="sr-only"> (opens in a new tab)</span>
           </a>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Act two, "Funds". The dollar figures in the window are scripted example
+// Act two, "Fund". The dollar figures in the window are scripted example
 // data from app/data/home-demo.json, not real money: each one is a slot alone in its own box
 // (data-demo-amount in data-demo-amount-box), which is the only place the claims check lets a
 // price-shaped figure through, and only in this section. The finished state is what the server
@@ -21,7 +21,7 @@ onMounted(() => {
   <section id="fund" class="home-act flip home-band-light">
     <div class="home-wrap">
       <div class="home-words">
-        <span class="home-mono">Funds</span>
+        <span class="home-mono">Fund</span>
         <h2 class="home-h2">A fund the group controls, and can see.</h2>
         <p>The money moves only when the approvers your group chose sign off. Every payment shows who approved it and what it was for.</p>
         <p>Start with practice money, so everyone can try a payment before anything real moves. Open your real fund when the group is ready.</p>

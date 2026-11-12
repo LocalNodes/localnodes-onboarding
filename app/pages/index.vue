@@ -13,13 +13,15 @@
     <HomeDecide />
     <HomeFund />
     <HomeYours />
+    <HomeKinds />
     <LandingCTA />
   </div>
 </template>
 
 <script setup lang="ts">
 // The home page: a dark first screen,
-// the six places, the group's home page, three acts (decide, fund, yours) and a dark close. It is a light page whose
+// the six places, the group's home page, three acts (decide, fund, own), the kinds strip
+// that links to /for, and a dark close. It is a light page whose
 // dark bands scope `dark` themselves, so colorMode stays light.
 //
 // The stylesheet holds this page's colour contexts. It is scoped under the `ln-home` class,

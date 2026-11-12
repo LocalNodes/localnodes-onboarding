@@ -11,7 +11,7 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/ui',
     '@vueuse/motion/nuxt',
-    // Sign-ups cannot open while a home page promise is pending: a production
+    // Sign-ups cannot open while a page promise is pending: a production
     // build with the launch flag open stops here, naming each promise that is
     // not ready (shared/launch-claims.mjs). The server also reads the flag
     // as NITRO_LAUNCH_OPEN, so both names are checked. Only dev and prepare
@@ -105,6 +105,8 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/': { prerender: true },
+    // Public page, not gated (shared/launch.ts does not list it), so it can be prerendered.
+    '/for': { prerender: true },
     // The page carries the invited address in its payload (23-19), so it is never cached.
     '/onboarding': { ssr: true, headers: { 'Cache-Control': 'no-store' } },
     '/success': { ssr: true },

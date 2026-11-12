@@ -11,7 +11,11 @@ import { join, resolve, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 // @ts-expect-error plain .mjs script, no type declarations
 import { findBannedHits, prelaunchProblems } from '../../scripts/check-landing-claims.mjs'
-import { LAUNCH_CLAIMS } from '../../shared/launch-claims.mjs'
+import { LAUNCH_CLAIMS, claimsOn } from '../../shared/launch-claims.mjs'
+import { createSSRApp, h } from 'vue'
+import { renderToString } from 'vue/server-renderer'
+import WhoItsForWindow from '~/components/WhoItsForWindow.vue'
+import whoItsFor from '~/data/who-its-for.json'
 
 const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
@@ -20,8 +24,8 @@ const fixture = JSON.parse(readFileSync(join(repo, 'tests/fixtures/banned-claims
 // The pre-launch statement every page must carry (Tom, 2026-11-06, PR #9).
 const PRELAUNCH = '<p data-prelaunch class="band"><span>Launching soon.</span> <a href="#demo">See the demo</a> or <a href="#early-access">get early access</a>.</p>'
 
-// The home page's pending promises, which the built page must carry word for word.
-const CLAIMS = LAUNCH_CLAIMS.map(c => `<p>${c.text}</p>`).join('\n  ')
+// The home page's promises, which the built home page must carry word for word.
+const CLAIMS = claimsOn('/').map(c => `<p>${c.text}</p>`).join('\n  ')
 
 const CLEAN_BODY = `
   ${PRELAUNCH}
@@ -69,7 +73,7 @@ afterEach(() => {
 })
 
 describe('check-landing-claims guard fires', () => {
-  for (const c of LAUNCH_CLAIMS) {
+  for (const c of claimsOn('/')) {
     it(`fails when the launch claim "${c.id}" is reworded on the page`, () => {
       const reworded = CLEAN_BODY.replace(`<p>${c.text}</p>`, `<p>${c.text.replace(/\.$/, '')} today.</p>`)
       expect(reworded).not.toBe(CLEAN_BODY)
@@ -81,7 +85,7 @@ describe('check-landing-claims guard fires', () => {
   }
 
   it('reads a launch claim across line breaks and markup, as a reader sees it', () => {
-    const c = LAUNCH_CLAIMS[0]!
+    const c = claimsOn('/')[0]!
     const [first, ...rest] = c.text.split(' ')
     const split = CLEAN_BODY.replace(`<p>${c.text}</p>`, `<p><span>${first}</span>\n   ${rest.join(' ')}</p>`)
     const r = run(page(split))
@@ -762,5 +766,206 @@ describe('home-demo.json strings are wording-checked', () => {
     d.examples[1]!.a = 'Costs $12 a seat.'
     writeDemo(d)
     expect(run(page(CLEAN_BODY)).code).toBe(1)
+  })
+})
+
+describe('the Who it\'s for page (/for) is claims-checked', () => {
+  // The page's own promises, which the built /for page must carry word for word.
+  const FOR_CLAIMS = claimsOn('/for').map(c => `<p>${c.text}</p>`).join('\n  ')
+  const FOR_BODY = `
+  <h1>Who it's for</h1>
+  <section id="housing-co-ops"><h2>Housing co-ops</h2><p>Your co-op has several houses and plenty to remember.</p>
+  <dl><dt>How it's set up</dt><dd>The co-op has one site, with each house as a group.</dd>
+  <dt>In the first week</dt><dd><ul><li>Add the minutes and repair log.</li><li>Ask about the back steps and open the cited page.</li></ul></dd></dl></section>
+  <p>A single group with no network is welcome too.</p>
+  ${FOR_CLAIMS}
+  <p data-prelaunch>Launching soon.</p><a href="/#early-access">Get early access</a>
+`
+  function forPage(body: string, meta = 'The kinds of group LocalNodes is for.') {
+    return `<!DOCTYPE html><html><head><title>Who it's for - LocalNodes</title>
+<meta name="description" content="${meta}"></head>
+<body>${body}<p>LocalNodes is open source (GPL and AGPL).</p></body></html>`
+  }
+  /** Write the home page and the /for page, then run the check. */
+  function runBoth(forHtml: string | null, opts: { pageSource?: boolean } = {}) {
+    if (opts.pageSource !== false) {
+      mkdirSync(join(root, 'app/pages'), { recursive: true })
+      writeFileSync(join(root, 'app/pages/for.vue'), '<template><h1>Who it\'s for</h1></template>')
+    }
+    if (forHtml !== null) {
+      mkdirSync(join(root, '.output/public/for'), { recursive: true })
+      writeFileSync(join(root, '.output/public/for/index.html'), forHtml)
+    }
+    return run(page(CLEAN_BODY))
+  }
+
+  it('passes a clean /for page, which carries its own launch claims and not the home page\'s', () => {
+    expect(claimsOn('/for').length).toBeGreaterThan(0)
+    const r = runBoth(forPage(FOR_BODY))
+    expect(r.out).toContain('CHECK .output/public/for/index.html')
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  for (const c of claimsOn('/for')) {
+    it(`fails when the /for launch claim "${c.id}" is reworded on the /for page`, () => {
+      const reworded = FOR_BODY.replace(`<p>${c.text}</p>`, `<p>${c.text.replace(/[.?]$/, '')} today.</p>`)
+      expect(reworded).not.toBe(FOR_BODY)
+      const r = runBoth(forPage(reworded))
+      expect(r.code).toBe(1)
+      expect(r.out).toContain(`FAIL .output/public/for/index.html: launch claim "${c.id}" (not on the page word for word`)
+    })
+  }
+
+  it('fails a sentence about a poll or the calendar that is not on the claims list, naming the list', () => {
+    for (const line of ['<p>Settle it with a poll.</p>', '<p>Add the potluck to the calendar.</p>']) {
+      const r = runBoth(forPage(FOR_BODY + line))
+      expect(r.code, line).toBe(1)
+      expect(r.out, line).toMatch(/\(pendingTopicWords: a sentence about a promise that is not on the claims list/)
+    }
+  })
+
+  it('fails when the page source exists but no /for page was built', () => {
+    const r = runBoth(null)
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/no built \/for page/)
+  })
+
+  it('does not ask for a /for page when the repo has no page source', () => {
+    const r = runBoth(null, { pageSource: false })
+    expect(r.code).toBe(0)
+  })
+
+  it('fails on a price, in the text or the meta', () => {
+    expect(runBoth(forPage(FOR_BODY + '<p>Only $49.</p>')).code).toBe(1)
+    const r = runBoth(forPage(FOR_BODY, 'From $49 a month.'))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL \.output\/public\/for\/index\.html: meta/m)
+  })
+
+  it('fails without the pre-launch statement, and on a demo link that does not say demo', () => {
+    expect(runBoth(forPage(FOR_BODY.replace('data-prelaunch', ''))).out).toMatch(/no pre-launch statement/)
+    expect(runBoth(forPage(FOR_BODY + '<a href="https://coop.localnodes.xyz">Visit the co-op</a>')).out).toMatch(/demo link not labelled/)
+  })
+
+  it('fails on a voice rule', () => {
+    expect(runBoth(forPage(FOR_BODY + '<p>Find groups near you.</p>')).code).toBe(1)
+  })
+
+  it('fails the original gatherings line, on its pending words, naming the list', () => {
+    const line = '<li>Coming next: decide the programme together; use practice money for small session grants.</li>'
+    const r = runBoth(forPage(FOR_BODY + line))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/pendingTopicWords: a sentence about a promise that is not on the claims list/)
+    expect(r.out).toMatch(/decid/)
+    expect(r.out).toMatch(/money/)
+  })
+
+  it('lets a launch-claims sentence through the pending-words list word for word, and nothing else', () => {
+    const claim = LAUNCH_CLAIMS.find(c => c.id === 'real-fund')!.text
+    expect(runBoth(forPage(FOR_BODY + `<p>${claim}</p>`)).code).toBe(0)
+    expect(runBoth(forPage(FOR_BODY + '<p>Open a practice fund for the group.</p>')).code).toBe(1)
+  })
+
+  it('checks the data file and the page sources with the three lists', () => {
+    mkdirSync(join(root, 'app/data'), { recursive: true })
+    writeFileSync(join(root, 'app/data/who-its-for.json'), JSON.stringify({ kinds: [{ who: 'Members connect a wallet.' }] }))
+    const r = runBoth(forPage(FOR_BODY))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL app\/data\/who-its-for\.json: .*cryptoWords/m)
+    rmSync(join(root, 'app/data/who-its-for.json'))
+    mkdirSync(join(root, 'app/components'), { recursive: true })
+    writeFileSync(join(root, 'app/components/HomeKinds.vue'), '<template><p>Free for groups like co-ops.</p></template>')
+    const r2 = runBoth(forPage(FOR_BODY))
+    expect(r2.code).toBe(1)
+    expect(r2.out).toMatch(/^FAIL app\/components\/HomeKinds\.vue: .*priceWords/m)
+  })
+
+  it('runs the honesty bans on the data file', () => {
+    mkdirSync(join(root, 'app/data'), { recursive: true })
+    writeFileSync(join(root, 'app/data/who-its-for.json'), JSON.stringify({ intro: 'Trusted by 127 Communities.' }))
+    const r = runBoth(forPage(FOR_BODY))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL app\/data\/who-its-for\.json: 127 Communities/m)
+  })
+
+  // One hard-coded probe per entry of each list, so every word is proved to fire.
+  const listProbes: Record<string, string[]> = {
+    cryptoWords: ['a wallet', 'tokens', 'gas', 'a chain', 'the blockchain', 'on-chain', 'cryptocurrency', 'a DAO', 'Ethereum', 'USDC', 'a stablecoin', 'NFTs', 'web3', 'a smart contract', 'multisig', 'the ledger', 'signatures', 'a fee', 'your seed phrase'],
+    priceWords: ['the price', 'pricing', 'it costs', 'free', 'a pilot', 'a subscription', 'a discount', 'a coupon', '5 per month', '50 per year', '5 a month'],
+    pendingTopicWords: ['vote', 'decided', 'a decision', 'a proposal', 'the fund', 'funded', 'funding', 'money', 'a budget', 'pay', 'payments', 'paid', 'treasury', 'dues', 'the bank', 'export', 'owned', 'owns', 'owners', 'ownership', 'a poll', 'polls', 'the calendar', 'calendars', 'session grants', 'anyone proposes a session']
+  }
+  for (const list of Object.keys(listProbes)) {
+    // Every word in the fixture has a probe here, so a word added there is tested.
+    const patterns: string[] = fixture[list].patterns
+    it.each(patterns)(`${list}: %s fires on a hard-coded probe`, (p) => {
+      const re = new RegExp(`\\b(?:${p})\\b`, 'i')
+      expect(listProbes[list]!.some(probe => re.test(probe))).toBe(true)
+    })
+    // Every probe here goes through the checker on its own and must be
+    // rejected, whatever the fixture says: a word taken out of the fixture
+    // turns its probe red here.
+    it.each(listProbes[list]!)(`${list}: the checker rejects "%s" on the built page and names the list`, (probe) => {
+      const r = runBoth(forPage(FOR_BODY + `<p>${probe}</p>`))
+      expect(r.code).toBe(1)
+      expect(r.out).toContain(`(${list}: `)
+    })
+  }
+
+  // The example window: every line in every kind's window goes through the same check as
+  // the page text, on the built page and in the data file.
+  async function windowHtml(data: typeof whoItsFor): Promise<string> {
+    const app = createSSRApp({ render: () => h(WhoItsForWindow, { kinds: data.kinds, label: data.exampleWindow.label, note: data.exampleWindow.note }) })
+    app.config.warnHandler = () => {}
+    return renderToString(app)
+  }
+  /** The data file with one kind's example answer replaced. */
+  function withAnswer(id: string, answer: string): typeof whoItsFor {
+    const copy = JSON.parse(JSON.stringify(whoItsFor)) as typeof whoItsFor
+    const kind = copy.kinds.find(k => k.id === id)!
+    kind.example.a = answer
+    return copy
+  }
+  const UNTRACKED = 'Yes. The house voted to pay for the repair from the group fund.'
+
+  it('lists the window component among the /for sources the three word lists read', () => {
+    expect(fixture.forPage.sources).toContain('app/components/WhoItsForWindow.vue')
+  })
+
+  it('passes the real example windows, in the built page and in the data file', async () => {
+    mkdirSync(join(root, 'app/data'), { recursive: true })
+    writeFileSync(join(root, 'app/data/who-its-for.json'), JSON.stringify(whoItsFor))
+    const r = runBoth(forPage(FOR_BODY + await windowHtml(whoItsFor)))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  it('fails an untracked promise planted in one kind\'s window, on the built page and in the data file', async () => {
+    const planted = withAnswer('housing-co-ops', UNTRACKED)
+    const html = await windowHtml(planted)
+    expect(html).toContain(UNTRACKED)
+    const r = runBoth(forPage(FOR_BODY + html))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL \.output\/public\/for\/index\.html: vot.*\(pendingTopicWords: /m)
+    expect(r.out).toMatch(/^FAIL \.output\/public\/for\/index\.html: funds.*\(pendingTopicWords: /m)
+    mkdirSync(join(root, 'app/data'), { recursive: true })
+    writeFileSync(join(root, 'app/data/who-its-for.json'), JSON.stringify(planted))
+    const r2 = runBoth(forPage(FOR_BODY + await windowHtml(whoItsFor)))
+    expect(r2.code).toBe(1)
+    expect(r2.out).toMatch(/^FAIL app\/data\/who-its-for\.json: .*\(pendingTopicWords: /m)
+  })
+
+  it('fails a crypto word or a price planted in a window\'s tile', async () => {
+    for (const line of ['Send it from the group wallet.', 'Tickets cost $5 at the gate.']) {
+      const copy = JSON.parse(JSON.stringify(whoItsFor)) as typeof whoItsFor
+      copy.kinds.find(k => k.id === 'tenant-unions')!.example.tile.text = line
+      const r = runBoth(forPage(FOR_BODY + await windowHtml(copy)))
+      expect(r.code, line).toBe(1)
+      expect(r.out, line).toMatch(/\((cryptoWords|priceWords): /)
+    }
+  })
+
+  it('does not count "own" ("its own group") as a pending word', () => {
+    expect(runBoth(forPage(FOR_BODY + '<p>Each team has its own group.</p>')).code).toBe(0)
   })
 })
