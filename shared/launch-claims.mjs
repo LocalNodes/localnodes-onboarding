@@ -94,6 +94,18 @@ export function launchGateProblem(flag, claims = LAUNCH_CLAIMS) {
   ].join('\n')
 }
 
+/**
+ * Whether the server may open sign-ups now. In a production server the flag
+ * opens nothing while any promise is pending, wherever the flag was set (the
+ * build gate cannot see a flag set when the server starts). Dev servers
+ * follow the flag alone, the same as the build gate, so the sign-up flow can
+ * still be worked on.
+ */
+export function serverLaunchOpen(flagOpen, { dev, claims = LAUNCH_CLAIMS }) {
+  if (!flagOpen) return false
+  return dev === true || pendingClaims(claims).length === 0
+}
+
 /** Text collapsed the way the checks read a page: whitespace runs become one space. */
 function flat(s) {
   return s.replace(/\s+/g, ' ').trim()

@@ -33,7 +33,7 @@ onMounted(() => {
       </div>
       <dl class="home-alt">
         <div>
-          <dt>Example once real money comes: back steps repair paid to Marlow Carpentry, the lowest quote</dt>
+          <dt>Example: back steps repair paid to Marlow Carpentry, the lowest quote</dt>
           <dd data-demo-amount-box><span data-demo-amount="fund.payment">{{ d.formatUsd(fund.payment) }}</span></dd>
         </div>
         <div>

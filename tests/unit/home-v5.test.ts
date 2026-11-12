@@ -383,9 +383,10 @@ describe('the page describes the product as it will be at launch', () => {
     for (const c of LAUNCH_CLAIMS) expect(page).toContain(c.text)
   })
 
-  it('the fund description says its dollar payment is how it works once real money comes', async () => {
+  it('the fund description names the example payment, with no "not yet" wording', async () => {
     const html = await render(HomeFund)
-    expect(seen(inside(html, 'class="home-alt"'))).toContain('Example once real money comes: back steps repair paid to Marlow Carpentry, the lowest quote')
+    expect(seen(inside(html, 'class="home-alt"'))).toContain('Example: back steps repair paid to Marlow Carpentry, the lowest quote')
+    expect(seen(html)).not.toMatch(/once real money|real money comes/)
   })
 
   it('the export description names its screen as a planned example', async () => {

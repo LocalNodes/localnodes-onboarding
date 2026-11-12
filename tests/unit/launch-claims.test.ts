@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { LAUNCH_CLAIMS, isLaunchFlagOpen, mightOpen, pendingClaims, launchGateProblem, missingClaims } from '../../shared/launch-claims.mjs'
+import { LAUNCH_CLAIMS, isLaunchFlagOpen, mightOpen, serverLaunchOpen, pendingClaims, launchGateProblem, missingClaims } from '../../shared/launch-claims.mjs'
 import { isLaunchOpen } from '../../shared/launch'
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8')
@@ -98,5 +98,28 @@ describe('the list', () => {
     expect(missingClaims('one\n   sentence.  two sentence.', claims)).toEqual([])
     expect(missingClaims('one sentence. two sentences.', claims).map(c => c.id)).toEqual(['two'])
     expect(missingClaims('', claims).map(c => c.id)).toEqual(['one', 'two'])
+  })
+})
+
+describe('the server gate', () => {
+  it('a production server stays closed while any promise is pending, whatever the flag', () => {
+    expect(serverLaunchOpen(true, { dev: false, claims: [ready('a'), pending('b')] })).toBe(false)
+    expect(serverLaunchOpen(true, { dev: undefined, claims: [pending('b')] })).toBe(false)
+    expect(serverLaunchOpen(true, { dev: false })).toBe(false)
+  })
+
+  it('opens with the flag once every promise is ready, and never without the flag', () => {
+    expect(serverLaunchOpen(true, { dev: false, claims: [ready('a')] })).toBe(true)
+    expect(serverLaunchOpen(false, { dev: false, claims: [ready('a')] })).toBe(false)
+    expect(serverLaunchOpen(false, { dev: true, claims: [ready('a')] })).toBe(false)
+  })
+
+  it('a dev server follows the flag alone, as the build gate does', () => {
+    expect(serverLaunchOpen(true, { dev: true, claims: [pending('b')] })).toBe(true)
+  })
+
+  it('the server middleware decides through it, with the build\'s dev value', () => {
+    const src = read('server/middleware/launch-gate.ts')
+    expect(src).toContain('const open = serverLaunchOpen(isLaunchOpen(useRuntimeConfig(event).launchOpen), { dev: import.meta.dev })')
   })
 })

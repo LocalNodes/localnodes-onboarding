@@ -61,11 +61,31 @@ describe('launch gate (middleware)', () => {
     expect((await h(post('/api/early-access'))).status).toBe(200)
   })
 
-  it('lets checkout through only when NUXT_LAUNCH_OPEN is "true"', async () => {
+  it('stays closed with NUXT_LAUNCH_OPEN "true" while a home page promise is pending (a closed build started with the flag set)', async () => {
     launchOpen = 'true'
-    const res = await (await app())(post('/api/create-checkout'))
-    expect(res.status).toBe(200)
-    expect(reached).toBe(1)
+    const h = await app()
+    expect((await h(new Request('http://localhost/api/price'))).status).toBe(404)
+    expect((await h(post('/api/create-checkout'))).status).toBe(404)
+    const res = await h(new Request('http://localhost/onboarding'))
+    expect(res.status).toBe(302)
+    expect(reached).toBe(0)
+  })
+
+  it('lets checkout through with NUXT_LAUNCH_OPEN "true" once every promise is ready', async () => {
+    vi.resetModules()
+    vi.doMock('../../shared/launch-claims.mjs', async (orig) => {
+      const real = await orig<typeof import('../../shared/launch-claims.mjs')>()
+      return { ...real, LAUNCH_CLAIMS: real.LAUNCH_CLAIMS.map(c => ({ ...c, ready: true })), serverLaunchOpen: (open: boolean, o: { dev: boolean | undefined }) => real.serverLaunchOpen(open, { ...o, claims: real.LAUNCH_CLAIMS.map(c => ({ ...c, ready: true })) }) }
+    })
+    try {
+      launchOpen = 'true'
+      const res = await (await app())(post('/api/create-checkout'))
+      expect(res.status).toBe(200)
+      expect(reached).toBe(1)
+    } finally {
+      vi.doUnmock('../../shared/launch-claims.mjs')
+      vi.resetModules()
+    }
   })
 })
 
@@ -332,6 +352,19 @@ describe('launch gate (invited state: server decision to client navigation)', ()
     expect(await res.text()).toBe('rendered')
     expect(states.get('ln-invited')?.value).toBe(true)
     expect(navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('flag set at start-up while a promise is pending, live invited session: still reaches /onboarding and checkout, as on a closed site', async () => {
+    g.useRuntimeConfig = () => ({ launchOpen: 'true', inviteHashSecret: SECRET, public: { launchOpen: false } })
+    const sid = await createInvitedSession(redis as never, { inviteId: 'i1', emailHmac: 'h1', email: 'someone@example.com' })
+    const h = await ssrApp()
+    const res = await h(page(`${INVITE_COOKIE}=${sid}`))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('rendered')
+    const pay = await h(new Request('http://localhost/api/create-checkout', { method: 'POST', headers: { cookie: `${INVITE_COOKIE}=${sid}` } }))
+    expect(pay.status).toBe(200)
+    // Without the invite, the same server stays closed.
+    expect((await h(new Request('http://localhost/api/create-checkout', { method: 'POST' }))).status).toBe(404)
   })
 
   it('client navigation to /onboarding passes while closed once the state is true', async () => {
