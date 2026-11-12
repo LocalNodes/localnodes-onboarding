@@ -1381,6 +1381,10 @@ export async function routeInvoiceEvent(event: { id?: string, type: string, crea
   const provisionId = invoiceProvisionId(invoice)
   if (!provisionId) return 'ignored'
   const first = invoice.billing_reason === 'subscription_create'
+  // A late yes's subscription (pilot-late.ts) was paid on Stripe's page for a site
+  // that already runs: its first invoice starts nothing. Its renewals are routed as any other.
+  const meta = invoice.parent?.subscription_details?.metadata ?? invoice.subscription_details?.metadata
+  if (first && meta?.pilot_continued_from) return 'ignored'
   if (event.type === 'invoice.paid') {
     if (!first) return 'ignored'
     const sub = invoice.parent?.subscription_details?.subscription

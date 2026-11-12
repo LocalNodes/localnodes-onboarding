@@ -8,7 +8,12 @@
 // GET only reads the date, the price and the state; only the button's POST
 // (the organizer's yes) clears the pilot's end, and from then on the saved card
 // is charged at the first bill after the free months, whether or not paid
-// sign-ups are open. The yes works only before the free end.
+// sign-ups are open.
+//
+// After the free end, until the site is removed, the same link still works,
+// but the yes charges nothing by itself: the server opens a Stripe payment
+// page that shows the total, and the page sends the organizer there. Only an
+// address on Stripe's checkout host is followed.
 import { PILOT_CONTINUE_TOKEN_RE, type PilotContinueState } from '#shared/pilot-continue'
 
 export const PILOT_CONTINUE_COPY = {
@@ -28,19 +33,45 @@ export const PILOT_CONTINUE_COPY = {
   continued: (price: string) => price
     ? `Done. Your site stays open. It costs ${price}, charged to the card you saved, starting with the first bill after your free months. Questions? Write to hello@localnodes.xyz.`
     : 'Done. Your site stays open. Questions? Write to hello@localnodes.xyz.',
+  // After the free end (late): the yes goes to Stripe's payment page.
+  lapsed: (date: string) => `Your free pilot ended on ${date}. Your site is still here for now, and you can still keep it.`,
+  lateCost: (price: string) => price
+    ? `Keeping it costs ${price} for one community site, including all its groups and members. When you choose "Keep my site", we take you to a secure Stripe payment page that shows the total. Nothing is charged until you confirm there. The card you saved may be shown there; you can use it or enter another.`
+    : '',
+  lateButtonWorking: 'Opening the payment page…',
+  back: 'You haven\'t been charged. You can still keep your site from this page.',
+  confirming: 'We\'re confirming your payment with Stripe. Reload this page in a minute. Questions? Write to hello@localnodes.xyz.',
+  lateContinued: (charged: string, chargedOn: string, price: string) => charged && chargedOn
+    ? `Done. Your site stays open. We charged ${charged} on ${chargedOn}${price ? `, and it renews at ${price}` : ''}. Questions? Write to hello@localnodes.xyz.`
+    : 'Done. Your site stays open. Questions? Write to hello@localnodes.xyz.',
   ended: 'Your free pilot has already ended, so we can\'t keep the site from this link. Write to hello@localnodes.xyz and we\'ll help.',
   invalid: 'This link doesn\'t work. Write to hello@localnodes.xyz and we\'ll sort it out.',
   serverError: 'Something went wrong on our side. Try again in a minute.'
 } as const
 
-/** loading: the first read; ready: the button; price-missing: the end is known but the price is not, so no button; working: the POST is out; then a result. */
-export type PilotContinuePhase = 'loading' | 'ready' | 'price-missing' | 'working' | 'continued' | 'ended' | 'invalid' | 'server-error'
+/**
+ * loading: the first read; ready: the button; price-missing: the end is known
+ * but the price is not, so no button; working: the POST is out; checkout: the
+ * server opened Stripe's payment page and the page goes there; confirming:
+ * that page was paid and Stripe is confirming it; then a result.
+ */
+export type PilotContinuePhase = 'loading' | 'ready' | 'price-missing' | 'working' | 'checkout' | 'confirming' | 'continued' | 'ended' | 'invalid' | 'server-error'
 
 export interface PilotContinueView {
   phase: PilotContinuePhase
   date: string
   price: string
+  /** The free end has passed: the yes goes through Stripe's payment page. */
+  late?: boolean
+  /** checkout: the payment page, always on CHECKOUT_HOST. */
+  url?: string
+  /** continued after a late yes. */
+  charged?: string
+  chargedOn?: string
 }
+
+/** The only address the page sends the organizer to. */
+export const CHECKOUT_HOST = 'https://checkout.stripe.com/'
 
 /** What a call to $fetch looks like to this module (ofetch throws with statusCode and status). */
 export type PilotContinueFetcher = (url: string, opts: { method: 'GET' | 'POST', query: { t: string } }) => Promise<unknown>
@@ -57,17 +88,33 @@ function statusOf(err: unknown): number | undefined {
 
 const PHASE_OF: Record<Exclude<PilotContinueState, 'invalid' | 'unavailable'>, PilotContinuePhase> = {
   ends: 'ready',
+  lapsed: 'ready',
+  checkout: 'checkout',
+  confirming: 'confirming',
   continued: 'continued',
   ended: 'ended'
 }
 
+const str = (v: unknown) => typeof v === 'string' ? v : ''
+
 function viewOf(body: unknown, fallback: PilotContinuePhase): PilotContinueView {
-  const b = (body ?? {}) as { state?: unknown, date?: unknown, price?: unknown }
+  const b = (body ?? {}) as Record<string, unknown>
   let phase = typeof b.state === 'string' && Object.hasOwn(PHASE_OF, b.state) ? PHASE_OF[b.state as keyof typeof PHASE_OF] : fallback
-  const price = typeof b.price === 'string' ? b.price : ''
+  const price = str(b.price)
   // The yes is offered only next to a price the server could read.
   if (phase === 'ready' && !price) phase = 'price-missing'
-  return { phase, date: typeof b.date === 'string' ? b.date : '', price }
+  const url = str(b.url)
+  // A payment page anywhere but Stripe's checkout host is never followed.
+  if (phase === 'checkout' && !url.startsWith(CHECKOUT_HOST)) phase = 'server-error'
+  const view: PilotContinueView = { phase, date: str(b.date), price }
+  if (b.state === 'lapsed' || b.state === 'checkout' || b.state === 'confirming') view.late = true
+  if (phase === 'checkout') view.url = url
+  if (phase === 'continued' && (str(b.charged) || str(b.chargedOn))) {
+    view.late = true
+    view.charged = str(b.charged)
+    view.chargedOn = str(b.chargedOn)
+  }
+  return view
 }
 
 /**

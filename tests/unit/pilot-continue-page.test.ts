@@ -162,3 +162,52 @@ describe('the route and the page', () => {
     expect(fixture.signupSources).toEqual(expect.arrayContaining([PAGE, FLOW]))
   })
 })
+
+describe('after the free end (a late yes)', () => {
+  it('lapsed is the ready phase, marked late, and needs a price like the yes before the end', async () => {
+    expect(await callPilotContinue(vi.fn().mockResolvedValue({ state: 'lapsed', date: 'March 12, 2027', price: '$20 a month' }), 'GET', TOKEN))
+      .toEqual({ phase: 'ready', date: 'March 12, 2027', price: '$20 a month', late: true })
+    expect((await callPilotContinue(vi.fn().mockResolvedValue({ state: 'lapsed', date: 'March 12, 2027', price: '' }), 'GET', TOKEN)).phase).toBe('price-missing')
+  })
+
+  it('the yes hands back Stripe\'s payment page; an address anywhere else is never followed', async () => {
+    const ok = await callPilotContinue(vi.fn().mockResolvedValue({ state: 'checkout', date: 'd', price: 'p', url: 'https://checkout.stripe.com/c/pay/cs_1' }), 'POST', TOKEN)
+    expect(ok).toMatchObject({ phase: 'checkout', url: 'https://checkout.stripe.com/c/pay/cs_1', late: true })
+    for (const url of ['https://evil.example/pay', 'javascript:alert(1)', 'http://checkout.stripe.com/x', 'https://checkout.stripe.com.evil.example/x', '', undefined]) {
+      const view = await callPilotContinue(vi.fn().mockResolvedValue({ state: 'checkout', date: 'd', price: 'p', url }), 'POST', TOKEN)
+      expect(view.phase).toBe('server-error')
+      expect(view.url).toBeUndefined()
+    }
+  })
+
+  it('paid: the done line names what was charged, when, and the rate it renews at', async () => {
+    const view = await callPilotContinue(vi.fn().mockResolvedValue({ state: 'continued', date: 'd', price: '$20 a month', charged: '$20', chargedOn: 'March 14, 2027' }), 'GET', TOKEN)
+    expect(view).toMatchObject({ phase: 'continued', late: true, charged: '$20', chargedOn: 'March 14, 2027' })
+    expect(PILOT_CONTINUE_COPY.lateContinued('$20', 'March 14, 2027', '$20 a month'))
+      .toBe('Done. Your site stays open. We charged $20 on March 14, 2027, and it renews at $20 a month. Questions? Write to hello@localnodes.xyz.')
+    expect(PILOT_CONTINUE_COPY.lateContinued('', '', '$20 a month')).toBe('Done. Your site stays open. Questions? Write to hello@localnodes.xyz.')
+  })
+
+  it('confirming has its own phase and line', async () => {
+    expect((await callPilotContinue(vi.fn().mockResolvedValue({ state: 'confirming', date: 'd', price: 'p' }), 'GET', TOKEN)).phase).toBe('confirming')
+    expect(PILOT_CONTINUE_COPY.confirming).toContain('Reload this page in a minute')
+  })
+
+  it('the words say the total is shown before paying, nothing is charged until then, and promise no saved card', () => {
+    const cost = PILOT_CONTINUE_COPY.lateCost('$20 a month')
+    expect(cost).toContain('Keeping it costs $20 a month')
+    expect(cost).toContain('secure Stripe payment page that shows the total')
+    expect(cost).toContain('Nothing is charged until you confirm there.')
+    expect(cost).toContain('The card you saved may be shown there; you can use it or enter another.')
+    expect(PILOT_CONTINUE_COPY.lateCost('')).toBe('')
+    expect(PILOT_CONTINUE_COPY.lapsed('February 26, 2027')).toBe('Your free pilot ended on February 26, 2027. Your site is still here for now, and you can still keep it.')
+    expect(PILOT_CONTINUE_COPY.back).toBe('You haven\'t been charged. You can still keep your site from this page.')
+  })
+
+  it('the page follows only the checked address, and reads again when Back restores it mid-redirect', () => {
+    const src = read(PAGE)
+    expect(src).toMatch(/if \(next\.phase === 'checkout' && next\.url\) window\.location\.assign\(next\.url\)/)
+    expect(src.match(/window\.location/g)).toHaveLength(1)
+    expect(src).toMatch(/e\.persisted && view\.value\.phase === 'checkout'/)
+  })
+})

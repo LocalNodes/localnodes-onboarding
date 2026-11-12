@@ -649,4 +649,21 @@ describe('reconcile-signups: the free pilot\'s end (pilot-end.ts)', () => {
     expect(by('sub_due').removeFrom).toBe(iso((at(-31) + 30 * 86400) * 1000).slice(0, 10))
     expect(by('sub_unknown')).toMatchObject({ endedAt: 'unknown', noticeFrom: 'unknown', removeFrom: 'unknown', removalDue: false })
   })
+
+  it('a pilot paid after its end is kept, never due for removal; an open payment page is named', async () => {
+    const w = await world()
+    w.s = guardedStripe({ subs: [
+      pilot('sub_paid_late', { status: 'canceled', ended_at: at(-31) }),
+      pilot('sub_page_open', { status: 'canceled', ended_at: at(-31) }),
+      pilot('sub_marked', { status: 'canceled', ended_at: at(-31) })
+    ] })
+    await w.g.inner.set('pilot:late:sub_paid_late', JSON.stringify({ state: 'continued', at: NOW }))
+    await w.g.inner.set('pilot:late:sub_page_open', JSON.stringify({ state: 'open', at: NOW }))
+    await w.g.inner.set('pilot:late:sub_marked', JSON.stringify({ state: 'removing', at: NOW }))
+    const rows = named(await run(w), 'pilot ended')
+    const by = (id: string) => rows.find(r => r.detail.subscriptionId === id)!.detail
+    expect(by('sub_paid_late')).toMatchObject({ removalDue: false, removeFrom: 'kept (paid after the end)', lateYes: 'kept' })
+    expect(by('sub_page_open')).toMatchObject({ removalDue: true, lateYes: 'payment page open' })
+    expect(by('sub_marked')).toMatchObject({ removalDue: true, lateYes: 'removal marked' })
+  })
 })

@@ -41,18 +41,28 @@ export function resetPriceCache(): void {
 }
 
 /** "$20 a month" for a recurring price in `currency`, or null when it has no amount or no interval. */
-export function formatPrice(price: PriceLike, currency: string): string | null {
-  if (price.unit_amount === null || price.unit_amount === undefined || !price.recurring) return null
+/**
+ * An amount in the currency's smallest unit, as "$20" or "$19.50": a whole
+ * amount drops its decimals, a part amount keeps all of them. Null for a
+ * currency Intl does not know.
+ */
+export function formatMoney(minor: number, currency: string): string | null {
+  if (!Number.isFinite(minor)) return null
   let digits: number
   try {
     digits = new Intl.NumberFormat('en-US', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
   } catch {
     return null
   }
-  const amount = price.unit_amount / 10 ** digits
-  // A whole amount reads "$20", never "$20.00"; a part amount keeps all its decimals ("$19.50").
+  const amount = minor / 10 ** digits
   const shown = Number.isInteger(amount) ? 0 : digits
-  const money = new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: shown, maximumFractionDigits: shown }).format(amount)
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: shown, maximumFractionDigits: shown }).format(amount)
+}
+
+export function formatPrice(price: PriceLike, currency: string): string | null {
+  if (price.unit_amount === null || price.unit_amount === undefined || !price.recurring) return null
+  const money = formatMoney(price.unit_amount, currency)
+  if (money === null) return null
   const { interval, interval_count: count } = price.recurring
   return count === 1 ? `${money} a ${interval}` : `${money} every ${count} ${interval}s`
 }

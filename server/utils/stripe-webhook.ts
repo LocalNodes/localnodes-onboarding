@@ -81,6 +81,12 @@ export interface WebhookDeps {
    * open or closed (23-32, billing.ts routeInvoiceEvent). A throw answers 503.
    */
   onInvoice?: (event: Stripe.Event) => Promise<void>
+  /**
+   * A completed Checkout session opened by a late yes (metadata
+   * pilot_continued_from, pilot-late.ts): records the new subscription when the
+   * session is paid. Open or closed. A throw answers 503.
+   */
+  onLateCompleted?: (session: Stripe.Checkout.Session) => Promise<void>
   log: (msg: string) => void
 }
 
@@ -230,6 +236,23 @@ export async function handleStripeWebhook(rawBody: string | undefined, signature
       } catch {
         deps.log('stripe-webhook: could not re-arm the server room')
       }
+    }
+  }
+
+  // A late yes's payment page (pilot-late.ts), open or closed. It never carries
+  // a sign-up, a code hold or server room, so none of the steps below applies.
+  if (stripeEvent.type === 'checkout.session.completed' || stripeEvent.type === 'checkout.session.expired') {
+    const session = stripeEvent.data.object as Stripe.Checkout.Session
+    if (session.metadata?.pilot_continued_from) {
+      if (stripeEvent.type === 'checkout.session.completed' && deps.onLateCompleted) {
+        try {
+          await deps.onLateCompleted(session)
+        } catch {
+          deps.log('stripe-webhook: infrastructure error recording a late yes, Stripe will retry')
+          return BUSY
+        }
+      }
+      return OK
     }
   }
 

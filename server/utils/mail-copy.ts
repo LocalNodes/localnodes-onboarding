@@ -329,6 +329,7 @@ export function buildPilotEndMail(content: PilotEndMailContent): BuiltMail {
     button: { label: PILOT_END_BUTTON, url: content.link },
     after: [
       'If you do nothing, we won\'t charge you anything. Your site stays open for 30 days after that so you can export what you need, and we\'ll write to you at least a week before we remove it.',
+      `If you change your mind after ${content.date}, the same button still works until we remove the site. It then takes you to a secure Stripe payment page that shows the total, and nothing is charged until you confirm there.`,
       'Questions? Reply to this email.'
     ]
   })
