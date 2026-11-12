@@ -5,6 +5,7 @@ import {
   LATE_LOCK_SECONDS,
   LATE_MIN_SESSION_SECONDS,
   LATE_SESSION_SECONDS,
+  LATE_WRITE_IF_OWNER_SCRIPT,
   LATE_YES_SECONDS,
   lateKey,
   lateLockKey,
@@ -234,6 +235,41 @@ describe('a pilot past its free end', () => {
     expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ body: { state: 'ended' } })
   })
 
+  it('a stale ownership read cannot let a holder write: the check and the write are one step', async () => {
+    const { deps, redis, create, expire } = lateDeps(lapsedSub())
+    let mine = ''
+    const realGet = redis.get.bind(redis)
+    // Every plain read of the lock answers this holder's token, as a delayed reply would.
+    redis.get = (async (key: string) => (key === lateLockKey('sub_1') && mine ? mine : realGet(key))) as typeof redis.get
+    create.mockImplementationOnce(async (params: Record<string, unknown>) => {
+      mine = String(redis.raw(lateLockKey('sub_1')))
+      await redis.del(lateLockKey('sub_1'))
+      expect(await markLateRemoval('sub_1', LATER, { ...deps.late!, log: vi.fn() })).toBe('marked')
+      return session({ id: 'cs_slow', url: 'https://checkout.stripe.com/c/pay/cs_slow', expires_at: Number(params.expires_at) })
+    })
+    expect(await handlePilotContinue('POST', token(), deps)).toEqual({ status: 503, body: { state: 'unavailable' } })
+    expect(expire).toHaveBeenCalledWith('cs_slow')
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'removing' })
+  })
+
+  it('a page opened in the window\'s last minutes and paid just after it answers continued, not ended', async () => {
+    const opening = END + LATE_YES_SECONDS - 600
+    const { deps, redis, sessions, pay } = lateDeps(lapsedSub(), opening)
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ body: { state: 'checkout' } })
+    const [id] = [...sessions.keys()]
+    pay(id!)
+    const after = { ...deps, now: () => (END + LATE_YES_SECONDS + 300) * 1000 }
+    expect(await handlePilotContinue('GET', token(), after)).toMatchObject({ status: 200, body: { state: 'continued' } })
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'continued' })
+    expect(await handlePilotContinue('POST', token(), after)).toMatchObject({ body: { state: 'continued' } })
+  })
+
+  it('past the window with no paid page: ended, and no page is opened', async () => {
+    const { deps, create } = lateDeps(lapsedSub(), END + LATE_YES_SECONDS + 60)
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ status: 200, body: { state: 'ended' } })
+    expect(create).not.toHaveBeenCalled()
+  })
+
   it('a Stripe call that runs past the lock\'s write deadline: the page is expired, nothing written', async () => {
     const { deps, redis, create, expire } = lateDeps(lapsedSub())
     let ms = 1_000_000
@@ -280,13 +316,10 @@ describe('a pilot past its free end', () => {
 
   it('a page whose record could not be written is expired at once', async () => {
     const { deps, redis, expire } = lateDeps(lapsedSub())
-    const real = redis.set.bind(redis)
-    vi.spyOn(redis, 'set').mockImplementation(async (key, value, opts) => {
-      if (key === lateKey('sub_1')) throw new Error('down')
-      return real(key, value, opts)
-    })
+    redis.failEvals(LATE_WRITE_IF_OWNER_SCRIPT)
     expect(await handlePilotContinue('POST', token(), deps)).toEqual({ status: 503, body: { state: 'unavailable' } })
     expect(expire).toHaveBeenCalledWith('cs_1')
+    expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
   })
 
   it('a yes while another is in flight (lock held) is a 503, not a second page', async () => {

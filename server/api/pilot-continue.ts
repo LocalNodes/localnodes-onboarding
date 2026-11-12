@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
       }
     },
     late: {
-      redis: { get: key => useRedis().get(key), set: (key, value, opts) => useRedis().set(key, value, opts as never), del: (...keys) => useRedis().del(...keys) },
+      redis: { get: key => useRedis().get(key), set: (key, value, opts) => useRedis().set(key, value, opts as never), del: (...keys) => useRedis().del(...keys), eval: (script, keys, args) => useRedis().eval(script, keys, args as never) },
       stripe: {
         checkout: {
           sessions: {

@@ -287,6 +287,13 @@ export async function handlePilotContinue(method: 'GET' | 'POST', token: string,
     log('pilot-continue: end not yet applied')
     return UNAVAILABLE
   }
+  // Past the window: a page opened in its last half hour may have been paid
+  // just after it, so a paid (or confirming) record still answers; else ended.
+  if (judged.state === 'ended' && deps.late && sub.status === 'canceled') {
+    const answer = await readLate(opened.subscriptionId, nowSec, { ...deps.late, log })
+    if (answer.state === 'continued' || answer.state === 'confirming' || answer.state === 'unavailable') return lateOutcome(answer, date, price)
+    return { status: 200, body: { state: 'ended', date, price } }
+  }
   if (judged.state === 'lapsed' && deps.late) {
     const lateDeps: LateDeps = { ...deps.late, log }
     if (method === 'GET' || !price) return lateOutcome(await readLate(opened.subscriptionId, nowSec, lateDeps), date, price)

@@ -24,6 +24,7 @@
 import { randomUUID } from 'node:crypto'
 import { formatUsDate } from './billing-mail'
 import { formatMoney } from './price'
+import type { ScriptTwin } from './lifecycle'
 
 const DAY = 86400
 
@@ -74,7 +75,35 @@ export interface LateRedis {
   get: <T = unknown>(key: string) => Promise<T | null>
   set: (key: string, value: unknown, opts?: { nx?: boolean, ex?: number }) => Promise<unknown>
   del: (...keys: string[]) => Promise<unknown>
+  eval: (script: string, keys: string[], args: unknown[]) => Promise<unknown>
 }
+
+/**
+ * Writes the record only while the lock still holds this holder's token, in
+ * one step, so a holder whose lock ran out can't write over the next one.
+ * KEYS: lock, record. ARGV: token, record JSON. Answers 1 written, 0 not.
+ */
+export const LATE_WRITE_IF_OWNER_SCRIPT = `if redis.call('GET', KEYS[1]) == ARGV[1] then
+  redis.call('SET', KEYS[2], ARGV[2])
+  return 1
+end
+return 0`
+
+/** Deletes the lock only if it still holds this token. KEYS: lock. ARGV: token. */
+export const LATE_RELEASE_SCRIPT = `if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0`
+
+/** JavaScript stand-ins for the tests' in-memory Redis. */
+export const LATE_TWINS: Array<[script: string, twin: ScriptTwin]> = [
+  [LATE_WRITE_IF_OWNER_SCRIPT, (r, keys, args) => {
+    if (r.get(keys[0]!) !== args[0]) return 0
+    r.set(keys[1]!, args[1]!, {})
+    return 1
+  }],
+  [LATE_RELEASE_SCRIPT, (r, keys, args) => (r.get(keys[0]!) === args[0] ? r.del(keys[0]!) : 0)]
+]
 
 /** The subset of a Stripe Checkout session this module reads. */
 export interface LateSession {
@@ -240,7 +269,7 @@ async function takeLock(deps: LateDeps, pilotSubscriptionId: string): Promise<Lo
   return { token, writeBy: started + (LATE_LOCK_SECONDS - LATE_LOCK_WRITE_MARGIN_SECONDS) * 1000 }
 }
 
-/** True while this holder may still write: within its deadline and the lock still its own. */
+/** True while this holder may still go on: within its deadline and the lock still its own. */
 async function stillHeld(deps: LateDeps, pilotSubscriptionId: string, lock: Lock): Promise<boolean> {
   if ((deps.clock ?? Date.now)() > lock.writeBy) return false
   try {
@@ -250,9 +279,15 @@ async function stillHeld(deps: LateDeps, pilotSubscriptionId: string, lock: Lock
   }
 }
 
+/** Writes the record in one step with the ownership check; false when the lock is no longer this holder's. */
+async function writeIfOwner(deps: LateDeps, pilotSubscriptionId: string, lock: Lock, rec: LateRecord): Promise<boolean> {
+  if ((deps.clock ?? Date.now)() > lock.writeBy) return false
+  return Number(await deps.redis.eval(LATE_WRITE_IF_OWNER_SCRIPT, [lateLockKey(pilotSubscriptionId), lateKey(pilotSubscriptionId)], [lock.token, JSON.stringify(rec)])) === 1
+}
+
 async function releaseLock(deps: LateDeps, pilotSubscriptionId: string, lock: Lock): Promise<void> {
   try {
-    if (String(await deps.redis.get(lateLockKey(pilotSubscriptionId))) === lock.token) await deps.redis.del(lateLockKey(pilotSubscriptionId))
+    await deps.redis.eval(LATE_RELEASE_SCRIPT, [lateLockKey(pilotSubscriptionId)], [lock.token])
   } catch {
     // It runs out on its own.
   }
@@ -383,8 +418,7 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
     }
     const next: LateRecord = { state: 'open', sessionId: session.id, url: session.url, expiresAt: session.expires_at ?? expiresAt, at: nowSec }
     try {
-      if (!(await stillHeld(deps, pilot.id, locked))) throw new Error('lock lost')
-      await redis.set(lateKey(pilot.id), JSON.stringify(next))
+      if (!(await writeIfOwner(deps, pilot.id, locked, next))) throw new Error('lock lost')
     } catch {
       // A session we can't find again must not stay payable.
       log('pilot-late: record unavailable')
@@ -435,9 +469,7 @@ export async function markLateRemoval(pilotSubscriptionId: string, nowSec: numbe
         }
       }
     }
-    if (!(await stillHeld(deps, pilotSubscriptionId, lock))) return 'busy'
-    await redis.set(lateKey(pilotSubscriptionId), JSON.stringify({ state: 'removing', at: nowSec } satisfies LateRecord))
-    return 'marked'
+    return (await writeIfOwner(deps, pilotSubscriptionId, lock, { state: 'removing', at: nowSec })) ? 'marked' : 'busy'
   } finally {
     await releaseLock(deps, pilotSubscriptionId, lock)
   }
