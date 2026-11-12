@@ -19,7 +19,12 @@ export const BANNED_HOME_PHRASES: Array<{ id: string, re: RegExp }> = [
   { id: 'H03', re: /holds? the money/i },
   { id: 'H03', re: /money sits in one person/i },
   { id: 'H04', re: /\bDAOs?\b/ },
-  { id: 'H05', re: /own the infrastructure/i }
+  { id: 'H05', re: /own the infrastructure/i },
+  // The first pilots run the fund and its payment votes with practice money.
+  { id: 'H06', re: /off for the first pilots/i },
+  { id: 'H06', re: /planned example: back steps repair/i },
+  // Plain words for practice money.
+  { id: 'H07', re: /\btestnet\b|\btokens?\b|\bsepolia\b|\bblockchain\b/i }
 ]
 
 /** Text a reader sees in a Vue template or HTML: scripts, styles and tags dropped. */
@@ -62,7 +67,7 @@ const HOME_SFCS = [
 
 describe('plain words on the home page', () => {
   it('the banned list fires on each phrase it names (probe)', () => {
-    for (const probe of ['No fees for members.', 'Members never pay network fees', 'Link the group\'s shared account', 'One person holds the money', 'The money sits in one person\'s account.', 'Guilds and DAOs', 'Own the infrastructure.']) {
+    for (const probe of ['No fees for members.', 'Members never pay network fees', 'Link the group\'s shared account', 'One person holds the money', 'The money sits in one person\'s account.', 'Guilds and DAOs', 'Own the infrastructure.', 'Coming later. Off for the first pilots.', 'Planned example: back steps repair paid to Marlow Carpentry', 'Paid in Sepolia test tokens on a blockchain']) {
       expect(hits(probe), probe).not.toEqual([])
     }
     expect(hits('Online community or working group')).toEqual([])
