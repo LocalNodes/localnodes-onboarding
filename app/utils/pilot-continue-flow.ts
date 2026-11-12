@@ -10,7 +10,7 @@
 // is charged at the first bill after the free months, whether or not paid
 // sign-ups are open.
 //
-// After the free end, until the site is removed, the same link still works,
+// For 30 days after the free end, unless the site is already removed, the same link still works,
 // but the yes charges nothing by itself: the server opens a Stripe payment
 // page that shows the total, and the page sends the organizer there. Only an
 // address on Stripe's checkout host is followed.

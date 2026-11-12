@@ -21,7 +21,7 @@ import { FakeRedis } from './helpers/fake-redis'
 /**
  * A late yes: the free pilot has already ended. The yes never charges from the
  * server; it opens a Stripe payment page that shows the total, and nothing is
- * charged unless the organizer pays there. Accepted until the site is removed.
+ * charged unless the organizer pays there. Accepted for 30 days after the end, unless the site is already removed.
  */
 
 const SECRET = 'c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00'
@@ -497,9 +497,10 @@ describe('the webhook and a late yes\'s payment page', () => {
 })
 
 describe('the end mail', () => {
-  it('says the button still works after the end, through a Stripe page that shows the total', () => {
-    const mail = buildPilotEndMail({ date: 'February 26, 2027', price: '$20 a month', link: 'https://localnodes.xyz/pilot/continue?t=x' } as Parameters<typeof buildPilotEndMail>[0])
-    expect(mail.text).toContain('If you change your mind after February 26, 2027, the same button still works until we remove the site. It then takes you to a secure Stripe payment page that shows the total, and nothing is charged until you confirm there.')
+  it('says the button still works for 30 days after the end, unless the site is already removed, through a Stripe page that shows the total', () => {
+    const mail = buildPilotEndMail({ date: 'February 26, 2027', lateUntil: 'March 28, 2027', price: '$20 a month', link: 'https://localnodes.xyz/pilot/continue?t=x' })
+    expect(mail.text).toContain('If you change your mind after February 26, 2027, the same button still works for 30 days, until March 28, 2027, unless we have already removed the site. It then takes you to a secure Stripe payment page that shows the total, and nothing is charged until you confirm there.')
+    expect(mail.text).not.toContain('until we remove the site')
   })
 })
 

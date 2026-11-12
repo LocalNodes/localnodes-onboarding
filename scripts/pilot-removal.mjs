@@ -3,8 +3,9 @@
 //
 //   node scripts/pilot-removal.mjs <pilot subscription id>
 //
-// The end link still works after the free end, until the site is removed
-// (server/utils/pilot-late.ts): a late yes opens a Stripe payment page. This
+// The end link still works for 30 days after the free end, unless the site is
+// already removed (server/utils/pilot-late.ts): a late yes opens a Stripe
+// payment page. This
 // closes any payment page still open and marks the pilot as being removed, so
 // the link answers "already ended" from now on and no one can pay for a site
 // that is going away. It refuses when the organizer already paid on that page:

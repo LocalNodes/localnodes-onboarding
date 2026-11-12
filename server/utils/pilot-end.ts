@@ -20,7 +20,7 @@
 //      then.
 //   4. The link's POST (handlePilotContinue) clears cancel_at. Only that yes
 //      makes a pilot a paying subscription.
-//   5. After the end the same link still works until the site is removed
+//   5. For 30 days after the end, unless the site is already removed, the same link still works
 //      (pilot-late.ts): the yes then opens a Stripe payment page that shows
 //      the total, and nothing is charged unless the organizer pays there.
 //
@@ -485,7 +485,7 @@ export async function sweepPilotNotices(deps: PilotNoticeDeps): Promise<PilotNot
           }
         } else {
           // No try yet: build (or rebuild) the request, and record it with this try's time before sending.
-          const mail = buildPilotEndMail({ date: formatUsDate(end), price, link: continueUrl(sub.id, end, deps.secret) })
+          const mail = buildPilotEndMail({ date: formatUsDate(end), lateUntil: formatUsDate(end + LATE_YES_SECONDS), price, link: continueUrl(sub.id, end, deps.secret) })
           record = {
             body: { from: deps.from, to: [to], reply_to: REPLY_TO, subject: mail.subject, text: mail.text, html: mail.html },
             firstTryAt: nowSec

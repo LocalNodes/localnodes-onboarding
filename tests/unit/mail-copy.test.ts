@@ -284,7 +284,7 @@ describe('the renewal card mails (23-32)', () => {
 
 describe('the pilot end notice: a lapsed site stays 30 days, with a written notice before removal (project rule)', () => {
   it('says the site stays open 30 days after the end and that we write at least a week before removing it', () => {
-    const m = buildPilotEndMail({ date: 'March 12, 2027', price: '$49 a month', link: 'https://localnodes.xyz/pilot/continue?t=x' })
+    const m = buildPilotEndMail({ date: 'March 12, 2027', lateUntil: 'April 11, 2027', price: '$49 a month', link: 'https://localnodes.xyz/pilot/continue?t=x' })
     expect(m.text).toContain('If you do nothing, we won\'t charge you anything.')
     expect(m.text).toContain('Your site stays open for 30 days after that')
     expect(m.text).toContain('we\'ll write to you at least a week before we remove it')
@@ -292,7 +292,7 @@ describe('the pilot end notice: a lapsed site stays 30 days, with a written noti
 })
 
 describe('the pilot end notice: the choice and its price', () => {
-  const m = buildPilotEndMail({ date: 'March 12, 2027', price: '$49 a month', link: 'https://localnodes.xyz/pilot/continue?t=x' })
+  const m = buildPilotEndMail({ date: 'March 12, 2027', lateUntil: 'April 11, 2027', price: '$49 a month', link: 'https://localnodes.xyz/pilot/continue?t=x' })
 
   it('names the end, the price only if you choose, and the date to choose by', () => {
     expect(m.text).toContain('Your free pilot ends on March 12, 2027.')

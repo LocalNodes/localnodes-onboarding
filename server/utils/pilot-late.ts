@@ -10,9 +10,10 @@
 // page in subscription mode, which shows the total, and the organizer pays
 // there or not at all. Nothing is charged without that page.
 //
-// The yes is open from the end until LATE_YES_SECONDS after it (the site is
+// The yes is open from the end for LATE_YES_SECONDS, 30 days (the site may be
 // removed from then on, scripts/reconcile-signups.mjs), and only while no one
 // has started removing the site (scripts/pilot-removal.mjs marks the record).
+// The end mail promises the same: 30 days, unless the site is already removed.
 //
 // What is kept: one record per pilot subscription in Redis, with no expiry,
 // at pilot:late:{subscription id}. It names the open Checkout session (so a
@@ -32,7 +33,11 @@ const DAY = 86400
 export const LATE_YES_SECONDS = 30 * DAY
 /** A Checkout session is open at most this long. */
 export const LATE_SESSION_SECONDS = DAY
-/** Stripe refuses a session that expires sooner than 30 minutes; we ask for a little more. */
+/**
+ * Stripe refuses a session that expires sooner than 30 minutes; we ask for a little more.
+ * So a page opened in the window's last half hour stays payable for these 31
+ * minutes, past the 30-day line, and a payment on it counts: the site stays.
+ */
 export const LATE_MIN_SESSION_SECONDS = 31 * 60
 /** An open session this close to expiring is not handed out again; a new one is opened. */
 export const LATE_REUSE_MARGIN_SECONDS = 10 * 60
