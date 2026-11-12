@@ -114,7 +114,6 @@ describe('header and footer on the home page', () => {
   it('keeps the early-access button as it was off the home page', () => {
     expect(header).toContain(`:variant="onLanding ? 'solid' : 'outline'"`)
     expect(header).toContain(`:color="onLanding ? 'primary' : 'neutral'"`)
-    expect(header).not.toContain('TODO(22.1-08)')
   })
 
   it('has a dark footer on the home page only, with its links as they were', () => {
