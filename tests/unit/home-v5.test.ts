@@ -78,8 +78,8 @@ describe('the page', () => {
     expect(page).toMatch(/onBeforeUnmount\(\(\) => demos\.unmount\(\)\)/)
   })
 
-  it('shows hero, six places, the kinds row, the group home page, decide, fund, yours and the close, in that order, and no old section', () => {
-    const order = ['<HomeHero', '<HomeScatter', '<HomeKinds', '<HomeTogether', '<HomeDecide', '<HomeFund', '<HomeYours', '<LandingCTA'].map(t => page.indexOf(t))
+  it('shows hero, six places, the group home page, decide, fund, own, the close and the kinds row, in that order, and no old section', () => {
+    const order = ['<HomeHero', '<HomeScatter', '<HomeTogether', '<HomeDecide', '<HomeFund', '<HomeYours', '<LandingCTA', '<HomeKinds'].map(t => page.indexOf(t))
     expect(order.every(i => i > -1)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
     for (const old of ['HeroSection', 'ProblemSection', 'WhoItsFor', 'FeaturesSection', 'RoadmapSection', 'SocialProof', 'HowItWorks', 'OpenSourceSection']) {
@@ -233,7 +233,7 @@ describe('the decide act as the server renders it', () => {
     const html = await render(HomeDecide)
     const text = seen(html)
     expect(html).toContain('id="decide"')
-    expect(text).toContain('Decides')
+    expect(html).toContain('<span class="home-mono">Decide</span>')
     expect(text).toContain('Decide in the open, with everyone who has a say.')
     expect(text).toContain('Anyone can put a proposal to the group. Each member agrees, stands aside or blocks, and the result is kept with the count and the date.')
     for (const li of ['One person, one response', 'A clear closing date on every proposal', 'The record stays, so next year\'s members can ask what was decided']) expect(text).toContain(li)
@@ -267,7 +267,7 @@ describe('the fund act as the server renders it', () => {
     const html = await render(HomeFund)
     const text = seen(html)
     expect(html).toContain('id="fund"')
-    expect(text).toContain('Funds')
+    expect(html).toContain('<span class="home-mono">Fund</span>')
     expect(text).toContain('A fund the group controls, and can see.')
     expect(text).toContain('The money moves only when the approvers your group chose sign off. Every payment shows who approved it and what it was for.')
     expect(text).toContain('No single person holds the purse')
@@ -314,7 +314,7 @@ describe('the yours act as the server renders it', () => {
     const html = await render(HomeYours)
     const text = seen(html)
     expect(html).toContain('id="yours"')
-    expect(text).toContain('Yours')
+    expect(html).toContain('<span class="home-mono">Own</span>')
     expect(text).toContain('It\'s your site. Take it with you.')
     expect(text).toContain('LocalNodes is open source (GPL and AGPL). Run it with us or on your own server. If you ever want to move, one button will give you everything your community has put here.')
     for (const li of ['Your pages, files, members and settings in one download', 'A step-by-step guide to setting it up somewhere else', 'The same software anyone can install for a new community']) expect(text).toContain(li)
@@ -408,10 +408,11 @@ describe('the page describes the product as it will be at launch', () => {
   })
 })
 
-describe('the group home page ("Shares")', () => {
+describe('the group home page ("Share")', () => {
   it('is the section "How it works" lands on, and says only what a pilot site does today', async () => {
     const html = await render(HomeTogether)
     expect(html).toContain('id="together"')
+    expect(html).toContain('<span class="home-mono">Share</span>')
     const text = seen(html)
     expect(text).toContain('Post news, plan events and keep in touch.')
     for (const line of ['Posts with photos, comments and likes', 'Events with a sign-up list', 'Longer pages for news and discussions', 'Open groups, and groups you join by invitation or request', 'Newest first, and no ads']) {

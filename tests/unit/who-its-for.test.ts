@@ -230,9 +230,9 @@ describe('the home row', () => {
     expect(html).not.toMatch(/<h[1-6]\b|<section\b/)
   })
 
-  it('sits right after the six-places band on the home page', () => {
+  it('is the last strip on the home page, after the dark close', () => {
     const page = read('app/pages/index.vue')
-    const at = ['<HomeScatter', '<HomeKinds', '<HomeTogether'].map(t => page.indexOf(t))
+    const at = ['<LandingCTA', '<HomeKinds', '</div>\n</template>'].map(t => page.indexOf(t))
     expect(at.every(i => i > -1)).toBe(true)
     expect([...at].sort((a, b) => a - b)).toEqual(at)
   })
