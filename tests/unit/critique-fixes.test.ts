@@ -22,6 +22,18 @@ function prop(css: string, name: string): string {
   return m![1].trim().toLowerCase()
 }
 
+/** The WCAG 2 contrast ratio of two #rrggbb colours. */
+function contrast(one: string, two: string): number {
+  const luminance = (hex: string) => {
+    const [red = 0, green = 0, blue = 0] = [1, 3, 5]
+      .map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map(c => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+  }
+  const [hi, lo] = [luminance(one), luminance(two)].sort((x, y) => y - x) as [number, number]
+  return (hi + 0.05) / (lo + 0.05)
+}
+
 describe('the dark bands are near-black, as the landing page draws them (BRAND.md section 5)', () => {
   // Read the expected colours from the same generated file, not as literals:
   // the button roles alias the brand scale, so a palette swap in the token
@@ -35,6 +47,13 @@ describe('the dark bands are near-black, as the landing page draws them (BRAND.m
     expect(prop(dark, '--ui-bg')).toBe(neutral(950))
     expect(prop(dark, '--ui-primary')).toBe(brand(100))
     expect(prop(dark, '--ui-text-inverted')).toBe(brand(950))
+  })
+
+  it('keeps muted text readable on every dark surface, at 4.5:1 or more', () => {
+    const muted = prop(dark, '--ui-text-muted')
+    for (const surface of ['--ui-bg', '--ui-bg-muted', '--ui-bg-elevated']) {
+      expect(contrast(muted, prop(dark, surface)), `${muted} on ${surface}`).toBeGreaterThanOrEqual(4.5)
+    }
   })
 })
 

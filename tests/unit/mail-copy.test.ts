@@ -203,8 +203,8 @@ describe('the mail look', () => {
     const tokens = read('app/assets/css/ln-tokens.css')
     const light = tokens.slice(tokens.indexOf(':root {'), tokens.indexOf('}', tokens.indexOf(':root {')))
     const role = (name: string) => new RegExp(`${name}:\\s*${''}([^;]+);`).exec(light)?.[1]?.trim()
-    // The link is the token source's own link role, which the stylesheet does
-    // not name, so it is held to its job instead: text on the card at 4.5:1 or more.
+    // The link is the token source's link role (brand 800), which the stylesheet
+    // has only as that brand step: it must be that colour, and readable on the card.
     const { link, ...roles } = MAIL_COLORS
     expect(roles).toEqual({
       canvas: role('--ui-bg-muted'),
@@ -216,7 +216,7 @@ describe('the mail look', () => {
       buttonText: role('--ui-text-inverted'),
       footer: role('--ui-text-muted')
     })
-    expect(link).toMatch(/^#[0-9a-f]{6}$/)
+    expect(link).toBe(/--color-ln-brand-800:\s*([^;]+);/.exec(tokens)?.[1]?.trim())
     expect(contrast(link, MAIL_COLORS.card)).toBeGreaterThanOrEqual(4.5)
   })
 
