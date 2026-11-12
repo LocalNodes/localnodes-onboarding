@@ -35,6 +35,12 @@
 /** The pages the list covers. */
 export const CLAIM_PAGES = Object.freeze(['/', '/for'])
 
+// What deciding together and the real fund wait for. A gathering's organizers
+// decide its program and pay its session grants with the same two, so its
+// promises wait for the same evidence as the home page's.
+const DECIDING = 'Deciding together (agree, stand aside, block) is in a release that hosted communities run.'
+const REAL_FUND = 'A community can open a fund with real money; practice money works first.'
+
 // The month calendar and quick polls are merged into the public site
 // repository. One pull request ships both.
 const CALENDAR_AND_POLLS = 'https://github.com/LocalNodes/os-knowledge-garden/pull/73, "A month calendar for events and quick polls in groups", merged as commit 8767385.'
@@ -53,14 +59,14 @@ export const LAUNCH_CLAIMS = Object.freeze([
     page: '/',
     text: 'Decide in the open, with everyone who has a say.',
     ready: false,
-    until: 'Deciding together (agree, stand aside, block) is in a release that hosted communities run.'
+    until: DECIDING
   },
   {
     id: 'real-fund',
     page: '/',
     text: 'Open your real fund when the group is ready.',
     ready: false,
-    until: 'A community can open a fund with real money; practice money works first.'
+    until: REAL_FUND
   },
   {
     id: 'export',
@@ -91,7 +97,21 @@ export const LAUNCH_CLAIMS = Object.freeze([
   calendar('calendar-open-studio', 'Post the open-studio date on the calendar.'),
   calendar('calendar-pick-up-days', 'Put pick-up days and volunteer meetups on the calendar.'),
   quickPoll('poll-garden-day', 'Run a quick poll: Saturday morning or Sunday afternoon?'),
-  quickPoll('poll-event-dates', 'Ask which event dates work in a quick poll.')
+  quickPoll('poll-event-dates', 'Ask which event dates work in a quick poll.'),
+  {
+    id: 'gathering-program',
+    page: '/for',
+    text: 'Decide the program together, with every organizer who has a say.',
+    ready: false,
+    until: DECIDING
+  },
+  {
+    id: 'session-grants',
+    page: '/for',
+    text: 'Pay session grants from the group fund.',
+    ready: false,
+    until: REAL_FUND
+  }
 ].map(c => Object.freeze(c)))
 
 /** The entries one page says ('/' or '/for'). */

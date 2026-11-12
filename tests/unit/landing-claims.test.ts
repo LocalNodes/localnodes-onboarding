@@ -889,7 +889,7 @@ describe('the Who it\'s for page (/for) is claims-checked', () => {
   const listProbes: Record<string, string[]> = {
     cryptoWords: ['a wallet', 'tokens', 'gas', 'a chain', 'the blockchain', 'on-chain', 'cryptocurrency', 'a DAO', 'Ethereum', 'USDC', 'a stablecoin', 'NFTs', 'web3', 'a smart contract', 'multisig', 'the ledger', 'signatures', 'a fee', 'your seed phrase'],
     priceWords: ['the price', 'pricing', 'it costs', 'free', 'a pilot', 'a subscription', 'a discount', 'a coupon', '5 per month', '50 per year', '5 a month'],
-    pendingTopicWords: ['vote', 'decided', 'a decision', 'a proposal', 'the fund', 'funded', 'funding', 'money', 'a budget', 'pay', 'payments', 'paid', 'treasury', 'dues', 'the bank', 'export', 'owned', 'owns', 'owners', 'ownership', 'a poll', 'polls', 'the calendar', 'calendars']
+    pendingTopicWords: ['vote', 'decided', 'a decision', 'a proposal', 'the fund', 'funded', 'funding', 'money', 'a budget', 'pay', 'payments', 'paid', 'treasury', 'dues', 'the bank', 'export', 'owned', 'owns', 'owners', 'ownership', 'a poll', 'polls', 'the calendar', 'calendars', 'session grants', 'anyone proposes a session']
   }
   for (const list of Object.keys(listProbes)) {
     // Every word in the fixture has a probe here, so a word added there is tested.
