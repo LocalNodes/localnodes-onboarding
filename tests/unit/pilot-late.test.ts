@@ -74,13 +74,14 @@ function lateDeps(sub: Record<string, unknown>, nowSec = LATER, opts: { redis?: 
   const invoices = { retrieve: vi.fn(async (id: string) => ({ id, status_transitions: { paid_at: paidAts.get(id) ?? null } })) }
   const update = vi.fn()
   const log = vi.fn()
+  const subRetrieve = vi.fn(async (_id: string) => sub)
   const deps: PilotContinueDeps = {
-    stripe: { subscriptions: { retrieve: vi.fn(async () => sub), update } },
+    stripe: { subscriptions: { retrieve: subRetrieve, update } },
     secret: SECRET,
     now: () => nowSec * 1000,
     log,
     origin: ORIGIN,
-    late: { redis, stripe: { checkout: { sessions: { create, retrieve, expire } }, invoices } }
+    late: { redis, stripe: { checkout: { sessions: { create, retrieve, expire } }, invoices, subscriptions: { retrieve: subRetrieve } } }
   }
   /** Stripe-side: the organizer pays session `id` on the page, a day before we read it unless told otherwise. */
   const pay = (id: string, paidAt = nowSec - 86400) => {
@@ -88,7 +89,7 @@ function lateDeps(sub: Record<string, unknown>, nowSec = LATER, opts: { redis?: 
     Object.assign(s, { status: 'complete', payment_status: 'paid', subscription: 'sub_new', invoice: `in_${id}` })
     paidAts.set(`in_${id}`, paidAt)
   }
-  return { deps, redis, sessions, create, retrieve, expire, update, log, pay, invoices }
+  return { deps, redis, sessions, create, retrieve, expire, update, log, pay, invoices, subRetrieve }
 }
 
 const token = () => sealContinueToken('sub_1', END, SECRET)
@@ -438,6 +439,47 @@ describe('markLateRemoval (before a person removes a lapsed site)', () => {
     const { deps } = lateDeps(lapsedSub())
     expect(await markLateRemoval('sub_1', LATER, { ...deps.late!, log: vi.fn() })).toBe('marked')
   })
+
+  it('refuses a pilot whose subscription Stripe has not ended, and marks nothing', async () => {
+    for (const sub of [lapsedSub({ status: 'active', ended_at: null }), lapsedSub({ status: 'active', cancel_at: null, ended_at: null, metadata: { pilot: 'continued' } }), lapsedSub({ status: 'past_due', ended_at: null })]) {
+      const { deps, redis, expire } = lateDeps(sub)
+      expect(await markLateRemoval('sub_1', END - 86400, { ...deps.late!, log: vi.fn() })).toBe('not-ended')
+      expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
+      expect(expire).not.toHaveBeenCalled()
+    }
+  })
+
+  it('marks nothing when the subscription cannot be read', async () => {
+    const { deps, redis, subRetrieve } = lateDeps(lapsedSub())
+    subRetrieve.mockRejectedValueOnce(Object.assign(new Error('down'), { statusCode: 500 }))
+    await expect(markLateRemoval('sub_1', LATER, { ...deps.late!, log: vi.fn() })).rejects.toThrow()
+    expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
+  })
+})
+
+describe('a yes before the end, once the site is marked for removal', () => {
+  const activeSub = () => lapsedSub({ status: 'active', ended_at: null })
+
+  it('is refused as ended, and the pilot is not kept', async () => {
+    const { deps, redis, update } = lateDeps(activeSub(), END - 86400)
+    await redis.set(lateKey('sub_1'), JSON.stringify({ state: 'removing', at: END - 2 * 86400 }))
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ status: 200, body: { state: 'ended' } })
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('answers unavailable, keeping nothing, when the record cannot be read', async () => {
+    const { deps, redis, update } = lateDeps(activeSub(), END - 86400)
+    vi.spyOn(redis, 'get').mockRejectedValueOnce(new Error('down'))
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ status: 503 })
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('still keeps the pilot when there is no removal mark', async () => {
+    const { deps, update } = lateDeps(activeSub(), END - 86400)
+    update.mockResolvedValueOnce({})
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ body: { state: 'continued' } })
+    expect(update).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('the webhook and a late yes\'s payment page', () => {
@@ -531,5 +573,13 @@ describe('scripts/pilot-removal.mjs', () => {
     expect(await main(['sub_1aaaaaaaa'], {}, o.io, { ...deps.late, markLateRemoval: async (_id: string, now: number, d: Parameters<typeof markLateRemoval>[2]) => markLateRemoval('sub_1', now, d), now: () => LATER * 1000 })).toBe(3)
     expect(o.err.join(' ')).toContain('Do not remove this site')
     expect(await main(['not-an-id'], {}, io().io, {})).toBe(1)
+  })
+
+  it('refuses a pilot Stripe has not ended (exit 1), in plain words', async () => {
+    const { deps, redis } = lateDeps(lapsedSub({ status: 'active', ended_at: null }))
+    const o = io()
+    expect(await (await load())(['sub_1aaaaaaaa'], {}, o.io, { ...deps.late, markLateRemoval: async (_id: string, now: number, d: Parameters<typeof markLateRemoval>[2]) => markLateRemoval('sub_1', now, d), now: () => (END - 86400) * 1000 })).toBe(1)
+    expect(o.err.join(' ')).toBe('Do not remove this site yet: its free pilot has not ended at Stripe. Nothing was marked.')
+    expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
   })
 })

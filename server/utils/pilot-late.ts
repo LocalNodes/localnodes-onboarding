@@ -146,6 +146,10 @@ export interface LateStripe {
     }
   }
   invoices: LateInvoices
+  /** The pilot subscription, read by the removal step to check that Stripe ended it. */
+  subscriptions: {
+    retrieve: (id: string) => Promise<{ status?: string | null, metadata?: Record<string, string> | null }>
+  }
 }
 
 /** The pilot subscription as the continue route has it. */
@@ -471,13 +475,17 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
 
 /**
  * Marks a lapsed pilot as being removed (scripts/pilot-removal.mjs, run by a
- * person before removing the site). Takes the lock, expires any open session,
- * and refuses when a session was paid: that site stays.
+ * person before removing the site). Refuses a pilot whose subscription Stripe
+ * has not ended (not-ended): its yes before the end still works. Takes the
+ * lock, expires any open session, and refuses when a session was paid: that
+ * site stays. A Stripe or Redis read error is thrown, and nothing is marked.
  */
-export type RemovalOutcome = 'marked' | 'continued' | 'busy' | 'session-still-open'
+export type RemovalOutcome = 'marked' | 'continued' | 'busy' | 'session-still-open' | 'not-ended'
 
 export async function markLateRemoval(pilotSubscriptionId: string, nowSec: number, deps: LateDeps): Promise<RemovalOutcome> {
   const { redis, stripe, log } = deps
+  const pilot = await stripe.subscriptions.retrieve(pilotSubscriptionId)
+  if (pilot.status !== 'canceled') return 'not-ended'
   const lock = await takeLock(deps, pilotSubscriptionId)
   if (!lock) return 'busy'
   try {

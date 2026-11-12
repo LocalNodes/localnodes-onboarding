@@ -9,7 +9,7 @@
 // closes any payment page still open and marks the pilot as being removed, so
 // the link answers "already ended" from now on and no one can pay for a site
 // that is going away. It refuses when the organizer already paid on that page:
-// that site stays. It changes nothing in Stripe except to expire an unpaid page.
+// that site stays. It also refuses while Stripe has not ended the pilot. It changes nothing in Stripe except to expire an unpaid page.
 //
 // Settings, as scripts/reconcile-signups.mjs: the Stripe key and the Upstash
 // Redis address and token from the environment. The key is never printed.
@@ -23,7 +23,8 @@ const SAY = {
   marked: 'Marked for removal. Any open payment page is closed; the link now says the pilot has ended. You can remove the site.',
   continued: 'Do not remove this site: the organizer paid on the payment page after the end.',
   busy: 'Someone is using the link right now. Try again in a minute.',
-  'session-still-open': 'A payment page could not be closed. Nothing was marked; try again in a minute.'
+  'session-still-open': 'A payment page could not be closed. Nothing was marked; try again in a minute.',
+  'not-ended': 'Do not remove this site yet: its free pilot has not ended at Stripe. Nothing was marked.'
 }
 
 /** Exit codes: 0 marked, 3 do not remove (paid), 1 anything else. */

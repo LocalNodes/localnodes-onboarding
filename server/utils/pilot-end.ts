@@ -29,7 +29,7 @@ import { deriveKeyHex, openKey, sealKey } from './byo-key'
 import { formatUsDate } from './billing-mail'
 import { buildPilotEndMail, REPLY_TO } from './mail-copy'
 import { formatPrice, type PriceLike } from './price'
-import { LATE_YES_SECONDS, readLate, startLate, type LateDeps, type LateAnswer } from './pilot-late'
+import { LATE_YES_SECONDS, readLate, readLateRecord, startLate, type LateDeps, type LateAnswer } from './pilot-late'
 import { PILOT_CONTINUE_TOKEN_RE, type PilotContinueState } from '../../shared/pilot-continue'
 
 const DAY = 86400
@@ -303,6 +303,18 @@ export async function handlePilotContinue(method: 'GET' | 'POST', token: string,
   }
   if (method === 'GET' || judged.state !== 'ends') {
     return { status: 200, body: { state: judged.state as PilotContinueBody['state'], date, price } }
+  }
+  // A site marked for removal is not kept from here, even before its end.
+  if (deps.late) {
+    try {
+      if ((await readLateRecord(deps.late.redis, opened.subscriptionId))?.state === 'removing') {
+        log('pilot-continue: marked for removal')
+        return { status: 200, body: { state: 'ended', date, price } }
+      }
+    } catch {
+      log('pilot-late: record unavailable')
+      return UNAVAILABLE
+    }
   }
   try {
     await deps.stripe.subscriptions.update(
