@@ -11,6 +11,7 @@ import { join, resolve, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 // @ts-expect-error plain .mjs script, no type declarations
 import { findBannedHits, prelaunchProblems } from '../../scripts/check-landing-claims.mjs'
+import { LAUNCH_CLAIMS } from '../../shared/launch-claims.mjs'
 
 const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
@@ -19,12 +20,16 @@ const fixture = JSON.parse(readFileSync(join(repo, 'tests/fixtures/banned-claims
 // The pre-launch statement every page must carry (Tom, 2026-11-06, PR #9).
 const PRELAUNCH = '<p data-prelaunch class="band"><span>Launching soon.</span> <a href="#demo">See the demo</a> or <a href="#early-access">get early access</a>.</p>'
 
+// The home page's pending promises, which the built page must carry word for word.
+const CLAIMS = LAUNCH_CLAIMS.map(c => `<p>${c.text}</p>`).join('\n  ')
+
 const CLEAN_BODY = `
   ${PRELAUNCH}
   <h1>Where your community shares, decides and funds together.</h1>
   <p>Share posts, events and conversations, keep a library every member can ask, run a group fund, and vote on what happens next.</p>
   <a href="https://cascadia.localnodes.xyz">Cascadia (demo)</a>
   <a href="/onboarding">Set up your community's site</a>
+  ${CLAIMS}
 `
 
 function page(body: string, licence = '<p>LocalNodes is open source (GPL and AGPL).</p>') {
@@ -64,6 +69,25 @@ afterEach(() => {
 })
 
 describe('check-landing-claims guard fires', () => {
+  for (const c of LAUNCH_CLAIMS) {
+    it(`fails when the launch claim "${c.id}" is reworded on the page`, () => {
+      const reworded = CLEAN_BODY.replace(`<p>${c.text}</p>`, `<p>${c.text.replace(/\.$/, '')} today.</p>`)
+      expect(reworded).not.toBe(CLEAN_BODY)
+      const r = run(page(reworded))
+      expect(r.out).toContain(`launch claim "${c.id}"`)
+      expect(r.out).toContain('RESULT: FAIL')
+      expect(r.code).toBe(1)
+    })
+  }
+
+  it('reads a launch claim across line breaks and markup, as a reader sees it', () => {
+    const c = LAUNCH_CLAIMS[0]!
+    const [first, ...rest] = c.text.split(' ')
+    const split = CLEAN_BODY.replace(`<p>${c.text}</p>`, `<p><span>${first}</span>\n   ${rest.join(' ')}</p>`)
+    const r = run(page(split))
+    expect(r.out).toContain('RESULT: PASS')
+  })
+
   it('passes a clean page that says "open source (GPL and AGPL)"', () => {
     const r = run(page(CLEAN_BODY))
     expect(r.out).toContain('RESULT: PASS')

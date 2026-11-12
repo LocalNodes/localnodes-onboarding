@@ -17,6 +17,8 @@
 //      pre-launch statement (an element with data-prelaunch saying
 //      "Launching soon"; Tom, 2026-11-06, PR #9); every demo-site link
 //      labelled a demo; no frame word;
+//   2b. every sentence in the launch claims list (shared/launch-claims.mjs) is
+//      on the built page word for word;
 //   Plus the voice and product rules (PLACE-01, AI-advisory, voice), a
 //   separate list; every FAIL line names the list a hit came from.
 //   3. the sign-up pages and components (fixture list signupSources, plus the
@@ -32,6 +34,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { LAUNCH_CLAIMS, missingClaims } from '../shared/launch-claims.mjs'
 
 const ALNUM = /[A-Za-z0-9]/
 
@@ -566,6 +569,13 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
       } else if (req.id === 'demo-label') {
         for (const p of demoLinkProblems(html, fixture.siteHost)) fail(builtRel, req.rule, p)
       }
+    }
+
+    // 2b. Every pending home page promise (shared/launch-claims.mjs) is on the
+    //     built page word for word, so a reworded or removed sentence can't
+    //     slip out of the list that keeps sign-ups closed.
+    for (const c of missingClaims(text, LAUNCH_CLAIMS)) {
+      fail(builtRel, `launch claim "${c.id}"`, `not on the page word for word: "${c.text}". Update shared/launch-claims.mjs with the page`)
     }
 
     if (!fixture.frameWordAllowed) {

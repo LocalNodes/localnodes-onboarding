@@ -28,7 +28,6 @@ onMounted(() => {
       <div class="home-words">
         <span class="home-mono">Shares</span>
         <h2 class="home-h2">Post news, plan events and keep in touch.</h2>
-        <p class="home-tag"><span class="home-pill">In the first pilots</span></p>
         <p>Every group has a home page with its latest posts and what's coming up. Members write, add photos, comment, and say they're coming.</p>
         <ul>
           <li>Posts with photos, comments and likes</li>

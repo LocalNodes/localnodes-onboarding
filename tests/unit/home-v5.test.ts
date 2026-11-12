@@ -17,6 +17,8 @@ import HomeTogether from '~/components/HomeTogether.vue'
 import HomeDecide from '~/components/HomeDecide.vue'
 import HomeFund from '~/components/HomeFund.vue'
 import HomeYours from '~/components/HomeYours.vue'
+import LandingCTA from '~/components/LandingCTA.vue'
+import { LAUNCH_CLAIMS, missingClaims } from '../../shared/launch-claims.mjs'
 import demo from '~/data/home-demo.json'
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8')
@@ -203,9 +205,9 @@ describe('the hero as the server renders it', () => {
 })
 
 describe('the six places', () => {
-  it('has the six-places line, the six chips in order and the line about the money', async () => {
+  it('has the six-places line, the six chips in order, the line about the money and the closing line', async () => {
     const html = await render(HomeScatter)
-    expect(seen(html)).toBe('Right now, what your group knows lives in six places and one person\'s memory. group chat shared drive email threads a paper binder a spreadsheet last year\'s notes And the money often sits in one person\'s bank account.')
+    expect(seen(html)).toBe('Right now, what your group knows lives in six places and one person\'s memory. group chat shared drive email threads a paper binder a spreadsheet last year\'s notes And the money often sits in one person\'s bank account. Here\'s what it looks like in one place.')
     expect((html.match(/<li>/g) ?? []).length).toBe(6)
   })
   it('is a dark band, like the hero it follows', async () => {
@@ -352,30 +354,39 @@ describe('the close', () => {
   })
 })
 
-describe('each window says what the first pilots get', () => {
-  const TAGS: Array<[string, Component, string]> = [
-    ['hero', HomeHero, 'In the first pilots'],
-    ['together', HomeTogether, 'In the first pilots'],
-    ['decide', HomeDecide, 'Coming. Not in the first pilots.'],
-    ['fund', HomeFund, 'In the first pilots, with practice money. Real money comes later.'],
-    ['yours', HomeYours, 'Export button coming. The archive works today.']
-  ]
-  for (const [name, comp, words] of TAGS) {
-    it(`${name}: shows "${words}" as visible text, read before the picture and its description`, async () => {
+describe('the page describes the product as it will be at launch', () => {
+  // The status pills are gone: the page no longer says what each pilot gets.
+  // What is not yet true for a paying community is listed in
+  // shared/launch-claims.mjs instead, and the build keeps sign-ups closed
+  // until every entry there is ready.
+  it('no window carries a status pill', async () => {
+    for (const comp of [HomeHero, HomeTogether, HomeDecide, HomeFund, HomeYours]) {
       const html = await render(comp)
-      const tag = html.match(/<p class="home-tag"><span class="home-pill">([^<]*)<\/span><\/p>/)
-      expect(tag?.[1]).toBe(words)
-      const at = html.indexOf('class="home-tag"')
-      expect(at).toBeLessThan(html.indexOf('class="home-alt"'))
-      expect(at).toBeLessThan(html.indexOf('aria-hidden="true"'))
-      // Not hidden from sight or from a screen reader.
-      expect(html.slice(html.lastIndexOf('<', at), at + 60)).not.toMatch(/aria-hidden|sr-only|hidden/)
-    })
-  }
+      expect(html).not.toContain('home-tag')
+      expect(seen(html)).not.toMatch(/first pilots|Not in the first|Export button coming/)
+    }
+    expect(read('app/assets/css/home-v5.css')).not.toContain('.home-tag')
+  })
 
-  it('the fund description says its dollar payment is how it works once real money comes', async () => {
+  it('the fund says to start with practice money and open the real fund when the group is ready', async () => {
     const html = await render(HomeFund)
-    expect(seen(inside(html, 'class="home-alt"'))).toContain('Example once real money comes: back steps repair paid to Marlow Carpentry, the lowest quote')
+    const words = seen(inside(html, 'class="home-words"'))
+    expect(words).toContain('Start with practice money, so everyone can try a payment before anything real moves. Open your real fund when the group is ready.')
+    // Body text after the paragraph about approvers, not a pill.
+    expect(words.indexOf('Start with practice money')).toBeGreaterThan(words.indexOf('The money moves only when'))
+  })
+
+  it('every pending promise in the launch claims list is on the rendered page word for word', async () => {
+    const page = (await Promise.all([HomeHero, HomeScatter, HomeTogether, HomeDecide, HomeFund, HomeYours, LandingCTA].map(render))).map(seen).join(' ')
+    expect(LAUNCH_CLAIMS.length).toBeGreaterThan(0)
+    expect(missingClaims(page).map(c => c.id)).toEqual([])
+    for (const c of LAUNCH_CLAIMS) expect(page).toContain(c.text)
+  })
+
+  it('the fund description names the example payment, with no "not yet" wording', async () => {
+    const html = await render(HomeFund)
+    expect(seen(inside(html, 'class="home-alt"'))).toContain('Example: back steps repair paid to Marlow Carpentry, the lowest quote')
+    expect(seen(html)).not.toMatch(/once real money|real money comes/)
   })
 
   it('the export description names its screen as a planned example', async () => {

@@ -27,7 +27,6 @@ onMounted(() => {
       <div class="home-words">
         <span class="home-mono">Decides</span>
         <h2 class="home-h2">Decide in the open, with everyone who has a say.</h2>
-        <p class="home-tag"><span class="home-pill">Coming. Not in the first pilots.</span></p>
         <p>Anyone can put a proposal to the group. Each member agrees, stands aside or blocks, and the result is kept with the count and the date.</p>
         <ul>
           <li>One person, one response</li>

@@ -1,12 +1,27 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
+import { isLaunchFlagOpen, launchGateProblem } from './shared/launch-claims.mjs'
+
 // Pre-launch gate flag (server/utils/launch.ts). One env var, NUXT_LAUNCH_OPEN,
 // sets both the server value and the public value the client route middleware
 // reads. The landing page is prerendered, so its public value is fixed at
 // build time: change the flag, then redeploy.
-const launchOpen = ['true', '1'].includes(process.env.NUXT_LAUNCH_OPEN ?? '')
+const launchOpen = isLaunchFlagOpen(process.env.NUXT_LAUNCH_OPEN)
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui', '@vueuse/motion/nuxt'],
+  modules: [
+    '@nuxt/ui',
+    '@vueuse/motion/nuxt',
+    // Sign-ups cannot open while a home page promise is pending: a production
+    // build with the launch flag open stops here, naming each promise that is
+    // not ready (shared/launch-claims.mjs). The server also reads the flag
+    // as NITRO_LAUNCH_OPEN, so both names are checked. Only dev and prepare
+    // runs skip it: neither writes a build.
+    (_options, nuxt) => {
+      if (nuxt.options.dev || nuxt.options._prepare) return
+      const problem = launchGateProblem(process.env.NUXT_LAUNCH_OPEN) ?? launchGateProblem(process.env.NITRO_LAUNCH_OPEN)
+      if (problem) throw new Error(problem)
+    }
+  ],
 
   css: ['~/assets/css/main.css'],
 

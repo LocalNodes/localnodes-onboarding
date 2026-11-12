@@ -73,7 +73,6 @@ const statusText = () => (s.status === 'reading' ? hero.statusReading : s.status
           <UButton to="#together" label="See how it works" size="xl" variant="outline" color="neutral" />
         </div>
         <div class="home-try">
-          <p class="home-tag"><span class="home-pill">In the first pilots</span></p>
           <div class="home-who home-needs-js" role="group" aria-label="Example community">
             <span>Show me a</span>
             <button

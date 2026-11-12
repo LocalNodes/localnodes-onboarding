@@ -1,6 +1,7 @@
 import { defineEventHandler, getRequestURL, getCookie, sendRedirect, createError } from 'h3'
 import { gateDecision, isLaunchOpen, EARLY_ACCESS_URL } from '../utils/launch'
 import { getInvitedSession, invitedDetails, INVITE_COOKIE } from '../utils/invites'
+import { serverLaunchOpen } from '#shared/launch-claims.mjs'
 
 // Runs before every server route and server-rendered page (see
 // server/utils/launch.ts). The gated pages are server-rendered, not
@@ -12,7 +13,9 @@ import { getInvitedSession, invitedDetails, INVITE_COOKIE } from '../utils/invit
 // any Redis trouble counts as not invited. Requests the gate already passes
 // never touch Redis.
 export default defineEventHandler(async (event) => {
-  const open = isLaunchOpen(useRuntimeConfig(event).launchOpen)
+  // A production server stays closed while a home page promise is pending
+  // (shared/launch-claims.mjs), even with the flag set when it starts.
+  const open = serverLaunchOpen(isLaunchOpen(useRuntimeConfig(event).launchOpen), { dev: import.meta.dev })
   const path = getRequestURL(event).pathname
   let decision = gateDecision(path, open)
   if (decision !== 'pass') {

@@ -1003,19 +1003,6 @@ html.ln-home .home-header [data-slot='container'] {
   color: var(--home-lit);
 }
 
-/* A window's status (what the first pilots get, what comes later): the
-   picture pill's look, sitting under the heading in the page's text. */
-.home-tag {
-  margin: 0;
-}
-
-.home-tag .home-pill {
-  display: inline-block;
-  max-width: 100%;
-  border-radius: 14px;
-  transition: none;
-}
-
 .home-pill-wrap {
   align-self: flex-start;
 }
