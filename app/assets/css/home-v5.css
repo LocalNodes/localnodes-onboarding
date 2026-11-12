@@ -1193,6 +1193,187 @@ html.ln-home .home-header [data-slot='container'] {
   transform: translateY(14px) rotate(4deg);
 }
 
+/* ---------- keeps in touch: the group's home page ---------- */
+
+.home-post {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--home-line);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.home-post-head,
+.home-reply {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ui-text-muted);
+}
+
+.home-post-head b,
+.home-reply b,
+.home-ev b {
+  font-weight: 600;
+  color: var(--ui-text);
+}
+
+.home-post-head small {
+  display: block;
+  font-size: 12.5px;
+}
+
+.home-av {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid var(--home-line-strong);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-text-muted);
+}
+
+.home-post > p {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.home-react {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 13px;
+  color: var(--ui-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color .35s;
+}
+
+.home-like i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--home-line-strong);
+  transition: background .35s, border-color .35s, transform .35s;
+}
+
+.home-like.on {
+  color: var(--home-lit);
+}
+
+.home-like.on i {
+  background: var(--home-lit);
+  border-color: var(--home-lit);
+  transform: scale(1.15);
+}
+
+.home-reply {
+  align-items: flex-start;
+  border-top: 1px solid var(--home-line);
+  padding-top: 10px;
+  color: var(--ui-text);
+  transition: opacity .4s, transform .5s;
+}
+
+.home-reply .home-av {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+.home-reply.off {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.home-ev {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  border: 1px solid var(--home-line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--home-well);
+}
+
+.home-ev-date {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  background: var(--home-surface);
+  border: 1px solid var(--home-line);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.home-ev-date small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--home-lit);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.home-ev-what {
+  flex: 1 1 11rem;
+  min-width: 0;
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
+.home-ev-what small {
+  display: block;
+  font-size: 13px;
+  color: var(--ui-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-ev-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 7.5rem;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--ui-primary);
+  color: var(--ui-text-inverted);
+  border: 1px solid transparent;
+  transition: background .4s, color .4s, border-color .4s;
+}
+
+.home-ev-btn .home-stk {
+  justify-items: center;
+  text-align: center;
+}
+
+.home-ev-btn.done {
+  background: var(--home-lit-deep);
+  border-color: var(--home-lit);
+  color: var(--home-lit);
+}
+
 /* ---------- yours: the export screen ---------- */
 
 .home-xrows {

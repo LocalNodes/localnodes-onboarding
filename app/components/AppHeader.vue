@@ -14,7 +14,7 @@ const onLanding = computed(() => route.path === '/')
 // active: false — hash links all match the / route, which would mark every
 // item active at once.
 const navItems: NavigationMenuItem[] = [
-  { label: 'How it works', to: '/#decide', active: false },
+  { label: 'How it works', to: '/#together', active: false },
   { label: 'Open source', to: '/#yours', active: false },
   { label: 'Demo sites', to: '/#demo', active: false }
 ]

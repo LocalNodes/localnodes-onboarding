@@ -47,7 +47,7 @@ onMounted(() => {
       </dl>
       <div class="home-hold home-holdnote home-note" aria-hidden="true">
         <div class="home-stage">
-          <div class="home-st-head"><b>Willow House</b><span class="home-tabs"><span>Library</span><span>Decisions</span><span class="on">Fund</span></span></div>
+          <div class="home-st-head"><b>Willow House</b><span class="home-tabs"><span>Home</span><span>Library</span><span>Decisions</span><span class="on">Fund</span></span></div>
           <div class="home-pad">
             <div class="home-bal">
               <span class="home-quiet">Repair fund balance</span>

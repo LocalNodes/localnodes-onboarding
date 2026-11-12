@@ -70,7 +70,7 @@ const statusText = () => (s.status === 'reading' ? hero.statusReading : s.status
         </p>
         <div class="home-row">
           <UButton to="#early-access" label="Get early access" size="xl" />
-          <UButton to="#decide" label="See how it works" size="xl" variant="outline" color="neutral" />
+          <UButton to="#together" label="See how it works" size="xl" variant="outline" color="neutral" />
         </div>
         <div class="home-try">
           <p class="home-tag"><span class="home-pill">In the first pilots</span></p>
@@ -137,7 +137,7 @@ const statusText = () => (s.status === 'reading' ? hero.statusReading : s.status
               <span class="home-stk">
                 <b v-for="(c, i) in ex" :key="c.name" :class="{ 'is-cur': i === s.index }">{{ c.name }}</b>
               </span>
-              <span class="home-tabs"><span class="on">Library</span><span>Decisions</span><span>Fund</span></span>
+              <span class="home-tabs"><span>Home</span><span class="on">Library</span><span>Decisions</span><span>Fund</span></span>
             </div>
             <div class="home-st-body">
               <ul class="home-rail">

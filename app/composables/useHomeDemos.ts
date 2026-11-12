@@ -10,7 +10,7 @@ import { inject, reactive } from 'vue'
 import demoData from '../data/home-demo.json'
 
 export type HomeDemoData = typeof demoData
-export type HomeAct = 'chips' | 'decide' | 'fund' | 'export'
+export type HomeAct = 'chips' | 'talk' | 'decide' | 'fund' | 'export'
 
 interface QueryListLike {
   matches: boolean
@@ -84,6 +84,22 @@ export function useHomeDemos(data: HomeDemoData = demoData, env: HomeDemoEnv = {
     }
   }
 
+  const talkFinished = () => ({
+    likes: data.talk.likesAfter,
+    liked: true,
+    commentOn: true,
+    going: data.talk.event.goingAfter,
+    joined: true
+  })
+
+  const talkStart = () => ({
+    likes: data.talk.likesBefore,
+    liked: false,
+    commentOn: false,
+    going: data.talk.event.goingBefore,
+    joined: false
+  })
+
   const decideFinished = () => ({
     dots: [...data.decide.dots] as string[],
     agree: data.decide.agree,
@@ -125,6 +141,7 @@ export function useHomeDemos(data: HomeDemoData = demoData, env: HomeDemoEnv = {
     reducedMotion: false,
     chipsTidy: false,
     hero: heroFinished(0),
+    talk: talkFinished(),
     decide: decideFinished(),
     fund: fundFinished(),
     exp: exportFinished()
@@ -289,9 +306,24 @@ export function useHomeDemos(data: HomeDemoData = demoData, env: HomeDemoEnv = {
   // ---- the acts --------------------------------------------------------------------------
   function finishAct(act: HomeAct) {
     if (act === 'chips') state.chipsTidy = true
+    else if (act === 'talk') Object.assign(state.talk, talkFinished())
     else if (act === 'decide') Object.assign(state.decide, decideFinished())
     else if (act === 'fund') Object.assign(state.fund, fundFinished())
     else Object.assign(state.exp, exportFinished())
+  }
+
+  async function runTalk(run: Run) {
+    Object.assign(state.talk, talkStart())
+    if (!(await sleep(run, 800))) return
+    state.talk.liked = true
+    state.talk.likes = data.talk.likesAfter
+    if (!(await sleep(run, 900))) return
+    state.talk.commentOn = true
+    if (!(await sleep(run, 1100))) return
+    state.talk.joined = true
+    state.talk.going = data.talk.event.goingAfter
+    if (!(await sleep(run, 350))) return
+    Object.assign(state.talk, talkFinished())
   }
 
   async function runDecide(run: Run) {
@@ -350,7 +382,7 @@ export function useHomeDemos(data: HomeDemoData = demoData, env: HomeDemoEnv = {
 
   function startAct(act: HomeAct) {
     if (!canAnimate()) return finishAct(act)
-    const body = { chips: runChips, decide: runDecide, fund: runFund, export: runExport }[act]
+    const body = { chips: runChips, talk: runTalk, decide: runDecide, fund: runFund, export: runExport }[act]
     start(act, body)
   }
 
@@ -393,6 +425,7 @@ export function useHomeDemos(data: HomeDemoData = demoData, env: HomeDemoEnv = {
 
   function finishAll() {
     Object.assign(state.hero, heroFinished(state.hero.index))
+    Object.assign(state.talk, talkFinished())
     Object.assign(state.decide, decideFinished())
     Object.assign(state.fund, fundFinished())
     Object.assign(state.exp, exportFinished())

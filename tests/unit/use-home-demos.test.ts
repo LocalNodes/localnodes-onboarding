@@ -54,7 +54,7 @@ function make(reduced = false) {
     matchMedia: () => mql,
     IntersectionObserver: FakeObserver as unknown as typeof IntersectionObserver
   })
-  const els = { chips: {}, decide: {}, fund: {}, export: {} }
+  const els = { chips: {}, talk: {}, decide: {}, fund: {}, export: {} }
   for (const [act, el] of Object.entries(els)) d.observe(act as keyof typeof els, el as Element)
   return { d, mql, els }
 }
@@ -62,7 +62,7 @@ function make(reduced = false) {
 /** What a finished page looks like, as plain data. */
 function snap(d: ReturnType<typeof useHomeDemos>) {
   const s = d.state
-  return JSON.parse(JSON.stringify({ hero: s.hero, decide: s.decide, fund: s.fund, exp: s.exp, chipsTidy: s.chipsTidy }))
+  return JSON.parse(JSON.stringify({ hero: s.hero, talk: s.talk, decide: s.decide, fund: s.fund, exp: s.exp, chipsTidy: s.chipsTidy }))
 }
 
 const ex = demo.hero.examples
@@ -251,6 +251,14 @@ describe('the three acts and the chips', () => {
     expect(d.state.exp.rowsOk).toBe(0)
     await vi.advanceTimersByTimeAsync(10_000)
     expect(snap(d).exp).toEqual(finished.exp)
+
+    io.show(els.talk)
+    expect(d.state.talk.likes).toBe(demo.talk.likesBefore)
+    expect(d.state.talk.commentOn).toBe(false)
+    expect(d.state.talk.joined).toBe(false)
+    expect(d.state.talk.going).toBe(demo.talk.event.goingBefore)
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(snap(d).talk).toEqual(finished.talk)
     d.unmount()
   })
 
@@ -387,7 +395,7 @@ describe('the three acts and the chips', () => {
   it('an act queued before mount is observed once the controller is mounted', () => {
     const { d, els } = make()
     d.mount()
-    expect([...FakeObserver.last!.seen]).toEqual(expect.arrayContaining([els.chips, els.decide, els.fund, els.export]))
+    expect([...FakeObserver.last!.seen]).toEqual(expect.arrayContaining([els.chips, els.talk, els.decide, els.fund, els.export]))
     d.unmount()
   })
 })

@@ -13,9 +13,11 @@ import { renderToString } from 'vue/server-renderer'
 import { useHomeDemos, HOME_DEMOS_KEY } from '~/composables/useHomeDemos'
 import HomeHero from '~/components/HomeHero.vue'
 import HomeScatter from '~/components/HomeScatter.vue'
+import HomeTogether from '~/components/HomeTogether.vue'
 import HomeDecide from '~/components/HomeDecide.vue'
 import HomeFund from '~/components/HomeFund.vue'
 import HomeYours from '~/components/HomeYours.vue'
+import demo from '~/data/home-demo.json'
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8')
 const flat = (s: string) => s.replace(/\s+/g, ' ').trim()
@@ -50,7 +52,7 @@ function inside(html: string, marker: string): string {
   throw new Error(`no closing </${name}> for ${marker}`)
 }
 
-const HOME_COMPONENTS = ['HomeHero', 'HomeScatter', 'HomeDecide', 'HomeFund', 'HomeYours']
+const HOME_COMPONENTS = ['HomeHero', 'HomeScatter', 'HomeTogether', 'HomeDecide', 'HomeFund', 'HomeYours']
 const HOME_SOURCES = [...HOME_COMPONENTS.map(n => `app/components/${n}.vue`), 'app/components/LandingCTA.vue', 'app/pages/index.vue', 'app/composables/useHomeDemos.ts']
 
 describe('the page', () => {
@@ -74,8 +76,8 @@ describe('the page', () => {
     expect(page).toMatch(/onBeforeUnmount\(\(\) => demos\.unmount\(\)\)/)
   })
 
-  it('shows hero, six places, decide, fund, yours and the close, in that order, and no old section', () => {
-    const order = ['<HomeHero', '<HomeScatter', '<HomeDecide', '<HomeFund', '<HomeYours', '<LandingCTA'].map(t => page.indexOf(t))
+  it('shows hero, six places, the group home page, decide, fund, yours and the close, in that order, and no old section', () => {
+    const order = ['<HomeHero', '<HomeScatter', '<HomeTogether', '<HomeDecide', '<HomeFund', '<HomeYours', '<LandingCTA'].map(t => page.indexOf(t))
     expect(order.every(i => i > -1)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
     for (const old of ['HeroSection', 'ProblemSection', 'WhoItsFor', 'FeaturesSection', 'RoadmapSection', 'SocialProof', 'HowItWorks', 'OpenSourceSection']) {
@@ -95,7 +97,7 @@ describe('header and footer on the home page', () => {
   const footer = read('app/components/AppFooter.vue')
 
   it('puts the three section links in the nav, to the sections that exist', () => {
-    expect(header).toMatch(/label: 'How it works', to: '\/#decide'/)
+    expect(header).toMatch(/label: 'How it works', to: '\/#together'/)
     expect(header).toMatch(/label: 'Open source', to: '\/#yours'/)
     expect(header).toMatch(/label: 'Demo sites', to: '\/#demo'/)
     expect(header).not.toMatch(/who-its-for|see-it-in-action|open-source'/)
@@ -158,7 +160,7 @@ describe('the hero as the server renders it', () => {
     expect(text).toContain('Where your community thinks, decides and funds together.')
     expect(text).toContain('A shared memory with an assistant that knows your group\'s history, a shared fund, and a fair way to decide how it\'s spent. Your community owns it, not a platform.')
     expect(html).toMatch(/href="#early-access"[^>]*>Get early access</)
-    expect(html).toMatch(/href="#decide"[^>]*>See how it works</)
+    expect(html).toMatch(/href="#together"[^>]*>See how it works</)
     expect(text).toContain('Example from a demo library. Every answer shows the page it came from.')
     expect((html.match(/data-prelaunch/g) ?? []).length).toBe(1)
     expect(html).toContain('home-grad')
@@ -354,6 +356,7 @@ describe('the close', () => {
 describe('each window says what the first pilots get', () => {
   const TAGS: Array<[string, Component, string]> = [
     ['hero', HomeHero, 'In the first pilots'],
+    ['together', HomeTogether, 'In the first pilots'],
     ['decide', HomeDecide, 'Coming. Not in the first pilots.'],
     ['fund', HomeFund, 'Coming later. Off for the first pilots.'],
     ['yours', HomeYours, 'Export button coming. The archive works today.']
@@ -379,5 +382,49 @@ describe('each window says what the first pilots get', () => {
   it('the export description names its screen as a planned example', async () => {
     const html = await render(HomeYours)
     expect(seen(inside(html, 'class="home-alt"'))).toMatch(/^Planned example of the export screen for Willow House\./)
+  })
+})
+
+describe('the group home page ("Keeps in touch")', () => {
+  it('is the section "How it works" lands on, and says only what a pilot site does today', async () => {
+    const html = await render(HomeTogether)
+    expect(html).toContain('id="together"')
+    const text = seen(html)
+    expect(text).toContain('Share news, plan events and keep in touch.')
+    for (const line of ['Posts with photos, comments and likes', 'Events with a sign-up list', 'Longer pages for news and discussions', 'Open groups, and groups you join by invitation or request', 'Newest first, and no ads']) {
+      expect(text, line).toContain(line)
+    }
+    // Private messages are in the software and switched off on pilot sites; other companies are not named.
+    expect(text).not.toMatch(/direct message|private message|\bDMs?\b|facebook|nextdoor|whatsapp/i)
+  })
+
+  it('renders the finished state: the like counted, the comment showing, the member signed up', async () => {
+    const html = await render(HomeTogether)
+    const win = html.slice(html.indexOf('class="home-hold"'))
+    expect(win).toContain(`${demo.talk.likesAfter} likes`)
+    expect(win).toContain('1 comment')
+    expect(win).not.toMatch(/class="home-reply off"/)
+    expect(win).toContain(`${demo.talk.event.goingAfter} going`)
+    expect(win).toMatch(/class="done home-ev-btn"/)
+  })
+
+  it('says the same thing in words for a screen reader, outside the picture', async () => {
+    const html = await render(HomeTogether)
+    const alt = html.match(/<p class="home-alt">([^<]*)<\/p>/)?.[1] ?? ''
+    expect(alt).toContain('Rosa posted 2 days ago')
+    expect(alt).toContain(`${demo.talk.likesAfter} likes`)
+    expect(alt).toContain('Jo commented')
+    expect(alt).toContain(`${demo.talk.event.goingAfter} going`)
+    expect(html.indexOf('class="home-alt"')).toBeLessThan(html.indexOf('aria-hidden="true"'))
+  })
+
+  it('every window shows the same four tabs, with its own one marked', async () => {
+    const marked: Array<[Component, string]> = [[HomeHero, 'Library'], [HomeTogether, 'Home'], [HomeDecide, 'Decisions'], [HomeFund, 'Fund']]
+    for (const [comp, on] of marked) {
+      const html = await render(comp)
+      const tabs = html.match(/<span class="home-tabs">(.*?)<\/span><\/div>/)?.[1] ?? html.match(/<span class="home-tabs">((?:<span[^>]*>[^<]*<\/span>)+)/)?.[1] ?? ''
+      expect(tabs.replace(/<[^>]+>/g, '|').split('|').filter(Boolean)).toEqual(['Home', 'Library', 'Decisions', 'Fund'])
+      expect(tabs).toContain(`<span class="on">${on}</span>`)
+    }
   })
 })

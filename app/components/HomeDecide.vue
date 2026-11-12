@@ -39,7 +39,7 @@ onMounted(() => {
       <p class="home-alt">{{ alt }}</p>
       <div class="home-hold" aria-hidden="true">
         <div class="home-stage">
-          <div class="home-st-head"><b>Willow House</b><span class="home-tabs"><span>Library</span><span class="on">Decisions</span><span>Fund</span></span></div>
+          <div class="home-st-head"><b>Willow House</b><span class="home-tabs"><span>Home</span><span>Library</span><span class="on">Decisions</span><span>Fund</span></span></div>
           <div class="home-pad">
             <span class="home-pill-wrap home-stk">
               <span class="home-pill" :class="{ 'is-cur': !s.done }">{{ dec.pillOpen }}</span>

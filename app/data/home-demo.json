@@ -54,6 +54,28 @@
       }
     ]
   },
+  "talk": {
+    "post": {
+      "initials": "RM",
+      "who": "Rosa",
+      "when": "2 days ago",
+      "text": "The back steps are getting worse. The third board is loose now. Can we get them fixed before winter?"
+    },
+    "likesBefore": 5,
+    "likesAfter": 6,
+    "comment": { "initials": "JS", "who": "Jo", "text": "I can get three quotes by Friday." },
+    "event": {
+      "day": "Sat",
+      "date": "14",
+      "title": "Work day: clear the back yard",
+      "meta": "9 am, back garden",
+      "goingBefore": 6,
+      "goingAfter": 7,
+      "buttonIdle": "Sign up",
+      "buttonDone": "You're going"
+    },
+    "fine": "When something needs a decision, anyone can put it to the group, below."
+  },
   "decide": {
     "pillOpen": "Open · closes Friday",
     "pillDone": "Agreed · 11 of 12 responded, no blocks",
