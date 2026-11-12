@@ -12,6 +12,10 @@ import { spawnSync } from 'node:child_process'
 // @ts-expect-error plain .mjs script, no type declarations
 import { findBannedHits, prelaunchProblems } from '../../scripts/check-landing-claims.mjs'
 import { LAUNCH_CLAIMS, claimsOn } from '../../shared/launch-claims.mjs'
+import { createSSRApp, h } from 'vue'
+import { renderToString } from 'vue/server-renderer'
+import WhoItsForWindow from '~/components/WhoItsForWindow.vue'
+import whoItsFor from '~/data/who-its-for.json'
 
 const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
@@ -907,6 +911,59 @@ describe('the Who it\'s for page (/for) is claims-checked', () => {
       expect(r.out).toContain(`(${list}: `)
     })
   }
+
+  // The example window: every line in every kind's window goes through the same check as
+  // the page text, on the built page and in the data file.
+  async function windowHtml(data: typeof whoItsFor): Promise<string> {
+    const app = createSSRApp({ render: () => h(WhoItsForWindow, { kinds: data.kinds, label: data.exampleWindow.label, note: data.exampleWindow.note }) })
+    app.config.warnHandler = () => {}
+    return renderToString(app)
+  }
+  /** The data file with one kind's example answer replaced. */
+  function withAnswer(id: string, answer: string): typeof whoItsFor {
+    const copy = JSON.parse(JSON.stringify(whoItsFor)) as typeof whoItsFor
+    const kind = copy.kinds.find(k => k.id === id)!
+    kind.example.a = answer
+    return copy
+  }
+  const UNTRACKED = 'Yes. The house voted to pay for the repair from the group fund.'
+
+  it('lists the window component among the /for sources the three word lists read', () => {
+    expect(fixture.forPage.sources).toContain('app/components/WhoItsForWindow.vue')
+  })
+
+  it('passes the real example windows, in the built page and in the data file', async () => {
+    mkdirSync(join(root, 'app/data'), { recursive: true })
+    writeFileSync(join(root, 'app/data/who-its-for.json'), JSON.stringify(whoItsFor))
+    const r = runBoth(forPage(FOR_BODY + await windowHtml(whoItsFor)))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  it('fails an untracked promise planted in one kind\'s window, on the built page and in the data file', async () => {
+    const planted = withAnswer('housing-co-ops', UNTRACKED)
+    const html = await windowHtml(planted)
+    expect(html).toContain(UNTRACKED)
+    const r = runBoth(forPage(FOR_BODY + html))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL \.output\/public\/for\/index\.html: vot.*\(pendingTopicWords: /m)
+    expect(r.out).toMatch(/^FAIL \.output\/public\/for\/index\.html: funds.*\(pendingTopicWords: /m)
+    mkdirSync(join(root, 'app/data'), { recursive: true })
+    writeFileSync(join(root, 'app/data/who-its-for.json'), JSON.stringify(planted))
+    const r2 = runBoth(forPage(FOR_BODY + await windowHtml(whoItsFor)))
+    expect(r2.code).toBe(1)
+    expect(r2.out).toMatch(/^FAIL app\/data\/who-its-for\.json: .*\(pendingTopicWords: /m)
+  })
+
+  it('fails a crypto word or a price planted in a window\'s tile', async () => {
+    for (const line of ['Send it from the group wallet.', 'Tickets cost $5 at the gate.']) {
+      const copy = JSON.parse(JSON.stringify(whoItsFor)) as typeof whoItsFor
+      copy.kinds.find(k => k.id === 'tenant-unions')!.example.tile.text = line
+      const r = runBoth(forPage(FOR_BODY + await windowHtml(copy)))
+      expect(r.code, line).toBe(1)
+      expect(r.out, line).toMatch(/\((cryptoWords|priceWords): /)
+    }
+  })
 
   it('does not count "own" ("its own group") as a pending word', () => {
     expect(runBoth(forPage(FOR_BODY + '<p>Each team has its own group.</p>')).code).toBe(0)
