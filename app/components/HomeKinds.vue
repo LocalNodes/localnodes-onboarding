@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// "Built for groups like": one light strip at the end of the page, after the dark close and
-// above the footer, with a few kinds of community and one link to the page that lists them
-// all: a quiet second path for someone who read to the end. The words come from
+// "Built for groups like": one light strip after the last act ("It's your site") and before
+// the dark close, with a few kinds of community and one link to the page that lists them
+// all: a second path for someone who has seen the whole product. It shares the last act's
+// tint, so a hairline sets it apart. The words come from
 // app/data/who-its-for.json, the same file that page reads, so the two never
 // name different kinds. No heading: it is part of the page flow, not a section.
 import data from '~/data/who-its-for.json'
@@ -29,6 +30,10 @@ const list = joined(examples)
 </template>
 
 <style scoped>
+.home-kinds {
+  border-top: 1px solid var(--ui-border);
+}
+
 .home-kinds-row {
   display: flex;
   flex-wrap: wrap;
