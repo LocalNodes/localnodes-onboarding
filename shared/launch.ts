@@ -1,6 +1,5 @@
-// Pre-launch gate (Tom, 2026-11-06, PR #9): LocalNodes launches only when
-// funds and votes are complete. Until then the paid sign-up flow stays in the
-// code but is unreachable: its pages redirect to the early-access form and its
+// Pre-launch gate: until launch the paid sign-up flow stays in the code but is
+// unreachable: its pages redirect to the early-access form and its
 // API routes return 404 (the Stripe webhook answers but acts on nothing). One server-side flag opens it: runtimeConfig
 // `launchOpen`, set by the env var NUXT_LAUNCH_OPEN (default closed).
 // Plain module, no Nitro or Nuxt globals: shared by the server middleware
