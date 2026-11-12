@@ -1,0 +1,132 @@
+{
+  "intro": "A LocalNodes site is one home for a community, with groups inside it. These are some of the kinds of community it fits, and what each would do in its first week.",
+  "closing": "A single group with no network is welcome too.",
+  "homeRow": {
+    "lead": "Built for groups like",
+    "examples": ["co-ops", "markets", "gatherings"],
+    "linkText": "Find your group"
+  },
+  "kinds": [
+    {
+      "id": "housing-co-ops",
+      "heading": "Housing co-ops",
+      "who": "Your co-op has several houses and plenty to remember.",
+      "shape": "The co-op has one site, with each house as a group.",
+      "firstWeek": [
+        "Add the minutes and repair log.",
+        "Ask about the back steps and open the cited page."
+      ],
+      "demo": { "name": "housing co-op", "url": "" }
+    },
+    {
+      "id": "markets",
+      "heading": "Markets and local business groups",
+      "who": "Stallholders and shopkeepers keep local trade moving.",
+      "shape": "A market or business association has one site, with vendors or shops as groups.",
+      "firstWeek": [
+        "Add a page showing who sets up where.",
+        "Post the next market day or late-opening evening on the calendar."
+      ],
+      "demo": { "name": "market", "url": "" }
+    },
+    {
+      "id": "neighborhood-associations",
+      "heading": "Neighborhood associations",
+      "who": "Members get things done between meetings.",
+      "shape": "An association has one site, with groups for its blocks or committees.",
+      "firstWeek": [
+        "Put the garden day on the calendar.",
+        "Run a quick poll: Saturday morning or Sunday afternoon?"
+      ],
+      "demo": { "name": "neighborhood", "url": "" }
+    },
+    {
+      "id": "makerspaces",
+      "heading": "Makerspaces and shared studios",
+      "who": "Makers and studio members swap tips across town.",
+      "shape": "The town's spaces share one site, with a group for each space.",
+      "firstWeek": [
+        "Post the next open evening on the calendar.",
+        "Save the kiln notes before the person who knows them goes away."
+      ],
+      "demo": null
+    },
+    {
+      "id": "gatherings-and-conferences",
+      "heading": "Community-run gatherings and conferences",
+      "who": "You're planning a gathering together.",
+      "shape": "The gathering has one site, with tracks, working groups or session hosts as groups.",
+      "firstWeek": [
+        "Add the schedule and session notes; ask which sessions cover food growing and open the source.",
+        "Talk the program through in a post where every organizer can comment, and open it to the whole gathering."
+      ],
+      "demo": null
+    },
+    {
+      "id": "tenant-unions",
+      "heading": "Tenant unions",
+      "who": "Tenants share notes and organize across several buildings.",
+      "shape": "One union site brings them together, with a group for each building.",
+      "firstWeek": [
+        "Collect the meeting notes and repair letters.",
+        "Ask which repairs the notes mention and check the cited passage."
+      ],
+      "demo": null
+    },
+    {
+      "id": "community-gardens",
+      "heading": "Community gardens",
+      "who": "Gardeners share space, tools and know-how.",
+      "shape": "One garden has a site, with plots or work crews as groups.",
+      "firstWeek": [
+        "Put the shed clear-out on the calendar.",
+        "Keep watering notes where the next pair of hands can find them."
+      ],
+      "demo": null
+    },
+    {
+      "id": "clubs-and-leagues",
+      "heading": "Outdoor clubs, climbing clubs and sports leagues",
+      "who": "You're planning a climb, a muddy walk or the next match.",
+      "shape": "A club or league has one site, with groups for its teams.",
+      "firstWeek": [
+        "Add the next outing or match to the calendar.",
+        "Share the kit list before someone forgets the kettle."
+      ],
+      "demo": null
+    },
+    {
+      "id": "arts-collectives",
+      "heading": "Arts collectives",
+      "who": "Artists make things together, sometimes in different rooms.",
+      "shape": "One collective has a site, with groups for projects or working teams.",
+      "firstWeek": [
+        "Post the open-studio date on the calendar.",
+        "Save the hanging plan and installation notes in the group's library."
+      ],
+      "demo": null
+    },
+    {
+      "id": "parent-teacher-groups",
+      "heading": "Parent-teacher groups, congregations and student organizations",
+      "who": "You're planning the fête, shared meal or next term's event.",
+      "shape": "Each organization has a site, with committees or clubs as groups.",
+      "firstWeek": [
+        "Ask which event dates work in a quick poll.",
+        "Keep the handover notes for next year's volunteers."
+      ],
+      "demo": null
+    },
+    {
+      "id": "tool-libraries-and-mutual-aid",
+      "heading": "Tool libraries, food co-ops and mutual aid networks",
+      "who": "Members share tools, organize food and help one another.",
+      "shape": "One network has a site, with groups for branches or volunteer teams.",
+      "firstWeek": [
+        "Put pick-up days and volunteer meetups on the calendar.",
+        "Collect the handover notes so new volunteers can find their feet."
+      ],
+      "demo": null
+    }
+  ]
+}
