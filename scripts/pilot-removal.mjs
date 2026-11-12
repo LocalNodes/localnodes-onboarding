@@ -9,7 +9,11 @@
 // closes any payment page still open and marks the pilot as being removed, so
 // the link answers "already ended" from now on and no one can pay for a site
 // that is going away. It refuses when the organizer already paid on that page:
-// that site stays. It also refuses while Stripe has not ended the pilot. It changes nothing in Stripe except to expire an unpaid page.
+// that site stays. It also refuses while Stripe has not ended the pilot, and
+// while a recorded page cannot be checked at Stripe. In Stripe it only expires
+// unpaid pages; to find a page whose opening Stripe never confirmed, it sends
+// that same request again (same key), which can create the page at that moment,
+// and then expires it.
 //
 // Settings, as scripts/reconcile-signups.mjs: the Stripe key and the Upstash
 // Redis address and token from the environment. The key is never printed.
@@ -20,11 +24,12 @@ import { readEnv } from './reconcile-signups.mjs'
 const SUB_RE = /^sub_[A-Za-z0-9]{8,64}$/
 
 const SAY = {
-  marked: 'Marked for removal. Any open payment page is closed; the link now says the pilot has ended. You can remove the site.',
+  marked: 'Marked for removal. Any open payment page is closed, including one whose opening Stripe never confirmed (asked for again, then closed); the link now says the pilot has ended. You can remove the site.',
   continued: 'Do not remove this site: the organizer paid on the payment page after the end.',
   busy: 'Someone is using the link right now. Try again in a minute.',
   'session-still-open': 'A payment page could not be closed. Nothing was marked; try again in a minute.',
-  'not-ended': 'Do not remove this site yet: its free pilot has not ended at Stripe. Nothing was marked.'
+  'not-ended': 'Do not remove this site yet: its free pilot has not ended at Stripe. Nothing was marked.',
+  'page-unknown': 'A payment page may still be open, and Stripe did not let us check it. Nothing was marked; try again later.'
 }
 
 /** Exit codes: 0 marked, 3 do not remove (paid), 1 anything else. */

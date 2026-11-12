@@ -54,12 +54,16 @@ function lateDeps(sub: Record<string, unknown>, nowSec = LATER, opts: { redis?: 
   let n = 0
   /** Stripe keeps each idempotency key's request and answer: a replay gets the same answer. */
   const byKey = new Map<string, { params: string, session?: LateSession, error?: Error }>()
-  const next = { lose: 0, refuse: 0, outage: 0 }
+  const next = { lose: 0, refuse: 0, outage: 0, forbid: 0 }
   const create = vi.fn(async (params: Record<string, unknown>, opts?: { idempotencyKey?: string }) => {
     const key = String(opts?.idempotencyKey)
     if (next.outage > 0) {
       next.outage -= 1
       throw Object.assign(new Error('Stripe is down'), { statusCode: 500 })
+    }
+    if (next.forbid > 0) {
+      next.forbid -= 1
+      throw Object.assign(new Error('permission'), { statusCode: 403 })
     }
     const seen = byKey.get(key)
     if (seen) {
@@ -432,7 +436,7 @@ describe('a lost reply from Stripe never leaves two payable pages', () => {
     next.lose = 1
     await handlePilotContinue('POST', token(), deps)
     next.outage = 1
-    await expect(markLateRemoval('sub_1', LATER + 60, { ...deps.late!, log: vi.fn() })).rejects.toThrow()
+    expect(await markLateRemoval('sub_1', LATER + 60, { ...deps.late!, log: vi.fn() })).toBe('page-unknown')
     expect(JSON.parse(redis.raw(lateKey('sub_1'))!).state).not.toBe('removing')
   })
 
@@ -447,12 +451,37 @@ describe('a lost reply from Stripe never leaves two payable pages', () => {
     expect(new Set(keys())).toEqual(new Set(['pilot-late-sub_1-1']))
   })
 
-  it('an attempt Stripe refused made no page: the next yes opens one under a new key', async () => {
+  it('a replay answering 403 leaves the attempt as it is; the next yes gets the same page under the same key', async () => {
+    const { deps, redis, next, made, keys } = lateDeps(lapsedSub())
+    next.lose = 1
+    await handlePilotContinue('POST', token(), deps)
+    const before = redis.raw(lateKey('sub_1'))
+    next.forbid = 1
+    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 60) * 1000 })).toMatchObject({ status: 503 })
+    expect(redis.raw(lateKey('sub_1'))).toBe(before)
+    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 120) * 1000 })).toMatchObject({ body: { state: 'checkout', url: 'https://checkout.stripe.com/c/pay/cs_1' } })
+    expect(made()).toBe(1)
+    expect(new Set(keys())).toEqual(new Set(['pilot-late-sub_1-1']))
+  })
+
+  it('removal refuses while a recorded page cannot be checked, and says why', async () => {
+    const { deps, redis, next, sessions } = lateDeps(lapsedSub())
+    next.lose = 1
+    await handlePilotContinue('POST', token(), deps)
+    next.forbid = 1
+    expect(await markLateRemoval('sub_1', LATER + 60, { ...deps.late!, log: vi.fn() })).toBe('page-unknown')
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'opening', attempt: 1 })
+    expect(sessions.get('cs_1')!.status).toBe('open')
+  })
+
+  it('an attempt Stripe refused stays unknown until its page would have expired; then the next key', async () => {
     const { deps, next, made, keys } = lateDeps(lapsedSub())
     next.refuse = 1
     expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ status: 503 })
-    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 60) * 1000 })).toMatchObject({ body: { state: 'checkout', url: 'https://checkout.stripe.com/c/pay/cs_1' } })
-    expect(made()).toBe(1)
+    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => (LATER + 60) * 1000 })).toMatchObject({ status: 503 })
+    expect(made()).toBe(0)
+    const afterExpiry = LATER + LATE_SESSION_SECONDS + 1
+    expect(await handlePilotContinue('POST', token(), { ...deps, now: () => afterExpiry * 1000 })).toMatchObject({ body: { state: 'checkout', url: 'https://checkout.stripe.com/c/pay/cs_1' } })
     expect(keys()).toEqual(['pilot-late-sub_1-1', 'pilot-late-sub_1-1', 'pilot-late-sub_1-2'])
   })
 
@@ -690,6 +719,16 @@ describe('scripts/pilot-removal.mjs', () => {
     expect(await main(['sub_1aaaaaaaa'], {}, o.io, { ...deps.late, markLateRemoval: async (_id: string, now: number, d: Parameters<typeof markLateRemoval>[2]) => markLateRemoval('sub_1', now, d), now: () => LATER * 1000 })).toBe(3)
     expect(o.err.join(' ')).toContain('Do not remove this site')
     expect(await main(['not-an-id'], {}, io().io, {})).toBe(1)
+  })
+
+  it('refuses while a recorded page cannot be checked at Stripe (exit 1), in plain words', async () => {
+    const { deps, next } = lateDeps(lapsedSub())
+    next.lose = 1
+    await handlePilotContinue('POST', token(), deps)
+    next.forbid = 1
+    const o = io()
+    expect(await (await load())(['sub_1aaaaaaaa'], {}, o.io, { ...deps.late, markLateRemoval: async (_id: string, now: number, d: Parameters<typeof markLateRemoval>[2]) => markLateRemoval('sub_1', now, d), now: () => (LATER + 60) * 1000 })).toBe(1)
+    expect(o.err.join(' ')).toBe('A payment page may still be open, and Stripe did not let us check it. Nothing was marked; try again later.')
   })
 
   it('refuses a pilot Stripe has not ended (exit 1), in plain words', async () => {

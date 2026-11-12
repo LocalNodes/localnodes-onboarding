@@ -348,28 +348,20 @@ async function releaseLock(deps: LateDeps, pilotSubscriptionId: string, lock: Lo
 /** One key per pilot and attempt: a retry of the same attempt gets the same page. */
 export const lateIdempotencyKey = (pilotSubscriptionId: string, attempt: number) => `pilot-late-${pilotSubscriptionId}-${attempt}`
 
-/** Stripe refused the request itself (not busy, not rate limited, not down): that attempt made no page. */
-function refusedByStripe(err: unknown): boolean {
-  const code = (err as { statusCode?: unknown } | null)?.statusCode
-  return typeof code === 'number' && code >= 400 && code < 500 && code !== 409 && code !== 429
-}
-
 /**
  * The page the record points at, or null when there is none. An open record
  * names it; an opening record replays its request under the same key, so a page
  * whose reply was lost is found too. A replay past the request's expires_at is
- * skipped: such a page has expired. Any other Stripe error is thrown.
+ * skipped: such a page has expired. An opening attempt is settled only by a
+ * reply that names its session, or by that time passing. Any other reply,
+ * whatever its status, leaves it unknown: the error is thrown, and the caller
+ * keeps the attempt as it is, opens nothing and marks nothing.
  */
 async function recordedSession(stripe: LateStripe, pilotSubscriptionId: string, rec: LateRecord | null, nowSec: number): Promise<LateSession | null> {
   if (rec?.state === 'open' && rec.sessionId) return await stripe.checkout.sessions.retrieve(rec.sessionId)
   if (rec?.state !== 'opening' || !rec.params || typeof rec.attempt !== 'number') return null
   if (Number(rec.params.expires_at) <= nowSec) return null
-  try {
-    return await stripe.checkout.sessions.create(rec.params, { idempotencyKey: lateIdempotencyKey(pilotSubscriptionId, rec.attempt), maxNetworkRetries: 0 })
-  } catch (err) {
-    if (refusedByStripe(err)) return null
-    throw err
-  }
+  return await stripe.checkout.sessions.create(rec.params, { idempotencyKey: lateIdempotencyKey(pilotSubscriptionId, rec.attempt), maxNetworkRetries: 0 })
 }
 
 export async function startLate(pilot: LatePilot, removeAt: number, nowSec: number, returnUrl: (flag: 'paid' | 'back') => string, deps: LateDeps): Promise<LateAnswer> {
@@ -535,7 +527,7 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
  * lock, expires any open session, and refuses when a session was paid: that
  * site stays. A Stripe or Redis read error is thrown, and nothing is marked.
  */
-export type RemovalOutcome = 'marked' | 'continued' | 'busy' | 'session-still-open' | 'not-ended'
+export type RemovalOutcome = 'marked' | 'continued' | 'busy' | 'session-still-open' | 'not-ended' | 'page-unknown'
 
 export async function markLateRemoval(pilotSubscriptionId: string, nowSec: number, deps: LateDeps): Promise<RemovalOutcome> {
   const { redis, stripe, log } = deps
@@ -546,7 +538,14 @@ export async function markLateRemoval(pilotSubscriptionId: string, nowSec: numbe
   try {
     const rec = await readLateRecord(redis, pilotSubscriptionId)
     if (rec?.state === 'continued') return 'continued'
-    const session = await recordedSession(stripe, pilotSubscriptionId, rec, nowSec)
+    let session: LateSession | null
+    try {
+      session = await recordedSession(stripe, pilotSubscriptionId, rec, nowSec)
+    } catch (err) {
+      // A recorded attempt Stripe would not answer for may hold a payable page.
+      if (rec?.state === 'opening') return 'page-unknown'
+      throw err
+    }
     if (session) {
       if (session.status === 'complete') {
         if (session.payment_status === 'paid') await recordLateContinuation(redis, pilotSubscriptionId, session, nowSec, log, stripe.invoices)
