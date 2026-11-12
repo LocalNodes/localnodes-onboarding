@@ -21,6 +21,14 @@
 //      on the built page word for word;
 //   Plus the voice and product rules (PLACE-01, AI-advisory, voice), a
 //   separate list; every FAIL line names the list a hit came from.
+//   2c. the public "Who it's for" page (fixture forPage): the built /for page
+//      gets the honesty bans, the voice rules and the required claims of rule
+//      2 (not 2b, and no buyer-word rule); its data file gets the honesty bans
+//      and voice rules; and the built page, its meta, the data file and the
+//      listed sources get three more lists, cryptoWords, priceWords and
+//      pendingTopicWords (the last with the launch-claims sentences taken out
+//      first, word for word). A repo with the page source and no built /for
+//      page fails.
 //   3. the sign-up pages and components (fixture list signupSources, plus the
 //      built /onboarding, /success, /cancel, /invite pages when prerendered)
 //      and the Nuxt mail copy (list mailSources) for frame words, buyer words
@@ -469,6 +477,87 @@ function jsonStrings(v, out = []) {
   return out
 }
 
+/** One word list from the fixture as whole-word, case-insensitive regexes. */
+export function wordList(entry) {
+  return (entry?.patterns ?? []).map((p) => ({ p, re: new RegExp(`\\b(?:${p})\\b`, 'i') }))
+}
+
+/** Text with every launch-claims sentence taken out, word for word (whitespace-collapsed). */
+export function withoutLaunchClaims(text, claims = LAUNCH_CLAIMS) {
+  let t = text.replace(/\s+/g, ' ')
+  for (const c of claims) t = t.split(c.text.replace(/\s+/g, ' ').trim()).join(' ')
+  return t
+}
+
+/**
+ * The "Who it's for" checks (rule 2c). `builtDirs` are the directories the
+ * home page was found in; `rowChecks` runs rule 2's required claims on a page.
+ */
+function forPageChecks(root, fixture, builtDirs, voiceRules, fail, lines, rowChecks) {
+  const spec = fixture.forPage
+  if (!spec) return
+  const lists = ['cryptoWords', 'priceWords', 'pendingTopicWords']
+    .map((name) => ({ name, reason: fixture[name]?.reason ?? name, words: wordList(fixture[name]) }))
+  const wordChecks = (file, text) => {
+    for (const { name, reason, words } of lists) {
+      const subject = name === 'pendingTopicWords' ? withoutLaunchClaims(text) : text
+      for (const { p, re } of words) if (re.test(subject)) fail(file, p, `${name}: ${reason}`)
+    }
+  }
+
+  // The data file: honesty bans, voice rules and the three lists on every string.
+  const dataPath = join(root, spec.dataFile)
+  if (existsSync(dataPath)) {
+    let data
+    try {
+      data = JSON.parse(readFileSync(dataPath, 'utf8'))
+    } catch {
+      fail(spec.dataFile, 'invalid', 'the Who it\'s for data file is not valid JSON')
+    }
+    if (data !== undefined) {
+      for (const str of jsonStrings(data)) {
+        for (const row of findBannedHits(str, fixture.banned)) fail(spec.dataFile, row.pattern, `honesty bans: ${row.reason}`)
+        for (const row of findBannedHits(str, voiceRules)) fail(spec.dataFile, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
+        wordChecks(spec.dataFile, str)
+      }
+    }
+  }
+
+  // The sources: the three lists (the honesty bans and voice rules already
+  // read every component in rule 1).
+  for (const rel of spec.sources ?? []) {
+    const p = join(root, rel)
+    if (existsSync(p)) wordChecks(rel, stripCss(readFileSync(p, 'utf8')))
+  }
+  const pageSrc = join(root, spec.page)
+  if (existsSync(pageSrc)) {
+    const src = stripCss(readFileSync(pageSrc, 'utf8'))
+    for (const row of findBannedHits(src, fixture.banned)) fail(spec.page, row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(src, voiceRules)) fail(spec.page, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
+  }
+
+  // The built page.
+  const built = builtDirs.map((d) => join(d, spec.builtRoute, 'index.html')).filter((p) => existsSync(p))
+  if (!built.length) {
+    if (existsSync(pageSrc)) fail(spec.page, `/${spec.builtRoute}`, `no built /${spec.builtRoute} page next to the built home page; run npm run build`)
+    return
+  }
+  for (const builtPath of built) {
+    const html = readFileSync(builtPath, 'utf8')
+    const text = visibleText(html)
+    const meta = metaText(html)
+    const builtRel = relative(root, builtPath)
+    lines.push(`CHECK ${builtRel}`)
+    for (const row of findBannedHits(text, fixture.banned)) fail(builtRel, row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(meta, fixture.banned)) fail(`${builtRel}: meta`, row.pattern, `honesty bans: ${row.reason}`)
+    for (const row of findBannedHits(text, voiceRules)) fail(builtRel, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
+    for (const row of findBannedHits(meta, voiceRules)) fail(`${builtRel}: meta`, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
+    rowChecks(builtRel, html, text, meta)
+    wordChecks(builtRel, text)
+    wordChecks(`${builtRel}: meta`, meta)
+  }
+}
+
 /**
  * The landing pages to check. With a build-start stamp, only candidates
  * written during this build count (a stale page from another preset or an
@@ -518,6 +607,26 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
 
   const voiceRules = fixture.voiceRules?.rules ?? []
 
+  // Rule 2's required claims, and the frame words, on one built page.
+  const requiredChecks = (builtRel, html, text) => {
+    for (const req of fixture.required) {
+      if (req.id === 'licence') {
+        for (const p of licenceProblems(text, req)) fail(builtRel, req.rule, p)
+      } else if (req.id === 'prelaunch') {
+        for (const p of prelaunchProblems(html, req)) fail(builtRel, req.rule, p)
+      } else if (req.id === 'demo-label') {
+        for (const p of demoLinkProblems(html, fixture.siteHost)) fail(builtRel, req.rule, p)
+      }
+    }
+  }
+  const frameChecks = (builtRel, text, meta) => {
+    if (fixture.frameWordAllowed) return
+    for (const w of fixture.frameWords) {
+      const re = compileRow({ pattern: w, regex: false })
+      if (re.test(text) || re.test(meta)) fail(builtRel, w, 'frame word on the landing page (D-14)')
+    }
+  }
+
   // 1. Honesty bans and voice and product rules in the landing sources.
   for (const file of landingSources(root)) {
     const src = stripCss(readFileSync(file, 'utf8'))
@@ -561,15 +670,7 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
     for (const row of findBannedHits(meta, voiceRules)) fail(`${builtRel}: meta`, row.pattern, `voice and product rules, ${row.rule}: ${row.reason}`)
 
     // 2. Required claims on the built page.
-    for (const req of fixture.required) {
-      if (req.id === 'licence') {
-        for (const p of licenceProblems(text, req)) fail(builtRel, req.rule, p)
-      } else if (req.id === 'prelaunch') {
-        for (const p of prelaunchProblems(html, req)) fail(builtRel, req.rule, p)
-      } else if (req.id === 'demo-label') {
-        for (const p of demoLinkProblems(html, fixture.siteHost)) fail(builtRel, req.rule, p)
-      }
-    }
+    requiredChecks(builtRel, html, text, meta)
 
     // 2b. Every pending home page promise (shared/launch-claims.mjs) is on the
     //     built page word for word, so a reworded or removed sentence can't
@@ -578,13 +679,14 @@ export function runCheck(root, fixturePath = join(root, 'tests/fixtures/banned-c
       fail(builtRel, `launch claim "${c.id}"`, `not on the page word for word: "${c.text}". Update shared/launch-claims.mjs with the page`)
     }
 
-    if (!fixture.frameWordAllowed) {
-      for (const w of fixture.frameWords) {
-        const re = compileRow({ pattern: w, regex: false })
-        if (re.test(text) || re.test(meta)) fail(builtRel, w, 'frame word on the landing page (D-14)')
-      }
-    }
+    frameChecks(builtRel, text, meta)
   }
+
+  // 2c. The "Who it's for" page, its data file and its sources.
+  forPageChecks(root, fixture, builtDirs, voiceRules, fail, lines, (rel, html, text, meta) => {
+    requiredChecks(rel, html, text, meta)
+    frameChecks(rel, text, meta)
+  })
 
   // 3. Sign-up pages and mail copy: no frame or buyer words (D-05) and none of
   //    the voice and product rules, PLACE-01 included (D-22). The source lists
