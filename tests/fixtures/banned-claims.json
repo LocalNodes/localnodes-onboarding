@@ -414,5 +414,80 @@
         "reason": "Plain-words rule: set-up time is not measured, so no number of minutes is promised"
       }
     ]
+  },
+  "forPage": {
+    "description": "The public \"Who it's for\" page (/for). It gets the home page's honesty bans, voice rules, licence, pre-launch, demo-label and frame-word checks, but not the launch-claims or buyer-word rules. The three lists below apply to the built page and its meta, the data file and these sources.",
+    "page": "app/pages/for.vue",
+    "builtRoute": "for",
+    "dataFile": "app/data/who-its-for.json",
+    "sources": [
+      "app/pages/for.vue",
+      "app/components/WhoItsForKind.vue",
+      "app/components/HomeKinds.vue"
+    ]
+  },
+  "cryptoWords": {
+    "reason": "no crypto words on the Who it's for page or the home row",
+    "patterns": [
+      "wallets?",
+      "tokens?",
+      "gas",
+      "chains?",
+      "blockchains?",
+      "on-chain",
+      "crypto\\w*",
+      "DAOs?",
+      "Ethereum",
+      "USDC",
+      "stablecoins?",
+      "NFTs?",
+      "web3",
+      "smart contracts?",
+      "multisig",
+      "ledgers?",
+      "signatures?",
+      "fees?",
+      "seed phrases?"
+    ]
+  },
+  "priceWords": {
+    "reason": "prices are not repeated on the Who it's for page",
+    "patterns": [
+      "prices?",
+      "pricing",
+      "costs?",
+      "free",
+      "pilots?",
+      "subscriptions?",
+      "discounts?",
+      "coupons?",
+      "per month",
+      "per year",
+      "a month"
+    ]
+  },
+  "pendingTopicWords": {
+    "reason": "a sentence about a promise that is not on the claims list: add it to shared/launch-claims.mjs or reword it",
+    "patterns": [
+      "vot(?:e|es|ed|ing)",
+      "decid(?:e|es|ed|ing)",
+      "decisions?",
+      "proposals?",
+      "funds?",
+      "funded",
+      "funding",
+      "money",
+      "budgets?",
+      "pay(?:s|ing|ments?)?",
+      "paid",
+      "treasury",
+      "dues",
+      "bank",
+      "export",
+      "owned",
+      "owns",
+      "owners?",
+      "ownership"
+    ]
   }
 }
