@@ -174,6 +174,13 @@ describe('the /for page', () => {
     expect(page).not.toMatch(/Who It's [Ff]or/)
   })
 
+  it('reads as a page of the landing: its band and container, its section-heading size, not its margin reset', () => {
+    expect(page).toMatch(/<div class="home-band-light[^"]*">\s*<div class="home-wrap/)
+    expect(page).toMatch(/<h1 class="home-h2\b/)
+    // .home-page zeroes margins and list bullets for the landing's own layout.
+    expect(page).not.toMatch(/class="[^"]*\bhome-page\b/)
+  })
+
   it('is a light page that renders every kind from the data file', () => {
     expect(page).toContain('definePageMeta({ colorMode: \'light\' })')
     expect(page).toMatch(/import data from '~\/data\/who-its-for\.json'/)

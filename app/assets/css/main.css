@@ -67,3 +67,14 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * One header on every page: the landing's container width and side gutter
+ * (.home-wrap in the landing stylesheet), so the logo and the links line up the same way on
+ * the sign-up pages as on the landing.
+ */
+.home-header [data-slot='container'] {
+  max-width: 1200px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
