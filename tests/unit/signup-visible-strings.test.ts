@@ -177,7 +177,7 @@ function continueAndNoticeStrings(): string[] {
   return [
     c.title, c.loading, c.ends(DATE), c.cost(DATE, PRICE), c.priceMissing, c.button, c.buttonWorking, c.retry,
     c.continued(PRICE), c.continued(''), c.ended, c.invalid, c.serverError,
-    buildPilotEndMail({ date: DATE, price: PRICE, link: 'https://localnodes.xyz/pilot/continue?t=x' }).text
+    buildPilotEndMail({ date: DATE, lateUntil: 'April 11, 2027', price: PRICE, link: 'https://localnodes.xyz/pilot/continue?t=x' }).text
   ]
 }
 

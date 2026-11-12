@@ -20,12 +20,16 @@
 //      then.
 //   4. The link's POST (handlePilotContinue) clears cancel_at. Only that yes
 //      makes a pilot a paying subscription.
+//   5. For 30 days after the end, unless the site is already removed, the same link still works
+//      (pilot-late.ts): the yes then opens a Stripe payment page that shows
+//      the total, and nothing is charged unless the organizer pays there.
 //
 // Privacy rule: logs hold fixed words only, never an id, an address or a URL.
 import { deriveKeyHex, openKey, sealKey } from './byo-key'
 import { formatUsDate } from './billing-mail'
 import { buildPilotEndMail, REPLY_TO } from './mail-copy'
 import { formatPrice, type PriceLike } from './price'
+import { LATE_YES_SECONDS, readLate, readLateRecord, startLate, type LateDeps, type LateAnswer } from './pilot-late'
 import { PILOT_CONTINUE_TOKEN_RE, type PilotContinueState } from '../../shared/pilot-continue'
 
 const DAY = 86400
@@ -146,8 +150,9 @@ export interface PilotSubscription {
   id: string
   status: string
   cancel_at?: number | null
+  ended_at?: number | null
   metadata?: Record<string, string> | null
-  items?: { data?: Array<{ price?: PriceLike | null }> } | null
+  items?: { data?: Array<{ price?: (PriceLike & { id?: string }) | null }> } | null
   customer?: string | { id?: string, email?: string | null, deleted?: boolean } | null
 }
 
@@ -179,27 +184,62 @@ export interface PilotContinueDeps {
   /** Milliseconds. */
   now?: () => number
   log?: (msg: string) => void
+  /** The late yes (pilot-late.ts). Without it an ended pilot answers ended, as before. */
+  late?: Omit<LateDeps, 'log'>
+  /** Where Stripe's payment page sends the organizer back to. */
+  origin?: string
+}
+
+export interface PilotContinueBody {
+  state: Exclude<PilotContinueState, 'invalid' | 'unavailable'>
+  date: string
+  price: string
+  /** checkout: Stripe's payment page. */
+  url?: string
+  /** continued after a late yes: what was paid on the payment page, and when. */
+  charged?: string
+  chargedOn?: string
 }
 
 export type PilotContinueOutcome =
-  | { status: 200, body: { state: Exclude<PilotContinueState, 'invalid' | 'unavailable'>, date: string, price: string } }
+  | { status: 200, body: PilotContinueBody }
   | { status: 400, body: { state: 'invalid' } }
   | { status: 503, body: { state: 'unavailable' } }
 
 const INVALID = { status: 400 as const, body: { state: 'invalid' as const } }
 const UNAVAILABLE = { status: 503 as const, body: { state: 'unavailable' as const } }
 
-type Judged = { state: 'ends' | 'continued' | 'ended' } | { state: 'invalid' }
+type Judged = { state: 'ends' | 'continued' | 'ended' | 'lapsed' | 'unavailable' } | { state: 'invalid' }
 
-/** The subscription's state against the end the token was minted for. */
-function judge(sub: PilotSubscription, cancelAt: number, nowSec: number): Judged {
+/**
+ * The subscription's state against the end the token was minted for. With
+ * `late`, a pilot Stripe ended at that end is lapsed until LATE_YES_SECONDS
+ * after it, and a pilot past its end that Stripe has not ended yet is a
+ * moment's wait (unavailable). Without it both read ended, as before.
+ */
+function judge(sub: PilotSubscription, cancelAt: number, nowSec: number, late: boolean): Judged {
   const meta = sub.metadata ?? {}
   if (meta.pilot === 'continued') return { state: 'continued' }
   if (meta.pilot !== 'ends') return { state: 'invalid' }
+  if (sub.status === 'canceled') {
+    // Stripe keeps cancel_at on a subscription it ended; ended_at is the same time.
+    if (sub.cancel_at !== cancelAt && sub.ended_at !== cancelAt) return { state: 'invalid' }
+    if (!late || nowSec >= cancelAt + LATE_YES_SECONDS) return { state: 'ended' }
+    return { state: 'lapsed' }
+  }
   if (sub.cancel_at !== cancelAt) return { state: 'invalid' }
-  if (sub.status === 'canceled' || cancelAt <= nowSec) return { state: 'ended' }
+  if (cancelAt <= nowSec) return late ? { state: 'unavailable' } : { state: 'ended' }
   if (sub.status !== 'active') return { state: 'invalid' }
   return { state: 'ends' }
+}
+
+function lateOutcome(answer: LateAnswer, date: string, price: string): PilotContinueOutcome {
+  switch (answer.state) {
+    case 'unavailable': return UNAVAILABLE
+    case 'checkout': return { status: 200, body: { state: 'checkout', date, price, url: answer.url } }
+    case 'continued': return { status: 200, body: { state: 'continued', date, price, charged: answer.charged, chargedOn: answer.chargedOn } }
+    default: return { status: 200, body: { state: answer.state, date, price } }
+  }
 }
 
 /**
@@ -238,13 +278,43 @@ export async function handlePilotContinue(method: 'GET' | 'POST', token: string,
   }
   const date = formatUsDate(opened.cancelAt)
   const price = priceOf(sub)
-  const judged = judge(sub, opened.cancelAt, nowSec)
+  const judged = judge(sub, opened.cancelAt, nowSec, Boolean(deps.late))
   if (judged.state === 'invalid') {
     log('pilot-continue: refused')
     return INVALID
   }
+  if (judged.state === 'unavailable') {
+    log('pilot-continue: end not yet applied')
+    return UNAVAILABLE
+  }
+  // Past the window: a page opened in its last half hour may have been paid
+  // just after it, so a paid (or confirming) record still answers; else ended.
+  if (judged.state === 'ended' && deps.late && sub.status === 'canceled') {
+    const answer = await readLate(opened.subscriptionId, nowSec, { ...deps.late, log })
+    if (answer.state === 'continued' || answer.state === 'confirming' || answer.state === 'unavailable') return lateOutcome(answer, date, price)
+    return { status: 200, body: { state: 'ended', date, price } }
+  }
+  if (judged.state === 'lapsed' && deps.late) {
+    const lateDeps: LateDeps = { ...deps.late, log }
+    if (method === 'GET' || !price) return lateOutcome(await readLate(opened.subscriptionId, nowSec, lateDeps), date, price)
+    const origin = deps.origin ?? PILOT_CONTINUE_ORIGIN
+    const back = (flag: 'paid' | 'back') => `${origin}/pilot/continue?t=${encodeURIComponent(token)}&${flag}=1`
+    return lateOutcome(await startLate(sub, opened.cancelAt + LATE_YES_SECONDS, nowSec, back, lateDeps), date, price)
+  }
   if (method === 'GET' || judged.state !== 'ends') {
-    return { status: 200, body: { state: judged.state, date, price } }
+    return { status: 200, body: { state: judged.state as PilotContinueBody['state'], date, price } }
+  }
+  // A site marked for removal is not kept from here, even before its end.
+  if (deps.late) {
+    try {
+      if ((await readLateRecord(deps.late.redis, opened.subscriptionId))?.state === 'removing') {
+        log('pilot-continue: marked for removal')
+        return { status: 200, body: { state: 'ended', date, price } }
+      }
+    } catch {
+      log('pilot-late: record unavailable')
+      return UNAVAILABLE
+    }
   }
   try {
     await deps.stripe.subscriptions.update(
@@ -427,7 +497,7 @@ export async function sweepPilotNotices(deps: PilotNoticeDeps): Promise<PilotNot
           }
         } else {
           // No try yet: build (or rebuild) the request, and record it with this try's time before sending.
-          const mail = buildPilotEndMail({ date: formatUsDate(end), price, link: continueUrl(sub.id, end, deps.secret) })
+          const mail = buildPilotEndMail({ date: formatUsDate(end), lateUntil: formatUsDate(end + LATE_YES_SECONDS), price, link: continueUrl(sub.id, end, deps.secret) })
           record = {
             body: { from: deps.from, to: [to], reply_to: REPLY_TO, subject: mail.subject, text: mail.text, html: mail.html },
             firstTryAt: nowSec

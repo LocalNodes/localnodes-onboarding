@@ -5,6 +5,10 @@
 // state (GET /api/pilot-continue), in the browser. Only the button's POST, the
 // organizer's yes, keeps the site, and from then on the saved card is charged
 // from the first bill after the free months, even while paid sign-ups are off.
+// After the free end the yes opens Stripe's payment page instead, which shows
+// the total; nothing is charged unless the organizer pays there, and the page
+// follows only an address on Stripe's checkout host. Stripe sends them back
+// here with paid=1 or back=1.
 // With no readable price the page offers no yes, only a new read. Not gated. The token is in
 // the query string, so the route rule sends no Referer and the page is never
 // cached (nuxt.config.ts). The words are draft wording, to be confirmed
@@ -19,11 +23,14 @@ const copy = PILOT_CONTINUE_COPY
 const title = `${copy.title} - LocalNodes`
 useSeoMeta({ title, ogTitle: title })
 
-const token = pilotTokenFromQuery(useRoute().query.t)
+const query = useRoute().query
+const token = pilotTokenFromQuery(query.t)
+// Back from Stripe's payment page without paying.
+const cameBack = query.back === '1'
 // A link with no usable token gets its message straight away, with no request.
 const view = ref<PilotContinueView>({ phase: token ? 'loading' : 'invalid', date: '', price: '' })
 // The date and price from the last good read, kept when a POST fails.
-const known = ref({ date: '', price: '' })
+const known = ref({ date: '', price: '', late: false })
 const result = ref<HTMLElement | null>(null)
 // The yes is offered only when the last good read had both the date and the price.
 const canKeep = computed(() => Boolean(known.value.date && known.value.price))
@@ -34,19 +41,23 @@ async function load() {
   if (!token) return
   view.value = { phase: 'loading', date: '', price: '' }
   const next = await callPilotContinue(fetcher, 'GET', token)
-  if (next.date) known.value = { date: next.date, price: next.price }
+  if (next.date) known.value = { date: next.date, price: next.price, late: Boolean(next.late) }
   view.value = next
 }
 
 async function keep() {
-  if (!token || !canKeep.value || view.value.phase === 'working' || view.value.phase === 'continued') return
+  if (!token || !canKeep.value || ['working', 'checkout', 'continued'].includes(view.value.phase)) return
   view.value = { ...view.value, phase: 'working' }
   const next = await callPilotContinue(fetcher, 'POST', token)
-  if (next.date) known.value = { date: next.date, price: next.price }
+  if (next.date) known.value = { date: next.date, price: next.price, late: Boolean(next.late) }
   view.value = next
+  // callPilotContinue lets only an address on Stripe's checkout host through.
+  if (next.phase === 'checkout' && next.url) window.location.assign(next.url)
 }
 
-const isResult = (phase: string) => ['continued', 'ended', 'invalid', 'server-error'].includes(phase)
+const isResult = (phase: string) => ['continued', 'confirming', 'ended', 'invalid', 'server-error'].includes(phase)
+const busy = computed(() => view.value.phase === 'working' || view.value.phase === 'checkout')
+const workingLabel = computed(() => known.value.late ? copy.lateButtonWorking : copy.buttonWorking)
 async function focusResult() {
   await nextTick()
   result.value?.focus()
@@ -54,6 +65,10 @@ async function focusResult() {
 onMounted(() => {
   if (isResult(view.value.phase)) focusResult()
   else load()
+  // The browser's Back from Stripe's page can restore this page as it was left, mid-redirect: read again.
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && view.value.phase === 'checkout') load()
+  })
 })
 watch(() => view.value.phase, (now) => {
   if (isResult(now)) focusResult()
@@ -73,7 +88,7 @@ function retry() {
     </h1>
 
     <!-- Always present, so the change is announced. -->
-    <p aria-live="polite" class="sr-only">{{ view.phase === 'working' ? copy.buttonWorking : view.phase === 'loading' ? copy.loading : '' }}</p>
+    <p aria-live="polite" class="sr-only">{{ busy ? workingLabel : view.phase === 'loading' ? copy.loading : '' }}</p>
 
     <p v-if="view.phase === 'loading'" class="text-base text-muted">{{ copy.loading }}</p>
 
@@ -82,7 +97,14 @@ function retry() {
       ref="result"
       tabindex="-1"
       class="text-base text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-    >{{ copy.continued(view.price || known.price) }}</p>
+    >{{ view.late ? copy.lateContinued(view.charged ?? '', view.chargedOn ?? '', view.price || known.price) : copy.continued(view.price || known.price) }}</p>
+
+    <p
+      v-else-if="view.phase === 'confirming'"
+      ref="result"
+      tabindex="-1"
+      class="text-base text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >{{ copy.confirming }}</p>
 
     <div
       v-else-if="view.phase === 'ended' || view.phase === 'invalid'"
@@ -99,7 +121,12 @@ function retry() {
     </div>
 
     <div v-else class="flex flex-col gap-6">
-      <template v-if="known.date">
+      <template v-if="known.date && known.late">
+        <p class="text-base text-default">{{ copy.lapsed(known.date) }}</p>
+        <p v-if="cameBack" class="text-base text-default">{{ copy.back }}</p>
+        <p class="text-base text-muted">{{ known.price ? copy.lateCost(known.price) : copy.priceMissing }}</p>
+      </template>
+      <template v-else-if="known.date">
         <p class="text-base text-default">{{ copy.ends(known.date) }}</p>
         <p class="text-base text-muted">{{ known.price ? copy.cost(known.date, known.price) : copy.priceMissing }}</p>
       </template>
@@ -119,9 +146,9 @@ function retry() {
       <UButton
         v-if="canKeep"
         type="button"
-        :label="view.phase === 'working' ? copy.buttonWorking : copy.button"
-        :loading="view.phase === 'working'"
-        :disabled="view.phase === 'working'"
+        :label="busy ? workingLabel : copy.button"
+        :loading="busy"
+        :disabled="busy"
         size="xl"
         color="primary"
         class="self-start"

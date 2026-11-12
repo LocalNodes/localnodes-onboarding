@@ -12,6 +12,7 @@ import { releaseSessionKey } from '../utils/byo-key'
 import { forgetCheckout } from '../utils/checkout-marker'
 import { routeInvoiceEvent } from '../utils/billing'
 import { makeBillingDeps } from '../utils/billing-wiring'
+import { recordLateContinuation, type LateSession } from '../utils/pilot-late'
 
 // Logic in server/utils/stripe-webhook.ts. While the launch is closed a
 // verified event gets 200 and no action (the route isn't gated to 404), except
@@ -37,6 +38,13 @@ export default defineEventHandler(async (event) => {
     onInvoice: async (stripeEvent) => {
       const billing = makeBillingDeps(config)
       await routeInvoiceEvent(stripeEvent, { ...billing.deps, onRenewalProblem: billing.onRenewalProblem })
+    },
+    // A late yes's payment page was paid: keep the new subscription on the pilot's record.
+    onLateCompleted: async (session) => {
+      const from = session.metadata?.pilot_continued_from
+      if (!from) return
+      const redis = useRedis()
+      await recordLateContinuation({ get: key => redis.get(key), set: (key, value, opts) => redis.set(key, value, opts as never), del: (...keys) => redis.del(...keys), eval: (script, keys, args) => redis.eval(script, keys, args as never) }, from, session as unknown as LateSession, Math.floor(Date.now() / 1000), msg => console.log(msg), { retrieve: id => useStripe().invoices.retrieve(id) as never })
     },
     onCheckoutCompleted: async (session: Stripe.Checkout.Session) => {
       console.log('Checkout session completed:', { sessionId: session.id, subscriptionId: session.subscription })

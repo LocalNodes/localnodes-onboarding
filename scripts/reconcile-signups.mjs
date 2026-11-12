@@ -418,6 +418,17 @@ export async function reconcile({ hours, now }, { redis, stripe, lifecycle }) {
   for (const sub of ended) {
     if (sub?.metadata?.pilot !== 'ends' || !present(sub?.metadata?.provision_id)) continue
     const endedSec = Number.isFinite(sub.ended_at) ? sub.ended_at : null
+    // A late yes (server/utils/pilot-late.ts): paid on Stripe's page, the site stays;
+    // an open page must be closed with scripts/pilot-removal.mjs before removing.
+    const late = await reading('Redis', () => redis.get(`pilot:late:${sub.id}`))
+    let lateState = 'none'
+    try {
+      const rec = typeof late === 'string' ? JSON.parse(late) : late
+      if (rec && typeof rec === 'object' && typeof rec.state === 'string') lateState = rec.state
+    } catch {
+      lateState = 'unreadable'
+    }
+    const kept = lateState === 'continued'
     add('pilot ended', '-', byProvisionId.get(String(sub.metadata.provision_id)) ?? null, {
       provisionId: String(sub.metadata.provision_id),
       ageMs: endedSec === null ? null : nowMs - endedSec * 1000,
@@ -427,8 +438,9 @@ export async function reconcile({ hours, now }, { redis, stripe, lifecycle }) {
         subscriptionId: String(sub.id),
         endedAt: endedSec === null ? 'unknown' : iso(endedSec * 1000).slice(0, 10),
         noticeFrom: endedSec === null ? 'unknown' : iso(endedSec * 1000 + (PILOT_LAPSE_DAYS - PILOT_REMOVAL_NOTICE_DAYS) * DAY).slice(0, 10),
-        removeFrom: endedSec === null ? 'unknown' : iso(endedSec * 1000 + PILOT_LAPSE_DAYS * DAY).slice(0, 10),
-        removalDue: endedSec !== null && nowMs - endedSec * 1000 >= PILOT_LAPSE_DAYS * DAY
+        removeFrom: kept ? 'kept (paid after the end)' : endedSec === null ? 'unknown' : iso(endedSec * 1000 + PILOT_LAPSE_DAYS * DAY).slice(0, 10),
+        removalDue: !kept && endedSec !== null && nowMs - endedSec * 1000 >= PILOT_LAPSE_DAYS * DAY,
+        lateYes: { none: 'none', opening: 'payment page opening', open: 'payment page open', continued: 'kept', removing: 'removal marked' }[lateState] ?? lateState
       }
     })
   }

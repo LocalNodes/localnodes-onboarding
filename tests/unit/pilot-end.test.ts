@@ -289,6 +289,8 @@ describe('sweepPilotNotices', () => {
     expect(req.body.to).toEqual(['organizer@example.org'])
     expect(String(req.body.text)).toContain('February 26, 2027')
     expect(String(req.body.text)).toContain('$20 a month')
+    // The late yes works for 30 days after the end: the mail names that last day.
+    expect(String(req.body.text)).toContain('the same button still works for 30 days, until March 28, 2027, unless we have already removed the site')
     const link = /https:\/\/localnodes\.xyz\/pilot\/continue\?t=([A-Za-z0-9_-]+)/.exec(String(req.body.text))
     expect(link).not.toBeNull()
     expect(openContinueToken(link![1]!, SECRET)).toEqual({ subscriptionId: 'sub_1', cancelAt: END })
