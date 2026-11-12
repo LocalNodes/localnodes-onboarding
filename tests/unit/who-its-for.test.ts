@@ -92,6 +92,21 @@ describe('who-its-for.json', () => {
     expect(data.closing).toMatch(/single group/i)
   })
 
+  it('names unconferences among the gatherings, which carry the two gathering promises', () => {
+    const g = kinds.find(k => k.id === 'gatherings-and-conferences')!
+    expect(g.heading).toMatch(/\bunconferences\b/)
+    expect(g.who).toMatch(/\ba gathering or unconference\b/)
+    expect(g.firstWeek.join(' ')).toContain('Decide the program together, with every organizer who has a say.')
+    expect(g.firstWeek.join(' ')).toContain('Pay session grants from the group fund.')
+  })
+
+  it('keeps the gathering-only parts that are not built off the page: proposing a session, a schedule that builds itself, a code at the door', () => {
+    const all = JSON.stringify(data)
+    expect(all).not.toMatch(/\bpropos\w*\s+(?:a\s+)?sessions?\b/i)
+    expect(all).not.toMatch(/\bbuilds?\s+itself\b/i)
+    expect(all).not.toMatch(/\bcodes?\s+at\s+the\s+door\b|\bcheck-?in\s+codes?\b/i)
+  })
+
   it('sets a demo only as an empty address or a localnodes.xyz demo site with a name', () => {
     for (const k of kinds) {
       if (k.demo === null) continue

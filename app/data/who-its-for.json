@@ -53,12 +53,12 @@
     },
     {
       "id": "gatherings-and-conferences",
-      "heading": "Community-run gatherings and conferences",
-      "who": "You're planning a gathering together.",
+      "heading": "Community-run gatherings, conferences and unconferences",
+      "who": "You're planning a gathering or unconference together.",
       "shape": "The gathering has one site, with tracks, working groups or session hosts as groups.",
       "firstWeek": [
         "Add the schedule and session notes; ask which sessions cover food growing and open the source.",
-        "Talk the program through in a post where every organizer can comment, and open it to the whole gathering."
+        "Decide the program together, with every organizer who has a say. Pay session grants from the group fund."
       ],
       "demo": null
     },

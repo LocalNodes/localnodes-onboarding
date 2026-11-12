@@ -104,6 +104,15 @@ describe('the list', () => {
     }
   })
 
+  it('keeps the gathering promises pending, waiting on the same things as deciding and the real fund', () => {
+    const byId = (id: string) => LAUNCH_CLAIMS.find(c => c.id === id)!
+    for (const [id, homeId] of [['gathering-program', 'deciding'], ['session-grants', 'real-fund']] as const) {
+      expect(byId(id).page, id).toBe('/for')
+      expect(byId(id).ready, id).toBe(false)
+      expect(byId(id).until, id).toBe(byId(homeId).until)
+    }
+  })
+
   it('lists the calendar and quick-poll sentences of the Who it\'s for page as live, with the pull request that shipped them', () => {
     const live = claimsOn('/for').filter(c => /\b(?:polls?|calendars?)\b/i.test(c.text))
     expect(live.length).toBeGreaterThan(0)

@@ -489,7 +489,9 @@
       "owners?",
       "ownership",
       "polls?",
-      "calendars?"
+      "calendars?",
+      "grants?",
+      "propos(?:e|es|ed|ing)"
     ]
   }
 }
