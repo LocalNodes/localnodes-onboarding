@@ -203,9 +203,9 @@ describe('the hero as the server renders it', () => {
 })
 
 describe('the six places', () => {
-  it('has the six-places line, the six chips in order and the line about the money', async () => {
+  it('has the six-places line, the six chips in order, the line about the money and the closing line', async () => {
     const html = await render(HomeScatter)
-    expect(seen(html)).toBe('Right now, what your group knows lives in six places and one person\'s memory. group chat shared drive email threads a paper binder a spreadsheet last year\'s notes And the money often sits in one person\'s bank account.')
+    expect(seen(html)).toBe('Right now, what your group knows lives in six places and one person\'s memory. group chat shared drive email threads a paper binder a spreadsheet last year\'s notes And the money often sits in one person\'s bank account. Here\'s what it looks like in one place.')
     expect((html.match(/<li>/g) ?? []).length).toBe(6)
   })
   it('is a dark band, like the hero it follows', async () => {
