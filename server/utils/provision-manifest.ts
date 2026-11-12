@@ -94,7 +94,7 @@ const AI_KEY_SOURCES = ['platform', 'organizer']
  * empty string when the invite named no community kind (or a stored value is
  * not on the list).
  *
- * A tenth, ai_key (23-18, D-21), is added only when the record says the
+ * A tenth, ai_key, is added only when the record says the
  * organizer brought a key and the sealed slot byok:{provisionId} is still
  * there. The slot is read only after the token check and only for such a
  * record. After the ack the slot is gone: a retry gets ai_key_source organizer
