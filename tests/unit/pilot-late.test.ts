@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import type Stripe from 'stripe'
 import { handlePilotContinue, sealContinueToken, type PilotContinueDeps } from '../../server/utils/pilot-end'
 import {
+  LATE_LOCK_SECONDS,
+  LATE_MIN_SESSION_SECONDS,
   LATE_SESSION_SECONDS,
   LATE_YES_SECONDS,
   lateKey,
@@ -195,14 +197,54 @@ describe('a pilot past its free end', () => {
     expect(late.create).not.toHaveBeenCalled()
   })
 
-  it('the page never outlives the removal date, and too short a page is not opened', async () => {
+  it('the page ends at the removal date, except in the last half hour, when it gets Stripe\'s shortest life', async () => {
     const close = lateDeps(lapsedSub(), END + LATE_YES_SECONDS - 3600)
     await handlePilotContinue('POST', token(), close.deps)
     expect(close.create.mock.calls[0]![0].expires_at).toBe(END + LATE_YES_SECONDS)
 
-    const tooClose = lateDeps(lapsedSub(), END + LATE_YES_SECONDS - 600)
-    expect(await handlePilotContinue('POST', token(), tooClose.deps)).toMatchObject({ body: { state: 'ended' } })
-    expect(tooClose.create).not.toHaveBeenCalled()
+    const lastMinutes = END + LATE_YES_SECONDS - 600
+    const veryClose = lateDeps(lapsedSub(), lastMinutes)
+    expect(await handlePilotContinue('POST', token(), veryClose.deps)).toMatchObject({ body: { state: 'checkout' } })
+    expect(veryClose.create.mock.calls[0]![0].expires_at).toBe(lastMinutes + LATE_MIN_SESSION_SECONDS)
+  })
+
+  it('a yes whose lock was taken over while Stripe answered expires its page and writes nothing', async () => {
+    const { deps, redis, create, expire } = lateDeps(lapsedSub())
+    create.mockImplementationOnce(async (params: Record<string, unknown>) => {
+      await redis.del(lateLockKey('sub_1'))
+      await redis.set(lateLockKey('sub_1'), 'someone-else', { nx: true, ex: 60 })
+      return session({ id: 'cs_slow', url: 'https://checkout.stripe.com/c/pay/cs_slow', expires_at: Number(params.expires_at) })
+    })
+    expect(await handlePilotContinue('POST', token(), deps)).toEqual({ status: 503, body: { state: 'unavailable' } })
+    expect(expire).toHaveBeenCalledWith('cs_slow')
+    expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
+    expect(redis.raw(lateLockKey('sub_1'))).toBe('someone-else')
+  })
+
+  it('a removal that ran while a slow yes waited on Stripe is not written over', async () => {
+    const { deps, redis, create, expire } = lateDeps(lapsedSub())
+    create.mockImplementationOnce(async (params: Record<string, unknown>) => {
+      await redis.del(lateLockKey('sub_1'))
+      expect(await markLateRemoval('sub_1', LATER, { ...deps.late!, log: vi.fn() })).toBe('marked')
+      return session({ id: 'cs_slow', url: 'https://checkout.stripe.com/c/pay/cs_slow', expires_at: Number(params.expires_at) })
+    })
+    expect(await handlePilotContinue('POST', token(), deps)).toEqual({ status: 503, body: { state: 'unavailable' } })
+    expect(expire).toHaveBeenCalledWith('cs_slow')
+    expect(JSON.parse(redis.raw(lateKey('sub_1'))!)).toMatchObject({ state: 'removing' })
+    expect(await handlePilotContinue('POST', token(), deps)).toMatchObject({ body: { state: 'ended' } })
+  })
+
+  it('a Stripe call that runs past the lock\'s write deadline: the page is expired, nothing written', async () => {
+    const { deps, redis, create, expire } = lateDeps(lapsedSub())
+    let ms = 1_000_000
+    const late = { ...deps.late!, clock: () => ms }
+    create.mockImplementationOnce(async (params: Record<string, unknown>) => {
+      ms += LATE_LOCK_SECONDS * 1000
+      return session({ id: 'cs_slow', url: 'https://checkout.stripe.com/c/pay/cs_slow', expires_at: Number(params.expires_at) })
+    })
+    expect(await handlePilotContinue('POST', token(), { ...deps, late })).toEqual({ status: 503, body: { state: 'unavailable' } })
+    expect(expire).toHaveBeenCalledWith('cs_slow')
+    expect(redis.raw(lateKey('sub_1'))).toBeUndefined()
   })
 
   it('past the end but not yet ended by Stripe: try again shortly (503), nothing opened', async () => {

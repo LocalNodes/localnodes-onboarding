@@ -21,6 +21,7 @@
 // removal step, so a session can't be opened while the site is being removed.
 //
 // Privacy rule: logs hold fixed words only, never an id, an address or a URL.
+import { randomUUID } from 'node:crypto'
 import { formatUsDate } from './billing-mail'
 import { formatMoney } from './price'
 
@@ -35,7 +36,13 @@ export const LATE_MIN_SESSION_SECONDS = 31 * 60
 /** An open session this close to expiring is not handed out again; a new one is opened. */
 export const LATE_REUSE_MARGIN_SECONDS = 10 * 60
 /** The lock shared with the removal step. */
-export const LATE_LOCK_SECONDS = 60
+export const LATE_LOCK_SECONDS = 300
+/**
+ * A holder writes only while this much of the lock's life is left (and the lock
+ * still holds its token): a slow Stripe call can't outlive the lock and then
+ * write over what the next holder did.
+ */
+export const LATE_LOCK_WRITE_MARGIN_SECONDS = 60
 
 /** Where Checkout sends the organizer: only this host is followed by the page. */
 export const CHECKOUT_URL_PREFIX = 'https://checkout.stripe.com/'
@@ -105,6 +112,8 @@ export interface LateDeps {
   redis: LateRedis
   stripe: LateStripe
   log: (msg: string) => void
+  /** Milliseconds, for the lock's own deadline. Defaults to Date.now. */
+  clock?: () => number
 }
 
 /** What the late steps answer; the continue route adds the date and price. */
@@ -217,8 +226,36 @@ export async function readLate(pilotSubscriptionId: string, nowSec: number, deps
   return { state: 'lapsed' }
 }
 
-async function takeLock(redis: LateRedis, pilotSubscriptionId: string): Promise<boolean> {
-  return Boolean(await redis.set(lateLockKey(pilotSubscriptionId), '1', { nx: true, ex: LATE_LOCK_SECONDS }))
+interface Lock {
+  token: string
+  /** Milliseconds: no write after this. */
+  writeBy: number
+}
+
+async function takeLock(deps: LateDeps, pilotSubscriptionId: string): Promise<Lock | null> {
+  const clock = deps.clock ?? Date.now
+  const token = randomUUID()
+  const started = clock()
+  if (!(await deps.redis.set(lateLockKey(pilotSubscriptionId), token, { nx: true, ex: LATE_LOCK_SECONDS }))) return null
+  return { token, writeBy: started + (LATE_LOCK_SECONDS - LATE_LOCK_WRITE_MARGIN_SECONDS) * 1000 }
+}
+
+/** True while this holder may still write: within its deadline and the lock still its own. */
+async function stillHeld(deps: LateDeps, pilotSubscriptionId: string, lock: Lock): Promise<boolean> {
+  if ((deps.clock ?? Date.now)() > lock.writeBy) return false
+  try {
+    return String(await deps.redis.get(lateLockKey(pilotSubscriptionId))) === lock.token
+  } catch {
+    return false
+  }
+}
+
+async function releaseLock(deps: LateDeps, pilotSubscriptionId: string, lock: Lock): Promise<void> {
+  try {
+    if (String(await deps.redis.get(lateLockKey(pilotSubscriptionId))) === lock.token) await deps.redis.del(lateLockKey(pilotSubscriptionId))
+  } catch {
+    // It runs out on its own.
+  }
 }
 
 /**
@@ -230,9 +267,9 @@ async function takeLock(redis: LateRedis, pilotSubscriptionId: string): Promise<
  */
 export async function startLate(pilot: LatePilot, removeAt: number, nowSec: number, returnUrl: (flag: 'paid' | 'back') => string, deps: LateDeps): Promise<LateAnswer> {
   const { redis, stripe, log } = deps
-  let locked: boolean
+  let locked: Lock | null
   try {
-    locked = await takeLock(redis, pilot.id)
+    locked = await takeLock(deps, pilot.id)
   } catch {
     log('pilot-late: record unavailable')
     return { state: 'unavailable' }
@@ -301,8 +338,9 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
       }
     }
 
-    const expiresAt = Math.min(nowSec + LATE_SESSION_SECONDS, removeAt)
-    if (expiresAt - nowSec < LATE_MIN_SESSION_SECONDS) return { state: 'ended' }
+    // Stripe needs at least 30 minutes, so in the window's last half hour the
+    // page may outlive it a little; the removal step closes it either way.
+    const expiresAt = Math.max(Math.min(nowSec + LATE_SESSION_SECONDS, removeAt), nowSec + LATE_MIN_SESSION_SECONDS)
     const customer = typeof pilot.customer === 'string' ? pilot.customer : pilot.customer && !pilot.customer.deleted ? pilot.customer.id ?? '' : ''
     const priceId = pilot.items?.data?.[0]?.price?.id ?? ''
     if (!customer || !priceId) {
@@ -313,6 +351,10 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
     const subMeta: Record<string, string> = { pilot: 'continued', pilot_continued_from: pilot.id, pilot_continued_at: String(nowSec) }
     if (meta.provision_id) subMeta.provision_id = meta.provision_id
     if (meta.subdomain) subMeta.subdomain = meta.subdomain
+    if (!(await stillHeld(deps, pilot.id, locked))) {
+      log('pilot-late: lock lost')
+      return { state: 'unavailable' }
+    }
     let session: LateSession
     try {
       session = await stripe.checkout.sessions.create({
@@ -341,6 +383,7 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
     }
     const next: LateRecord = { state: 'open', sessionId: session.id, url: session.url, expiresAt: session.expires_at ?? expiresAt, at: nowSec }
     try {
+      if (!(await stillHeld(deps, pilot.id, locked))) throw new Error('lock lost')
       await redis.set(lateKey(pilot.id), JSON.stringify(next))
     } catch {
       // A session we can't find again must not stay payable.
@@ -355,11 +398,7 @@ export async function startLate(pilot: LatePilot, removeAt: number, nowSec: numb
     log('pilot-late: payment page opened')
     return { state: 'checkout', url: session.url }
   } finally {
-    try {
-      await redis.del(lateLockKey(pilot.id))
-    } catch {
-      // It runs out on its own.
-    }
+    await releaseLock(deps, pilot.id, locked)
   }
 }
 
@@ -372,7 +411,8 @@ export type RemovalOutcome = 'marked' | 'continued' | 'busy' | 'session-still-op
 
 export async function markLateRemoval(pilotSubscriptionId: string, nowSec: number, deps: LateDeps): Promise<RemovalOutcome> {
   const { redis, stripe, log } = deps
-  if (!(await takeLock(redis, pilotSubscriptionId))) return 'busy'
+  const lock = await takeLock(deps, pilotSubscriptionId)
+  if (!lock) return 'busy'
   try {
     const rec = await readLateRecord(redis, pilotSubscriptionId)
     if (rec?.state === 'continued') return 'continued'
@@ -395,13 +435,10 @@ export async function markLateRemoval(pilotSubscriptionId: string, nowSec: numbe
         }
       }
     }
+    if (!(await stillHeld(deps, pilotSubscriptionId, lock))) return 'busy'
     await redis.set(lateKey(pilotSubscriptionId), JSON.stringify({ state: 'removing', at: nowSec } satisfies LateRecord))
     return 'marked'
   } finally {
-    try {
-      await redis.del(lateLockKey(pilotSubscriptionId))
-    } catch {
-      // It runs out on its own.
-    }
+    await releaseLock(deps, pilotSubscriptionId, lock)
   }
 }
