@@ -124,6 +124,26 @@ describe('provision-manifest: the fields', () => {
     }
   })
 
+  it('sends community_template housing_coop when the record names that kind', async () => {
+    await seedSignup(redis, PID_A, { communityTemplate: 'housing_coop' })
+    const out = await call({ provision_id: PID_A }, bearer(PID_A))
+    expect(out.body).toMatchObject({ community_template: 'housing_coop' })
+    expect(Object.keys(out.body).sort()).toEqual(NINE_FIELDS)
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['capitalised', 'Housing_coop'],
+    ['holding a newline', 'housing_coop\nX: y'],
+    ['a number', 7]
+  ] as const)('sends an empty community_template when the stored value is %s', async (_label, communityTemplate) => {
+    await seedSignup(redis, PID_A, communityTemplate === undefined ? {} : { communityTemplate })
+    const out = await call({ provision_id: PID_A }, bearer(PID_A))
+    expect(out.status).toBe(200)
+    expect((out.body as { community_template?: unknown }).community_template).toBe('')
+    expect(Object.keys(out.body).sort()).toEqual(NINE_FIELDS)
+  })
+
   it('returns a number-looking name and subdomain as strings (Upstash parses "2024" back as a number)', async () => {
     await seedSignup(redis, PID_A, { subdomain: '12345', communityName: '2024' })
     const out = await call({ provision_id: PID_A }, bearer(PID_A))

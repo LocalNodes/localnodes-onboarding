@@ -6,7 +6,7 @@
 // script prints may contain an email address.
 import { describe, it, expect, vi } from 'vitest'
 import { FakeRedis } from './helpers/fake-redis'
-import { addInvite, emailKey, inviteKey } from '../../server/utils/invites'
+import { addInvite, COMMUNITY_TEMPLATES, emailKey, inviteKey } from '../../server/utils/invites'
 import * as wave from '../../scripts/invites/import-wave.mjs'
 import * as pilot from '../../scripts/invites/add-pilot.mjs'
 
@@ -326,9 +326,9 @@ function pilotDeps(over: Record<string, unknown> = {}) {
 describe('add-pilot: arguments', () => {
   it('reads --email, --coupon, --test, --wave and --dry-run', () => {
     expect(pilot.parseArgs(['--email', PILOT, '--coupon', 'coupon_100', '--test', '--dry-run']))
-      .toEqual({ email: PILOT, coupon: 'coupon_100', test: true, wave: 'pilot', dryRun: true })
+      .toEqual({ email: PILOT, coupon: 'coupon_100', test: true, wave: 'pilot', dryRun: true, template: '' })
     expect(pilot.parseArgs(['--email', PILOT, '--wave', 'pilot-2']))
-      .toEqual({ email: PILOT, coupon: undefined, test: false, wave: 'pilot-2', dryRun: false })
+      .toEqual({ email: PILOT, coupon: undefined, test: false, wave: 'pilot-2', dryRun: false, template: '' })
   })
 
   it('refuses a missing or malformed email, and the error never repeats it', () => {
@@ -342,6 +342,23 @@ describe('add-pilot: arguments', () => {
   it('refuses an unknown flag and an empty --coupon', () => {
     expect(() => pilot.parseArgs(['--email', PILOT, '--bogus'])).toThrow()
     expect(() => pilot.parseArgs(['--email', PILOT, '--coupon', ''])).toThrow()
+  })
+
+  it('reads --template with a community kind on the list', () => {
+    expect(pilot.parseArgs(['--email', PILOT, '--template', 'housing_coop']))
+      .toEqual({ email: PILOT, coupon: undefined, test: false, wave: 'pilot', dryRun: false, template: 'housing_coop' })
+  })
+
+  it.each(['housing.coop', 'Housing_coop', 'village', ''])('refuses --template %j, naming the allowed kinds and never repeating the value', (bad) => {
+    let message = ''
+    try { pilot.parseArgs(['--email', PILOT, '--template', bad]) } catch (e) { message = (e as Error).message }
+    expect(message).not.toBe('')
+    for (const id of COMMUNITY_TEMPLATES) expect(message).toContain(id)
+    if (bad) expect(message).not.toContain(bad)
+  })
+
+  it('keeps its copy of the community kinds equal to the app list, in the same order', () => {
+    expect(pilot.COMMUNITY_TEMPLATES).toEqual(COMMUNITY_TEMPLATES)
   })
 })
 
@@ -408,6 +425,19 @@ describe('add-pilot: the invite', () => {
     expect(await hashOf(redis, PILOT)).toMatchObject({ status: 'used' })
   })
 
+  it('--template stores the community kind on the invite', async () => {
+    const { redis, deps } = pilotDeps()
+    await pilot.addPilot({ email: PILOT, test: false, wave: 'pilot', dryRun: false, template: 'housing_coop' }, deps)
+    expect(await hashOf(redis, PILOT)).toMatchObject({ communityTemplate: 'housing_coop', kind: 'pilot', status: 'open' })
+  })
+
+  it('a second run for the same open address without --template clears the old kind', async () => {
+    const { redis, deps } = pilotDeps()
+    await pilot.addPilot({ email: PILOT, test: false, wave: 'pilot', dryRun: false, template: 'housing_coop' }, deps)
+    await pilot.addPilot({ email: PILOT, test: false, wave: 'pilot', dryRun: false, template: '' }, deps)
+    expect((await hashOf(redis, PILOT))?.communityTemplate).toBe('')
+  })
+
   it('--dry-run writes nothing and creates no code', async () => {
     const { redis, create, deps } = pilotDeps()
     const result = await pilot.addPilot({ email: PILOT, coupon: 'coupon_100', test: true, wave: 'pilot', dryRun: true }, deps)
@@ -461,6 +491,21 @@ describe('add-pilot: what it prints', () => {
     expect(code).toBe(0)
     expect(out.text()).toMatch(/dry run/i)
     expect(out.text()).not.toContain('PILOTCODE123')
+    expect(out.text()).not.toMatch(/example\.invalid|pilot\.person|@/)
+    expect(redis.keys()).toEqual([])
+  })
+
+  it('a real run with --template prints the community kind, never the address', async () => {
+    const { code, out } = await run(['--email', PILOT, '--template', 'housing_coop'], env)
+    expect(code).toBe(0)
+    expect(out.text().split('\n')).toContain('Community template: housing_coop.')
+    expect(out.text()).not.toMatch(/example\.invalid|pilot\.person|@/)
+  })
+
+  it('a dry run with --template says what a real run would store, never the address', async () => {
+    const { code, out, redis } = await run(['--email', PILOT, '--template', 'housing_coop', '--dry-run'], env)
+    expect(code).toBe(0)
+    expect(out.text().split('\n')).toContain('A real run would store the community template housing_coop.')
     expect(out.text()).not.toMatch(/example\.invalid|pilot\.person|@/)
     expect(redis.keys()).toEqual([])
   })

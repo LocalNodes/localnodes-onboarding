@@ -96,7 +96,7 @@ describe('cleanTopicTypes', () => {
 
 import { FakeRedis } from './helpers/fake-redis'
 import { roomyCapacity } from './helpers/capacity'
-import { addInvite, emailKey, type InviteRecord } from '../../server/utils/invites'
+import { addInvite, emailKey, inviteKey, type InviteRecord } from '../../server/utils/invites'
 import {
   handleCreateCheckout,
   isPaidSignupsEnabled,
@@ -277,6 +277,42 @@ describe('the browser time zone is kept on the sign-up record (orchestrator, 202
 // made it (23-18). It is kept on signup:{provisionId} as ownerSessionHash, so
 // the status read and POST /api/confirm-payment can tell the browser that made
 // this sign-up from any other (Tom's answer 3).
+describe('the community kind is copied from the invite onto the sign-up record', () => {
+  const withKind = async (communityTemplate: unknown) => {
+    const setup = await gateSetup({ gate: true })
+    const key = inviteKey(emailKey(GATE_SECRET, GATE_EMAIL))
+    if (communityTemplate === undefined) {
+      // An invite made before the kind existed: the field is not there at all.
+      const { communityTemplate: _dropped, ...rest } = (await setup.redis.hgetall<Record<string, unknown>>(key))!
+      await setup.redis.del(key)
+      await setup.redis.hset(key, rest)
+    } else {
+      await setup.redis.hset(key, { communityTemplate })
+    }
+    return setup
+  }
+
+  it('an invite naming housing_coop gives communityTemplate housing_coop on signup:{provisionId}', async () => {
+    const { redis, deps } = await withKind('housing_coop')
+    const r = await handleCreateCheckout(GATE_BODY, deps)
+    expect(r.status).toBe(200)
+    expect((await redis.hgetall<Record<string, unknown>>(`signup:${PROVISION}`))?.communityTemplate).toBe('housing_coop')
+  })
+
+  it.each([
+    ['an empty value', ''],
+    ['no value', undefined],
+    ['a kind not on the list', 'village'],
+    ['a capitalised kind', 'Housing_coop']
+  ] as const)('%s leaves communityTemplate off the record, and the checkout still answers 200', async (_label, communityTemplate) => {
+    const { redis, deps } = await withKind(communityTemplate)
+    if (communityTemplate === undefined) expect(await redis.hgetall(inviteKey(emailKey(GATE_SECRET, GATE_EMAIL)))).not.toHaveProperty('communityTemplate')
+    const r = await handleCreateCheckout(GATE_BODY, deps)
+    expect(r.status).toBe(200)
+    expect(await redis.hgetall<Record<string, unknown>>(`signup:${PROVISION}`)).not.toHaveProperty('communityTemplate')
+  })
+})
+
 describe('the owner session hash is kept on the sign-up record (23-37)', () => {
   const HASH = 'a'.repeat(64)
 
