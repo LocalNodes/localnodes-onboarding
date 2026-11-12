@@ -23,8 +23,8 @@ onMounted(() => {
       <div class="home-words">
         <span class="home-mono">Funds</span>
         <h2 class="home-h2">A fund the group controls, and can see.</h2>
-        <p class="home-tag"><span class="home-pill">In the first pilots, with practice money. Real money comes later.</span></p>
         <p>The money moves only when the approvers your group chose sign off. Every payment shows who approved it and what it was for.</p>
+        <p>Start with practice money, so everyone can try a payment before anything real moves. Open your real fund when the group is ready.</p>
         <ul>
           <li>No single person holds the purse</li>
           <li>Optional: turn the fund on when your group is ready</li>

@@ -26,7 +26,6 @@ onMounted(() => {
       <div class="home-words">
         <span class="home-mono">Yours</span>
         <h2 class="home-h2">It's your site. Take it with you.</h2>
-        <p class="home-tag"><span class="home-pill">Export button coming. The archive works today.</span></p>
         <p>LocalNodes is open source (GPL and AGPL). Run it with us or on your own server. If you ever want to move, one button will give you everything your community has put here.</p>
         <ul>
           <li>Your pages, files, members and settings in one download</li>
