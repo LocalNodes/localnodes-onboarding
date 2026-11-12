@@ -6,8 +6,8 @@
  * html.ln-home .home-note (tests/unit/tokens.test.ts). Every other rule here, and
  * every component, reads colour through var(--...) and holds no literal.
  *
- * app/pages/index.vue imports this file and puts the `ln-home` class on <html>
- * while the home page is showing, so the layout's header and footer and anything
+ * app/pages/index.vue and app/pages/for.vue import this file and put the
+ * `ln-home` class on <html> while they are showing, so the layout's header and footer and anything
  * Nuxt UI teleports to <body> (the mobile menu, the group-kind list) are inside
  * the scope, and the sign-up pages are not.
  *
@@ -260,12 +260,6 @@ html.ln-home :focus-visible {
 html.ln-home .home-dark.home-header {
   background: var(--ui-bg);
   border-color: var(--ui-border);
-}
-
-html.ln-home .home-header [data-slot='container'] {
-  max-width: 1200px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
 /* ---------- hero ---------- */

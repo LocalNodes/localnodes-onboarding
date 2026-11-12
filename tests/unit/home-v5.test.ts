@@ -105,6 +105,17 @@ describe('header and footer on the home page', () => {
     expect(header).not.toMatch(/who-its-for|see-it-in-action|open-source'/)
   })
 
+  it('is one header on every page: never switched off, links never centred, the landing container', () => {
+    expect(header).toContain('class="dark home-dark home-header bg-default border-default"')
+    expect(header).not.toMatch(/:class="onLanding/)
+    expect(header).toContain(`:ui="{ left: 'lg:flex-none', right: 'lg:flex-1 lg:justify-end', content: 'dark home-dark' }"`)
+    expect(header.match(/<UNavigationMenu\b/g)).toHaveLength(2)
+    expect(header).not.toMatch(/<UNavigationMenu[^>]*v-if/)
+    expect(header).toContain('<AppLogo reversed />')
+    const main = read('app/assets/css/main.css')
+    expect(main).toMatch(/\.home-header \[data-slot='container'\] \{\s*max-width: 1200px;\s*padding-left: max\(16px/)
+  })
+
   it('is dark on the home page, with the logo left and the nav on the right', () => {
     expect(header).toContain('dark home-dark home-header bg-default border-default')
     expect(header).toMatch(/<template #right>[\s\S]*<UNavigationMenu[^>]*hidden lg:flex/)
@@ -118,7 +129,8 @@ describe('header and footer on the home page', () => {
     expect(header).toContain(`:color="onLanding ? 'primary' : 'neutral'"`)
   })
 
-  it('has a dark footer on the home page only, with its links as they were', () => {
+  it('has a dark footer on the public pages (/ and /for) only, with its links as they were', () => {
+    expect(footer).toContain('PUBLIC_PAGES.includes(route.path)')
     expect(footer).toContain('home-dark')
     expect(footer).toContain('onLanding')
     expect(footer).toContain('hello@localnodes.xyz')
