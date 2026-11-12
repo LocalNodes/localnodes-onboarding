@@ -21,8 +21,8 @@ const PID_A = 'A1b2C3d4E5f6G7h8I9j0Kl'
 const PID_B = 'Zy9X8w7V6u5T4s3R2q1P0o'
 const PID_UNKNOWN = 'Nn0Oo1Pp2Qq3Rr4Ss5Tt6U'
 
-const EIGHT_FIELDS = [
-  'ai_key_source', 'ai_provider', 'community_seed', 'organizer_email', 'provision_id', 'site_name', 'subdomain', 'topic_types_b64'
+const NINE_FIELDS = [
+  'ai_key_source', 'ai_provider', 'community_seed', 'community_template', 'organizer_email', 'provision_id', 'site_name', 'subdomain', 'topic_types_b64'
 ]
 
 /** Wraps FakeRedis and records every command, so a test can say "nothing was read". */
@@ -71,10 +71,10 @@ describe('provision-manifest: the fields', () => {
     redis.calls = []
   })
 
-  it('with the right token returns exactly the eight fields for that site', async () => {
+  it('with the right token returns exactly the nine fields for that site', async () => {
     const out = await call({ provision_id: PID_A }, bearer(PID_A))
     expect(out.status).toBe(200)
-    expect(Object.keys(out.body).sort()).toEqual(EIGHT_FIELDS)
+    expect(Object.keys(out.body).sort()).toEqual(NINE_FIELDS)
     expect(out.body).toMatchObject({
       provision_id: PID_A,
       subdomain: 'cascadia',
@@ -114,10 +114,10 @@ describe('provision-manifest: the fields', () => {
     expect(JSON.stringify(out.body)).not.toMatch(/ai_key"/)
   })
 
-  it('never returns a stored field outside the eight (invite id, created time, anything else)', async () => {
+  it('never returns a stored field outside the nine (invite id, created time, anything else)', async () => {
     await seedSignup(redis, PID_A, { internalNote: 'do-not-send', apiKey: 'sk-not-a-real-key' })
     const out = await call({ provision_id: PID_A }, bearer(PID_A))
-    expect(Object.keys(out.body).sort()).toEqual(EIGHT_FIELDS)
+    expect(Object.keys(out.body).sort()).toEqual(NINE_FIELDS)
     const text = JSON.stringify(out.body)
     for (const leak of ['inv_internal_1', '2026-11-06', 'do-not-send', 'sk-not-a-real-key']) {
       expect(text).not.toContain(leak)
@@ -374,14 +374,14 @@ describe('provision-manifest: the host report address (HOST_REPORT_EMAIL)', () =
     const out = await call('reports@example.test')
     expect(out.status).toBe(200)
     expect(out.body).toMatchObject({ host_report_email: 'reports@example.test', organizer_email: 'organizer@example.test' })
-    expect(Object.keys(out.body).sort()).toEqual([...EIGHT_FIELDS, 'host_report_email'].sort())
+    expect(Object.keys(out.body).sort()).toEqual([...NINE_FIELDS, 'host_report_email'].sort())
   })
 
-  it('leaves the field out when none is set or the setting is not one plain address, so the site keeps the eight fields', async () => {
+  it('leaves the field out when none is set or the setting is not one plain address, so the site keeps the nine fields', async () => {
     for (const bad of [undefined, '', '   ', 'no-at-sign', 'a@b.test c@d.test', 'a@b.test\nX-Header: y', 'a@b.test,c@d.test']) {
       const out = await call(bad)
       expect(out.status).toBe(200)
-      expect(Object.keys(out.body).sort()).toEqual(EIGHT_FIELDS)
+      expect(Object.keys(out.body).sort()).toEqual(NINE_FIELDS)
     }
   })
 
