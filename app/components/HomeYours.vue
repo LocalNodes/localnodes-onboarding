@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Act three, "Yours": open source and the export button. The window is a
+// Act three, "Own": open source and the export button. The window is a
 // picture of the export screen (hidden from the accessibility tree); `home-alt` is its finished
 // state in words. The server renders the finished state; the controller replays it.
 import { computed, onMounted, ref } from 'vue'
@@ -24,7 +24,7 @@ onMounted(() => {
   <section id="yours" class="home-act home-band-tint">
     <div class="home-wrap">
       <div class="home-words">
-        <span class="home-mono">Yours</span>
+        <span class="home-mono">Own</span>
         <h2 class="home-h2">It's your site. Take it with you.</h2>
         <p>LocalNodes is open source (GPL and AGPL). Run it with us or on your own server. If you ever want to move, one button will give you everything your community has put here.</p>
         <ul>

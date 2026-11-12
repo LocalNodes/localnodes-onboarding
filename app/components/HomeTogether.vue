@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// "Shares": the group's home page, with a post, a comment and an event. It comes before
+// "Share": the group's home page, with a post, a comment and an event. It comes before
 // the three acts because it is where a question starts: the post here is the one the decision
 // and the payment below are about. The server renders the finished state; the controller
 // replays it when the window scrolls into view and from "Play again". The window is a picture
@@ -26,7 +26,7 @@ onMounted(() => {
   <section id="together" class="home-act flip home-band-light">
     <div class="home-wrap">
       <div class="home-words">
-        <span class="home-mono">Shares</span>
+        <span class="home-mono">Share</span>
         <h2 class="home-h2">Post news, plan events and keep in touch.</h2>
         <p>Every group has a home page with its latest posts and what's coming up. Members write, add photos, comment, and say they're coming.</p>
         <ul>
