@@ -25,7 +25,7 @@ function entries(source: string): Array<{ title: string, body: string }> {
   return out
 }
 
-const SUBLINE = 'A shared memory with an assistant that knows your group\'s history, a shared fund, and a fair way to decide how it\'s spent. Your community owns it, not a platform.'
+const SUBLINE = 'Keep in touch, ask an assistant that answers from what your group has written down, decide fairly, and look after a fund together. Your community owns it, not a platform.'
 
 const CARDS = [
   { title: 'Neighborhoods and civic groups', body: 'Neighborhood associations, tenant groups and civic clubs keep their minutes and decisions where anyone can ask "what did we decide about the garden?", run a mutual aid fund, and vote together.' },
@@ -47,7 +47,7 @@ const BANNED = /crypto|blockchain|token|wallet|on-?chain|web3|smart contract|bir
 describe('homepage copy (Tom\'s ruling of 2026-11-09, the orchestrator\'s correction of 2026-11-11)', () => {
   it('the hero keeps its headline and carries the new subline; the page description matches it', () => {
     const hero = visible(read('app/components/HeroSection.vue'))
-    expect(hero).toContain('Where your community thinks, decides and funds together.')
+    expect(hero).toContain('Where your community shares, decides and funds together.')
     expect(hero).toContain(SUBLINE)
     expect(hero).not.toContain('Share posts, events and conversations')
     const page = read('app/pages/index.vue')

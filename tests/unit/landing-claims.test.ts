@@ -21,7 +21,7 @@ const PRELAUNCH = '<p data-prelaunch class="band"><span>Launching soon.</span> <
 
 const CLEAN_BODY = `
   ${PRELAUNCH}
-  <h1>Where your community thinks, decides and funds together.</h1>
+  <h1>Where your community shares, decides and funds together.</h1>
   <p>Share posts, events and conversations, keep a library every member can ask, run a group fund, and vote on what happens next.</p>
   <a href="https://cascadia.localnodes.xyz">Cascadia (demo)</a>
   <a href="/onboarding">Set up your community's site</a>
@@ -497,5 +497,246 @@ describe('sign-up pages and mail copy are wording-checked (23-28)', () => {
   it('a listed file that is not in the root is skipped, not a failure (a page not built yet)', () => {
     const r = runClean()
     expect(r.out).toContain('RESULT: PASS')
+  })
+})
+
+// The home page's fund window shows scripted example
+// amounts. Only an amount that sits alone in a box, in the fund section, and
+// that matches home-demo.json is exempt from the price rule, and only from the
+// price rule. Every other rule still reads the unchanged text.
+describe('demo amounts in the fund window', () => {
+  const DEMO = { fund: { balanceBefore: 12400, balanceAfter: 10600, payment: 1800 }, examples: [{ q: 'Where do we keep the lease?', a: 'The lease is in the shared binder.' }] }
+
+  function writeDemo(json: unknown) {
+    mkdirSync(join(root, 'app/data'), { recursive: true })
+    writeFileSync(join(root, 'app/data/home-demo.json'), typeof json === 'string' ? json : JSON.stringify(json))
+  }
+  const slot = (path: string, text: string) => `<span data-demo-amount="${path}">${text}</span>`
+  const box = (path: string, text: string) => `<div data-demo-amount-box>${slot(path, text)}</div>`
+  const FUND = `<section id="fund"><h2>A fund the group controls, and can see.</h2><p>Repair fund balance</p>${box('fund.balanceAfter', '$10,600')}${box('fund.payment', '$1,800')}</section>`
+
+  it('the demo page passes: both amounts are boxed, in #fund, and match the data', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND))
+    expect(r.out).toContain('RESULT: PASS')
+    expect(r.code).toBe(0)
+  })
+
+  it('passes with Vue comment markers around the slot', () => {
+    writeDemo(DEMO)
+    const f = FUND.replace('<span data-demo-amount="fund.payment">$1,800</span>', '<!--[--><span data-demo-amount="fund.payment">$1,800</span><!--]-->')
+    expect(run(page(CLEAN_BODY + f)).code).toBe(0)
+  })
+
+  it('a $5 planted elsewhere still fails', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND + '<p>Join for $5.</p>'))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL /m)
+  })
+
+  it('a $99 in #fund with no slot fails', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace('</section>', '<p>Only $99</p></section>')))
+    expect(r.code).toBe(1)
+  })
+
+  it('a slot outside #fund fails', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND + `<section id="other">${box('fund.payment', '$1,800')}</section>`))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/demo amount/)
+  })
+
+  it('a slot of $1,800,000 fails (text is not the data)', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace('$1,800', '$1,800,000')))
+    expect(r.code).toBe(1)
+  })
+
+  it('a slot of $1,800/month fails', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace(slot('fund.payment', '$1,800'), slot('fund.payment', '$1,800/month'))))
+    expect(r.code).toBe(1)
+  })
+
+  it('a slot naming a missing field or fund.other fails', () => {
+    writeDemo(DEMO)
+    expect(run(page(CLEAN_BODY + FUND.replace('fund.payment', 'fund.other'))).code).toBe(1)
+    writeDemo({ ...DEMO, fund: { balanceBefore: 12400, balanceAfter: 10600 } })
+    expect(run(page(CLEAN_BODY + FUND)).code).toBe(1)
+  })
+
+  it('a field that is not a number fails', () => {
+    writeDemo({ ...DEMO, fund: { ...DEMO.fund, payment: '1800' } })
+    expect(run(page(CLEAN_BODY + FUND)).code).toBe(1)
+  })
+
+  it('a page with slots and no data file fails (exit 1)', () => {
+    const r = run(page(CLEAN_BODY + FUND))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/home-demo\.json/)
+  })
+
+  it('a page with slots and an invalid data file fails (exit 1)', () => {
+    writeDemo('{ not json')
+    const r = run(page(CLEAN_BODY + FUND))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/home-demo\.json/)
+  })
+
+  it('a missing build is still exit 2', () => {
+    writeDemo(DEMO)
+    expect(runCli().code).toBe(2)
+  })
+
+  it('the existing clean fixtures still pass with no data file and no slots', () => {
+    expect(run(page(CLEAN_BODY)).code).toBe(0)
+  })
+
+  it('a price with a label word and no box fails (Price: slot /month, no box)', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + '<section id="fund">Price: <span data-demo-amount="fund.payment">$1,800</span>/month</section>'))
+    expect(r.code).toBe(1)
+  })
+
+  it('a boxed amount followed by /month fails (orphan rate word)', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace('</section>', '</section>').replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + '/month')))
+    expect(r.code).toBe(1)
+  })
+
+  it('a boxed amount followed by "per month" or "each" fails', () => {
+    writeDemo(DEMO)
+    expect(run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + '<p>per month</p>'))).code).toBe(1)
+    expect(run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + ' each'))).code).toBe(1)
+  })
+
+  it('a boxed amount after "Price:" or "from" fails', () => {
+    writeDemo(DEMO)
+    expect(run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), 'Price: ' + box('fund.payment', '$1,800')))).code).toBe(1)
+    expect(run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), '<p>from</p>' + box('fund.payment', '$1,800')))).code).toBe(1)
+  })
+
+  // The orphan checks read what a reader sees, so hidden text
+  // between a label word and the box cannot mask them. aria-hidden demo text is still seen.
+  it('hidden text cannot mask "Price:" before a box', () => {
+    writeDemo(DEMO)
+    const f = (hide: string) => run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), `Price: ${hide}` + box('fund.payment', '$1,800'))))
+    expect(f('<span hidden>balance</span>').code).toBe(1)
+    expect(f('<span style="display:none">balance</span>').code).toBe(1)
+    expect(f('<span class="hidden">balance</span>').code).toBe(1)
+  })
+
+  it('hidden text cannot mask "monthly" after a box', () => {
+    writeDemo(DEMO)
+    const f = (hide: string) => run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + `${hide} monthly`)))
+    expect(f('<span hidden>balance</span>').code).toBe(1)
+    expect(f('<span style="display:none">balance</span>').code).toBe(1)
+    expect(f('<span class="hidden">balance</span>').code).toBe(1)
+  })
+
+  // sr-only text is read out but not seen, so it cannot mask a seen
+  // price word; and the word "hidden" inside an attribute value hides nothing.
+  it('sr-only text cannot mask "Price:" before or "monthly" after a box', () => {
+    writeDemo(DEMO)
+    const sr = '<span class="sr-only">balance</span>'
+    const r = run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), `Price: ${sr}` + box('fund.payment', '$1,800') + `${sr} monthly`)))
+    expect(r.code).toBe(1)
+    expect(run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), `Price: ${sr}` + box('fund.payment', '$1,800')))).code).toBe(1)
+    expect(run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + `${sr} monthly`))).code).toBe(1)
+  })
+
+  it('a price word read out by a screen reader (sr-only) next to a box fails', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + '<span class="sr-only">per month</span>')))
+    expect(r.code).toBe(1)
+  })
+
+  it('"hidden" inside an attribute value does not hide the text', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), '<span title="a hidden example">Price:</span>' + box('fund.payment', '$1,800') + '<span title="a hidden example"> monthly</span>')))
+    expect(r.code).toBe(1)
+    const after = run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + '<span data-note="hidden"> monthly</span>')))
+    expect(after.code).toBe(1)
+  })
+
+  it('hidden text before a box that says a price word (and nothing seen does) still passes the orphan check', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), '<span hidden>Price:</span>' + box('fund.payment', '$1,800'))))
+    expect(r.out).toContain('RESULT: PASS')
+  })
+
+  it('aria-hidden demo text still counts as seen text: a rate word in it fails', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + '<span aria-hidden="true">per month</span>')))
+    expect(r.code).toBe(1)
+  })
+
+  it('a box whose text is $1,800/month fails (text mismatch)', () => {
+    writeDemo(DEMO)
+    const bad = '<div data-demo-amount-box><span data-demo-amount="fund.payment">$1,800</span>/month</div>'
+    const r = run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), bad)))
+    expect(r.code).toBe(1)
+  })
+
+  it('a box in a span or b (not a block box) fails', () => {
+    writeDemo(DEMO)
+    const bad = '<span data-demo-amount-box><span data-demo-amount="fund.payment">$1,800</span></span>'
+    expect(run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), bad))).code).toBe(1)
+  })
+
+  it('other rules still read the unchanged text: a monthly rate right after a box fails on the rate rule', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND.replace(box('fund.payment', '$1,800'), box('fund.payment', '$1,800') + '<p>/mo</p>')))
+    expect(r.code).toBe(1)
+  })
+
+  it('meta tags get no exemption', () => {
+    writeDemo(DEMO)
+    const r = run(page(CLEAN_BODY + FUND).replace('A library your members', '$1,800 A library your members'))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/meta/)
+  })
+})
+
+describe('home-demo.json strings are wording-checked', () => {
+  function writeDemo(json: unknown) {
+    mkdirSync(join(root, 'app/data'), { recursive: true })
+    writeFileSync(join(root, 'app/data/home-demo.json'), JSON.stringify(json))
+  }
+  const base = () => ({
+    fund: { balanceBefore: 12400, balanceAfter: 10600, payment: 1800 },
+    examples: [{ a: 'One.' }, { a: 'Two.' }, { a: 'Three.' }, { a: 'Four.' }]
+  })
+
+  it('a clean data file passes with no slots on the page', () => {
+    writeDemo(base())
+    expect(run(page(CLEAN_BODY)).code).toBe(0)
+  })
+
+  it('a banned phrase planted in the third example answer fails and names the file', () => {
+    const d = base()
+    d.examples[2]!.a = 'Trusted by 127 Communities worldwide.'
+    writeDemo(d)
+    const r = run(page(CLEAN_BODY))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/^FAIL app\/data\/home-demo\.json/m)
+  })
+
+  it('a voice rule hit in the data fails and names the file', () => {
+    const d = base()
+    d.examples[0]!.a = 'A seamless, AI-powered library.'
+    writeDemo(d)
+    const r = run(page(CLEAN_BODY))
+    expect(r.code).toBe(1)
+    expect(r.out).toMatch(/home-demo\.json/)
+  })
+
+  it('a price in a data string fails', () => {
+    const d = base()
+    d.examples[1]!.a = 'Costs $12 a seat.'
+    writeDemo(d)
+    expect(run(page(CLEAN_BODY)).code).toBe(1)
   })
 })

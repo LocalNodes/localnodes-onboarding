@@ -1,26 +1,40 @@
 <template>
-  <div>
-    <HeroSection id="hero" />
-    <ProblemSection id="the-problem" />
-    <WhoItsFor id="who-its-for" />
-    <FeaturesSection id="what-you-get" />
-    <RoadmapSection id="whats-next" />
-    <SocialProof id="see-it-in-action" />
-    <HowItWorks id="how-it-works" />
-    <OpenSourceSection id="open-source" />
-    <LandingCTA id="early-access" />
+  <div
+    class="home-page"
+    :class="{
+      'home-live': demos.state.mounted,
+      'home-paused': demos.state.paused,
+      'home-reduced': demos.state.reducedMotion
+    }"
+  >
+    <HomeHero />
+    <HomeScatter />
+    <HomeTogether />
+    <HomeDecide />
+    <HomeFund />
+    <HomeYours />
+    <LandingCTA />
   </div>
 </template>
 
 <script setup lang="ts">
-// Section order: fresh3 LANDING.md section 2 (approved, Tom 2026-11-06).
-// The page is light with dark bands (card 7); the bands scope `dark` themselves.
+// The home page: a dark first screen,
+// the six places, the group's home page, three acts (decide, fund, yours) and a dark close. It is a light page whose
+// dark bands scope `dark` themselves, so colorMode stays light.
+//
+// The stylesheet holds this page's colour contexts. It is scoped under the `ln-home` class,
+// which this page puts on <html> while it is showing, so the header, the footer and anything
+// Nuxt UI puts on <body> are inside it and the sign-up pages are not.
+import { onBeforeUnmount, onMounted, provide } from 'vue'
+import '~/assets/css/home-v5.css'
+import { HOME_DEMOS_KEY, useHomeDemos } from '~/composables/useHomeDemos'
+
 definePageMeta({ colorMode: 'light' })
 
 // Headline chosen by Tom, 2026-11-06; the description matches the hero
 // subline (pre-launch, PR #9; the subline is the ruling of 2026-11-09).
-const title = 'LocalNodes: where your community thinks, decides and funds together'
-const description = 'A shared memory with an assistant that knows your group\'s history, a shared fund, and a fair way to decide how it\'s spent. Your community owns it, not a platform. Launching soon.'
+const title = 'LocalNodes: where your community shares, decides and funds together'
+const description = 'Keep in touch, ask an assistant that answers from what your group has written down, decide fairly, and look after a fund together. Your community owns it, not a platform. Launching soon.'
 
 useSeoMeta({
   title,
@@ -30,4 +44,12 @@ useSeoMeta({
   ogImage: '/og-image.png',
   twitterCard: 'summary_large_image'
 })
+
+useHead({ htmlAttrs: { class: 'ln-home' } })
+
+// One controller owns everything that moves; the sections read from it.
+const demos = useHomeDemos()
+provide(HOME_DEMOS_KEY, demos)
+onMounted(() => demos.mount())
+onBeforeUnmount(() => demos.unmount())
 </script>

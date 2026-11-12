@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { GROUP_KINDS } from '~/utils/group-kinds'
 // Early-access form (Tom, 2026-11-06, PR #9). Posts to /api/early-access
 // (server/utils/early-access.ts): email, optional community name, optional
 // kind of group, plus a honeypot field people never see. The server answers
@@ -9,6 +10,11 @@
 // an email error is tied to the email field: UFormField's `error` sets the
 // input's aria-describedby to the error text's id and aria-invalid (checked in
 // the browser, 2026-11-06).
+// The group-kind list opens in a popup that Nuxt UI puts on <body>, outside the band that
+// carries the colour context. The home page's dark close passes its classes here so the
+// popup is dark as well; other pages pass nothing.
+defineProps<{ popupClass?: string }>()
+
 const email = ref('')
 const community = ref('')
 const groupKind = ref<string | undefined>(undefined)
@@ -23,7 +29,8 @@ const confirmation = ref<HTMLElement | null>(null)
 // page, not the provisioning sign-up flow D-05 covers; orchestrator ruling,
 // 2026-11-06). Neighborhood or tenant group and Mutual aid network added by
 // Tom, 2026-11-06.
-const kinds = ['Co-op', 'Online guild or DAO', 'Land trust', 'Neighborhood or tenant group', 'Mutual aid network', 'User group or meetup', 'Network of groups', 'Something else']
+// Labels and stored values live in ~/utils/group-kinds.
+const kinds: Array<{ label: string, value: string }> = GROUP_KINDS.map(k => ({ label: k.label, value: k.value }))
 
 async function submit() {
   if (state.value === 'sending') return
@@ -82,7 +89,7 @@ async function submit() {
         <UInput v-model="community" autocomplete="organization" size="xl" class="w-full" maxlength="80" />
       </UFormField>
       <UFormField label="What kind of group?" name="groupKind" hint="Optional">
-        <USelect v-model="groupKind" :items="kinds" size="xl" class="w-full" placeholder="Choose one" />
+        <USelect v-model="groupKind" :items="kinds" size="xl" class="w-full" placeholder="Choose one" :ui="{ content: popupClass }" />
       </UFormField>
 
       <!-- Honeypot: hidden from people and screen readers; bots fill it. -->

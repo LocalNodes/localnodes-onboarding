@@ -6,16 +6,21 @@
 // "Open source" goes to the public repository (T-5, 2026-11-08). "Get help"
 // (T-1, 2026-11-08) is a mailto: to hello@localnodes.xyz, in the same place on
 // every screen, which is what WCAG 3.2.6 asks of a help link.
+// On the home page the footer is a dark band like the header and the closing section;
+// on the sign-up pages it stays light. On the home page it also takes the page's own width and
+// side gutter, so its left edge lines up with the header and the sections above it.
+const route = useRoute()
+const onLanding = computed(() => route.path === '/')
 const year = new Date().getFullYear()
 </script>
 
 <template>
-  <footer class="border-t border-default bg-default">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
+  <footer class="border-t border-default bg-default" :class="onLanding ? 'dark home-dark' : ''">
+    <div class="py-8 flex flex-col gap-6" :class="onLanding ? 'home-wrap' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex flex-wrap items-center gap-3 text-sm text-muted">
           <NuxtLink to="/" aria-label="LocalNodes home">
-            <AppLogo size="sm" />
+            <AppLogo size="sm" :reversed="onLanding" />
           </NuxtLink>
           <span aria-hidden="true">·</span>
           <span>Home base for communities that run things together.</span>
