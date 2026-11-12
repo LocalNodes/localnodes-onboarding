@@ -18,6 +18,7 @@ import { PROVISION_ID_PATTERN } from '../../shared/provisioning'
 import { cleanTopicTypes } from '../../shared/signup'
 import { hasValidProvisionToken } from './provision-handlers'
 import { seedForManifest } from './community-seed'
+import { keptCommunityTemplate } from './invites'
 import { deleteProvisionKey, openKey, provisionKeyName } from './byo-key'
 
 /** The subset of the Upstash client the manifest and the ack use. */
@@ -84,13 +85,16 @@ const AI_KEY_SOURCES = ['platform', 'organizer']
  * Handle GET /api/provision-manifest?provision_id=…
  * Pure function for testability.
  *
- * The reply holds exactly eight fields, written out one by one: nothing is
+ * The reply holds exactly nine fields, written out one by one: nothing is
  * copied across from the stored record, so a field added to the record later
  * (an invite id) cannot reach the workflow's public runner by accident.
  * community_seed is the four first texts (23-33); it never waits on Gemini and
  * is always there, with the fixed templates when no seed was stored.
+ * community_template is the community kind the site is built from, or an
+ * empty string when the invite named no community kind (or a stored value is
+ * not on the list).
  *
- * A ninth, ai_key (23-18, D-21), is added only when the record says the
+ * A tenth, ai_key, is added only when the record says the
  * organizer brought a key and the sealed slot byok:{provisionId} is still
  * there. The slot is read only after the token check and only for such a
  * record. After the ack the slot is gone: a retry gets ai_key_source organizer
@@ -145,6 +149,7 @@ export async function handleManifest(
     ai_provider: aiProvider,
     ai_key_source: aiKeySource,
     community_seed: seedForManifest({ communitySeed: record.communitySeed, communityName: siteName }),
+    community_template: keptCommunityTemplate(record.communityTemplate),
     ...(aiKey !== undefined ? { ai_key: aiKey } : {}),
     // The host's address for a member's page report (fresh3 23-05: the site
     // reads HOST_REPORT_EMAIL). One plain address or nothing: anything else is

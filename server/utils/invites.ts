@@ -58,6 +58,20 @@ export interface InviteInput {
   wave: string
   promoCodeId?: string
   promoCode?: string
+  /** The community kind the new site is built from; one of COMMUNITY_TEMPLATES. */
+  communityTemplate?: string
+}
+
+/**
+ * The community kinds a site can be built from. The sign-up form has no field
+ * for the kind, so it travels on the invite. add-pilot.mjs keeps a copy that a
+ * test pins to this list.
+ */
+export const COMMUNITY_TEMPLATES: readonly string[] = ['housing_coop', 'single_house', 'market', 'neighbourhood_association']
+
+/** The value when it is a string on COMMUNITY_TEMPLATES, otherwise ''. */
+export function keptCommunityTemplate(value: unknown): string {
+  return typeof value === 'string' && COMMUNITY_TEMPLATES.includes(value) ? value : ''
 }
 
 /** What the token and session records carry. The email is a value only, never a key. */
@@ -163,6 +177,8 @@ export async function addInvite(redis: InviteRedis, secret: string, input: Invit
     kind: input.kind,
     wave: input.wave,
     status: 'open',
+    // Always written, '' when none: a re-made invite never keeps an old kind.
+    communityTemplate: keptCommunityTemplate(input.communityTemplate),
     createdAt: new Date().toISOString()
   }
   if (input.promoCodeId) fields.promoCodeId = input.promoCodeId

@@ -44,7 +44,7 @@ import * as v from 'valibot'
 import { randomBytes } from 'node:crypto'
 import type Stripe from 'stripe'
 import { cleanTopicTypes, signupBodySchema } from '../../shared/signup'
-import { inviteKey, type InviteRecord } from './invites'
+import { inviteKey, keptCommunityTemplate, type InviteRecord } from './invites'
 import { cleanDescription, MAX_DESCRIPTION, MIN_DESCRIPTION } from './topic-types'
 import { checkCode, PROMO_REFUSED_MESSAGE, releaseHold, type PromoRedis, type PromoStripe } from './promo'
 import { pilotEndsAt } from './pilot-end'
@@ -300,6 +300,7 @@ export async function handleCreateCheckout(raw: unknown, deps: CheckoutDeps): Pr
     // Seeds the new site's first texts (T-2). Never logged, never sent to Stripe.
     const description = keptDescription(input.description)
     const timeZone = keptTimeZone(input.timeZone)
+    const communityTemplate = keptCommunityTemplate(invite.communityTemplate)
     // Written before Stripe is called, so the record is there when the webhook
     // fires. provision:by-id is 23-11's.
     const key = `signup:${provisionId}`
@@ -319,6 +320,8 @@ export async function handleCreateCheckout(raw: unknown, deps: CheckoutDeps): Pr
       ...(pilotMonths ? { pilotMonths, pilotEndsAt: pilotEndsAt(Math.floor((deps.now ?? Date.now)() / 1000), pilotMonths) } : {}),
       ...(description ? { description } : {}),
       ...(timeZone ? { timeZone } : {}),
+      // The community kind travels on the invite; an unknown value is dropped, never refused.
+      ...(communityTemplate ? { communityTemplate } : {}),
       // The browser that made this sign-up (sha256 of its ln_invite cookie):
       // only it gets the "Confirm my payment" button on a 3DS hold (23-37).
       ...(deps.sessionHash ? { ownerSessionHash: deps.sessionHash } : {}),
