@@ -21,7 +21,7 @@ const PRELAUNCH = '<p data-prelaunch class="band"><span>Launching soon.</span> <
 
 const CLEAN_BODY = `
   ${PRELAUNCH}
-  <h1>Where your community thinks, decides and funds together.</h1>
+  <h1>Where your community shares, decides and funds together.</h1>
   <p>Share posts, events and conversations, keep a library every member can ask, run a group fund, and vote on what happens next.</p>
   <a href="https://cascadia.localnodes.xyz">Cascadia (demo)</a>
   <a href="/onboarding">Set up your community's site</a>

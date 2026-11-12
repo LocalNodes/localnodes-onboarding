@@ -24,13 +24,13 @@
         </p>
 
         <h1 class="text-4xl sm:text-5xl leading-[1.15] font-semibold text-highlighted text-balance">
-          Where your community thinks, decides and funds together.
+          Where your community shares, decides and funds together.
         </h1>
 
         <p class="text-base leading-relaxed text-muted max-w-xl">
-          A shared memory with an assistant that knows your group's history, a
-          shared fund, and a fair way to decide how it's spent. Your community
-          owns it, not a platform.
+          Keep in touch, ask an assistant that answers from what your group has
+          written down, decide fairly, and look after a fund together. Your
+          community owns it, not a platform.
         </p>
 
         <div class="flex flex-wrap gap-3">

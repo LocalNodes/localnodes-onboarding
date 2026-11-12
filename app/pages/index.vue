@@ -33,8 +33,8 @@ definePageMeta({ colorMode: 'light' })
 
 // Headline chosen by Tom, 2026-11-06; the description matches the hero
 // subline (pre-launch, PR #9; the subline is the ruling of 2026-11-09).
-const title = 'LocalNodes: where your community thinks, decides and funds together'
-const description = 'A shared memory with an assistant that knows your group\'s history, a shared fund, and a fair way to decide how it\'s spent. Your community owns it, not a platform. Launching soon.'
+const title = 'LocalNodes: where your community shares, decides and funds together'
+const description = 'Keep in touch, ask an assistant that answers from what your group has written down, decide fairly, and look after a fund together. Your community owns it, not a platform. Launching soon.'
 
 useSeoMeta({
   title,

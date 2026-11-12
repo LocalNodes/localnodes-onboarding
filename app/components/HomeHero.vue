@@ -63,10 +63,10 @@ const statusText = () => (s.status === 'reading' ? hero.statusReading : s.status
           <b>Launching soon.</b> <a href="#early-access" class="home-link">Get early access</a>.
         </p>
         <h1 class="home-h1">
-          Where your community thinks, decides and funds <span class="home-grad">together.</span>
+          Where your community shares, decides and funds <span class="home-grad">together.</span>
         </h1>
         <p class="home-sub">
-          A shared memory with an assistant that knows your group's history, a shared fund, and a fair way to decide how it's spent. Your community owns it, not a platform.
+          Keep in touch, ask an assistant that answers from what your group has written down, decide fairly, and look after a fund together. Your community owns it, not a platform.
         </p>
         <div class="home-row">
           <UButton to="#early-access" label="Get early access" size="xl" />

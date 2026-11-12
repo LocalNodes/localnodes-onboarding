@@ -59,8 +59,8 @@ describe('the page', () => {
   const page = read('app/pages/index.vue')
 
   it('keeps its title and description lines exactly', () => {
-    expect(page).toContain('const title = \'LocalNodes: where your community thinks, decides and funds together\'')
-    expect(page).toContain('const description = \'A shared memory with an assistant that knows your group\\\'s history, a shared fund, and a fair way to decide how it\\\'s spent. Your community owns it, not a platform. Launching soon.\'')
+    expect(page).toContain('const title = \'LocalNodes: where your community shares, decides and funds together\'')
+    expect(page).toContain('const description = \'Keep in touch, ask an assistant that answers from what your group has written down, decide fairly, and look after a fund together. Your community owns it, not a platform. Launching soon.\'')
   })
 
   it('is a light page that imports the home stylesheet and sets the home class on <html>', () => {
@@ -157,8 +157,8 @@ describe('the hero as the server renders it', () => {
     const html = await render(HomeHero)
     const text = seen(html)
     expect(text).toContain('Launching soon. Get early access .')
-    expect(text).toContain('Where your community thinks, decides and funds together.')
-    expect(text).toContain('A shared memory with an assistant that knows your group\'s history, a shared fund, and a fair way to decide how it\'s spent. Your community owns it, not a platform.')
+    expect(text).toContain('Where your community shares, decides and funds together.')
+    expect(text).toContain('Keep in touch, ask an assistant that answers from what your group has written down, decide fairly, and look after a fund together. Your community owns it, not a platform.')
     expect(html).toMatch(/href="#early-access"[^>]*>Get early access</)
     expect(html).toMatch(/href="#together"[^>]*>See how it works</)
     expect(text).toContain('Example from a demo library. Every answer shows the page it came from.')
