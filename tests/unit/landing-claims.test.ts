@@ -11,7 +11,7 @@ import { join, resolve, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 // @ts-expect-error plain .mjs script, no type declarations
 import { findBannedHits, prelaunchProblems } from '../../scripts/check-landing-claims.mjs'
-import { LAUNCH_CLAIMS } from '../../shared/launch-claims.mjs'
+import { LAUNCH_CLAIMS, claimsOn } from '../../shared/launch-claims.mjs'
 
 const repo = resolve(__dirname, '../..')
 const script = join(repo, 'scripts/check-landing-claims.mjs')
@@ -20,8 +20,8 @@ const fixture = JSON.parse(readFileSync(join(repo, 'tests/fixtures/banned-claims
 // The pre-launch statement every page must carry (Tom, 2026-11-06, PR #9).
 const PRELAUNCH = '<p data-prelaunch class="band"><span>Launching soon.</span> <a href="#demo">See the demo</a> or <a href="#early-access">get early access</a>.</p>'
 
-// The home page's pending promises, which the built page must carry word for word.
-const CLAIMS = LAUNCH_CLAIMS.map(c => `<p>${c.text}</p>`).join('\n  ')
+// The home page's promises, which the built home page must carry word for word.
+const CLAIMS = claimsOn('/').map(c => `<p>${c.text}</p>`).join('\n  ')
 
 const CLEAN_BODY = `
   ${PRELAUNCH}
@@ -69,7 +69,7 @@ afterEach(() => {
 })
 
 describe('check-landing-claims guard fires', () => {
-  for (const c of LAUNCH_CLAIMS) {
+  for (const c of claimsOn('/')) {
     it(`fails when the launch claim "${c.id}" is reworded on the page`, () => {
       const reworded = CLEAN_BODY.replace(`<p>${c.text}</p>`, `<p>${c.text.replace(/\.$/, '')} today.</p>`)
       expect(reworded).not.toBe(CLEAN_BODY)
@@ -81,7 +81,7 @@ describe('check-landing-claims guard fires', () => {
   }
 
   it('reads a launch claim across line breaks and markup, as a reader sees it', () => {
-    const c = LAUNCH_CLAIMS[0]!
+    const c = claimsOn('/')[0]!
     const [first, ...rest] = c.text.split(' ')
     const split = CLEAN_BODY.replace(`<p>${c.text}</p>`, `<p><span>${first}</span>\n   ${rest.join(' ')}</p>`)
     const r = run(page(split))
@@ -766,12 +766,15 @@ describe('home-demo.json strings are wording-checked', () => {
 })
 
 describe('the Who it\'s for page (/for) is claims-checked', () => {
+  // The page's own promises, which the built /for page must carry word for word.
+  const FOR_CLAIMS = claimsOn('/for').map(c => `<p>${c.text}</p>`).join('\n  ')
   const FOR_BODY = `
   <h1>Who it's for</h1>
   <section id="housing-co-ops"><h2>Housing co-ops</h2><p>Your co-op has several houses and plenty to remember.</p>
   <dl><dt>How it's set up</dt><dd>The co-op has one site, with each house as a group.</dd>
   <dt>In the first week</dt><dd><ul><li>Add the minutes and repair log.</li><li>Ask about the back steps and open the cited page.</li></ul></dd></dl></section>
   <p>A single group with no network is welcome too.</p>
+  ${FOR_CLAIMS}
   <p data-prelaunch>Launching soon.</p><a href="/#early-access">Get early access</a>
 `
   function forPage(body: string, meta = 'The kinds of group LocalNodes is for.') {
@@ -792,11 +795,30 @@ describe('the Who it\'s for page (/for) is claims-checked', () => {
     return run(page(CLEAN_BODY))
   }
 
-  it('passes a clean /for page, which need not carry the launch claims', () => {
+  it('passes a clean /for page, which carries its own launch claims and not the home page\'s', () => {
+    expect(claimsOn('/for').length).toBeGreaterThan(0)
     const r = runBoth(forPage(FOR_BODY))
     expect(r.out).toContain('CHECK .output/public/for/index.html')
     expect(r.out).toContain('RESULT: PASS')
     expect(r.code).toBe(0)
+  })
+
+  for (const c of claimsOn('/for')) {
+    it(`fails when the /for launch claim "${c.id}" is reworded on the /for page`, () => {
+      const reworded = FOR_BODY.replace(`<p>${c.text}</p>`, `<p>${c.text.replace(/[.?]$/, '')} today.</p>`)
+      expect(reworded).not.toBe(FOR_BODY)
+      const r = runBoth(forPage(reworded))
+      expect(r.code).toBe(1)
+      expect(r.out).toContain(`FAIL .output/public/for/index.html: launch claim "${c.id}" (not on the page word for word`)
+    })
+  }
+
+  it('fails a sentence about a poll or the calendar that is not on the claims list, naming the list', () => {
+    for (const line of ['<p>Settle it with a poll.</p>', '<p>Add the potluck to the calendar.</p>']) {
+      const r = runBoth(forPage(FOR_BODY + line))
+      expect(r.code, line).toBe(1)
+      expect(r.out, line).toMatch(/\(pendingTopicWords: a sentence about a promise that is not on the claims list/)
+    }
   })
 
   it('fails when the page source exists but no /for page was built', () => {
@@ -867,18 +889,22 @@ describe('the Who it\'s for page (/for) is claims-checked', () => {
   const listProbes: Record<string, string[]> = {
     cryptoWords: ['a wallet', 'tokens', 'gas', 'a chain', 'the blockchain', 'on-chain', 'cryptocurrency', 'a DAO', 'Ethereum', 'USDC', 'a stablecoin', 'NFTs', 'web3', 'a smart contract', 'multisig', 'the ledger', 'signatures', 'a fee', 'your seed phrase'],
     priceWords: ['the price', 'pricing', 'it costs', 'free', 'a pilot', 'a subscription', 'a discount', 'a coupon', '5 per month', '50 per year', '5 a month'],
-    pendingTopicWords: ['vote', 'decided', 'a decision', 'a proposal', 'the fund', 'funded', 'funding', 'money', 'a budget', 'pay', 'payments', 'paid', 'treasury', 'dues', 'the bank', 'export', 'owned', 'owns', 'owners', 'ownership']
+    pendingTopicWords: ['vote', 'decided', 'a decision', 'a proposal', 'the fund', 'funded', 'funding', 'money', 'a budget', 'pay', 'payments', 'paid', 'treasury', 'dues', 'the bank', 'export', 'owned', 'owns', 'owners', 'ownership', 'a poll', 'polls', 'the calendar', 'calendars']
   }
   for (const list of Object.keys(listProbes)) {
+    // Every word in the fixture has a probe here, so a word added there is tested.
     const patterns: string[] = fixture[list].patterns
     it.each(patterns)(`${list}: %s fires on a hard-coded probe`, (p) => {
       const re = new RegExp(`\\b(?:${p})\\b`, 'i')
       expect(listProbes[list]!.some(probe => re.test(probe))).toBe(true)
     })
-    it(`${list}: a probe on the built page fails and names the list`, () => {
-      const r = runBoth(forPage(FOR_BODY + `<p>${listProbes[list]![0]}</p>`))
+    // Every probe here goes through the checker on its own and must be
+    // rejected, whatever the fixture says: a word taken out of the fixture
+    // turns its probe red here.
+    it.each(listProbes[list]!)(`${list}: the checker rejects "%s" on the built page and names the list`, (probe) => {
+      const r = runBoth(forPage(FOR_BODY + `<p>${probe}</p>`))
       expect(r.code).toBe(1)
-      expect(r.out).toContain(list)
+      expect(r.out).toContain(`(${list}: `)
     })
   }
 

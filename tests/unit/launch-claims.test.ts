@@ -1,16 +1,16 @@
 // The launch claims list and the build gate that reads it
 // (shared/launch-claims.mjs, nuxt.config.ts): sign-ups cannot open while a
-// home page promise is pending.
+// promise on the home page or the Who it's for page is pending.
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { LAUNCH_CLAIMS, isLaunchFlagOpen, mightOpen, serverLaunchOpen, pendingClaims, launchGateProblem, missingClaims } from '../../shared/launch-claims.mjs'
+import { LAUNCH_CLAIMS, CLAIM_PAGES, claimsOn, isLaunchFlagOpen, mightOpen, serverLaunchOpen, pendingClaims, launchGateProblem, missingClaims } from '../../shared/launch-claims.mjs'
 import { isLaunchOpen } from '../../shared/launch'
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../${path}`, import.meta.url)), 'utf8')
 
-const ready = (id: string) => ({ id, text: `${id} sentence.`, ready: true, until: 'done' })
-const pending = (id: string) => ({ id, text: `${id} sentence.`, ready: false, until: `${id} ships` })
+const ready = (id: string) => ({ id, page: '/' as const, text: `${id} sentence.`, ready: true, until: 'done', evidence: 'a merged pull request' })
+const pending = (id: string) => ({ id, page: '/' as const, text: `${id} sentence.`, ready: false, until: `${id} ships` })
 
 describe('the launch flag', () => {
   it('is open only for "true" or "1", the same values the sign-up gate reads from the env var', () => {
@@ -40,13 +40,13 @@ describe('the launch flag', () => {
 
 describe('the build gate', () => {
   it('stops an open build while any promise is pending, naming each one', () => {
-    const claims = [ready('a'), pending('b'), pending('c')]
+    const claims = [ready('a'), pending('b'), { ...pending('c'), page: '/for' as const }]
     for (const flag of ['true', '1']) {
       const problem = launchGateProblem(flag, claims)
-      expect(problem).toMatch(/^Sign-ups cannot open: 2 home page promise/)
-      expect(problem).toContain('- b: "b sentence." Needs: b ships')
-      expect(problem).toContain('- c: "c sentence." Needs: c ships')
-      expect(problem).not.toContain('- a:')
+      expect(problem).toMatch(/^Sign-ups cannot open: 2 page promise/)
+      expect(problem).toContain('- b on /: "b sentence." Needs: b ships')
+      expect(problem).toContain('- c on /for: "c sentence." Needs: c ships')
+      expect(problem).not.toContain('- a ')
     }
   })
 
@@ -84,6 +84,32 @@ describe('the list', () => {
       expect(c.text.length).toBeGreaterThan(10)
       expect(c.until.length).toBeGreaterThan(10)
       expect(typeof c.ready).toBe('boolean')
+    }
+  })
+
+  it('names the page each promise is on, and both pages have promises', () => {
+    expect([...CLAIM_PAGES]).toEqual(['/', '/for'])
+    for (const c of LAUNCH_CLAIMS) expect(CLAIM_PAGES, c.id).toContain(c.page)
+    for (const page of CLAIM_PAGES) expect(claimsOn(page).length, page).toBeGreaterThan(0)
+    expect(claimsOn('/').length + claimsOn('/for').length).toBe(LAUNCH_CLAIMS.length)
+  })
+
+  it('names the public pull request and merge commit for every ready promise, and none for a pending one', () => {
+    for (const c of LAUNCH_CLAIMS) {
+      if (c.ready) {
+        expect(c.evidence, c.id).toMatch(/^https:\/\/github\.com\/LocalNodes\/[\w-]+\/pull\/\d+, "[^"]+", merged as commit [0-9a-f]{7,40}\.$/)
+      } else {
+        expect(c.evidence, c.id).toBeUndefined()
+      }
+    }
+  })
+
+  it('lists the calendar and quick-poll sentences of the Who it\'s for page as live, with the pull request that shipped them', () => {
+    const live = claimsOn('/for').filter(c => /\b(?:polls?|calendars?)\b/i.test(c.text))
+    expect(live.length).toBeGreaterThan(0)
+    for (const c of live) {
+      expect(c.ready, c.id).toBe(true)
+      expect(c.evidence, c.id).toBe('https://github.com/LocalNodes/os-knowledge-garden/pull/73, "A month calendar for events and quick polls in groups", merged as commit 8767385.')
     }
   })
 
