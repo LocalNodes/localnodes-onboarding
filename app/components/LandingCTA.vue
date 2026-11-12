@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// The closing band: a dark band with the early-access form, a link
-// to the Boulder demo site, and the privacy note the form links to. The page's launching-soon
+// The closing band: a dark band with the words and the Boulder demo link on the left, the
+// early-access form in a card on the right, and below them the privacy note the form links to. The page's launching-soon
 // statement is in the hero, so this band does not repeat it.
 // The sentence about sign-in links, Upstash and Stripe in the "Where" item is
 // Tom's own text (TA-2, 2026-11-08), with "encrypted" corrected to "a scrambled
@@ -10,28 +10,33 @@
 <template>
   <section id="early-access" class="home-close home-dark dark bg-default">
     <div class="home-wrap">
-      <h2 class="home-h2">
-        Be one of the first communities in.
-      </h2>
-      <p class="home-sub">
-        Leave an email address and we'll write when sign-up opens. You can also look around a demo site first.
-      </p>
+      <div class="home-close-grid">
+        <div class="home-close-words">
+          <h2 class="home-h2">
+            Be one of the first communities in.
+          </h2>
+          <p class="home-sub">
+            Leave an email address and we'll write when sign-up opens. You can also look around a demo site first.
+          </p>
+          <a
+            id="demo"
+            href="https://boulder.localnodes.xyz"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="home-link scroll-mt-20"
+          >Look around the Boulder demo site (a demo)<span class="sr-only"> (opens in a new tab)</span></a>
+        </div>
 
-      <EarlyAccessForm popup-class="dark home-dark" />
+        <div class="home-close-form">
+          <EarlyAccessForm popup-class="dark home-dark" />
+        </div>
+      </div>
 
-      <a
-        id="demo"
-        href="https://boulder.localnodes.xyz"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="home-link scroll-mt-20"
-      >Look around the Boulder demo site (a demo)<span class="sr-only"> (opens in a new tab)</span></a>
-
-      <div id="privacy" class="w-full max-w-xl mt-6 flex flex-col gap-3 text-left scroll-mt-20">
-        <h3 class="text-xl font-semibold text-highlighted">
+      <div id="privacy" class="home-privacy scroll-mt-20">
+        <h3>
           Privacy
         </h3>
-        <ul class="flex flex-col gap-2 text-sm leading-relaxed text-muted list-disc pl-5">
+        <ul>
           <li>
             <span class="font-semibold text-default">What we keep:</span> your email address, and your
             community's name and kind of group if you give them.

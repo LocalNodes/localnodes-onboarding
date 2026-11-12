@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// "Six places": the line and the six chips. The chips sit
+// "Six places": the line, the six chips and the line about the money ("often", because not
+// every group keeps its money that way). The chips sit
 // scattered until the strip scrolls into view, then tidy up. Nothing else on this page says
 // this. The server renders them scattered; the controller tidies them when it sees the strip.
 // The strip is a dark band, so it scopes the dark colour context the way the hero does.
@@ -26,6 +27,7 @@ onMounted(() => {
         <li>a spreadsheet</li>
         <li>last year's notes</li>
       </ul>
+      <p>And the money often sits in one person's bank account.</p>
     </div>
   </section>
 </template>

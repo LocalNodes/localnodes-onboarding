@@ -264,6 +264,8 @@ html.ln-home .home-dark.home-header {
 
 html.ln-home .home-header [data-slot='container'] {
   max-width: 1200px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
 /* ---------- hero ---------- */
@@ -1305,12 +1307,62 @@ html.ln-home .home-header [data-slot='container'] {
   padding-bottom: 80px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  align-items: flex-start;
+  gap: 64px;
 }
 
-.home-close .home-sub {
-  max-width: 40rem;
+.home-close-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 56px;
+  align-items: start;
+}
+
+.home-close-words {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: flex-start;
+  padding-top: 28px;
+}
+
+.home-close-form {
+  background: var(--home-surface);
+  border: 1px solid var(--home-line);
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: var(--home-shadow);
+}
+
+/* The form caps its own width for the pages that show it bare; the card sets it here. */
+.home-close-form > div {
+  max-width: none;
+}
+
+.home-privacy {
+  border-top: 1px solid var(--ui-border);
+  padding-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.home-privacy h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ui-text-highlighted);
+}
+
+.home-privacy ul {
+  columns: 2;
+  column-gap: 56px;
+  font-size: .875rem;
+  line-height: 1.6;
+  color: var(--ui-text-muted);
+}
+
+.home-privacy li {
+  break-inside: avoid;
+  margin-bottom: 12px;
 }
 
 /* ---------- small screens ---------- */
@@ -1360,6 +1412,27 @@ html.ln-home .home-header [data-slot='container'] {
   .home-close .home-wrap {
     padding-top: 56px;
     padding-bottom: 56px;
+  }
+
+  .home-close .home-wrap {
+    gap: 44px;
+  }
+
+  .home-close-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .home-close-words {
+    padding-top: 0;
+  }
+
+  .home-close-form {
+    padding: 20px;
+  }
+
+  .home-privacy ul {
+    columns: 1;
   }
 }
 
