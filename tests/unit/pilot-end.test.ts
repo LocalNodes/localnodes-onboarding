@@ -124,7 +124,7 @@ describe('the continue token', () => {
   })
   it('refuses a tampered token, another key, junk and an unsubscribe token', () => {
     const t = sealContinueToken('sub_1', 1800000000, SECRET)
-    const flipped = t.slice(0, -2) + (t.endsWith('A') ? 'B' : 'A') + t.slice(-1)
+    const flipped = t.slice(0, -2) + (t.at(-2) === 'A' ? 'B' : 'A') + t.slice(-1)
     expect(openContinueToken(flipped, SECRET)).toBeNull()
     expect(openContinueToken(t, SECRET.replace('c0', 'd0'))).toBeNull()
     expect(openContinueToken('', SECRET)).toBeNull()
