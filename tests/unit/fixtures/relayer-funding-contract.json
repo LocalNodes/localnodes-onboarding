@@ -1,0 +1,607 @@
+{
+ "secret": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00",
+ "provision_id": "CoNtRaCt00000000000000",
+ "other_provision_id": "CoNtRaCt11111111111111",
+ "cases": [
+  {
+   "name": "ready, no record: fundable",
+   "signup": {
+    "status": "ready",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "GET",
+     "expect": {
+      "status": 200,
+      "body": {
+       "relayer_address": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+       "fundable": true,
+       "funding": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "building: not fundable, pending refused",
+   "signup": {
+    "status": "building",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "GET",
+     "expect": {
+      "status": 200,
+      "body": {
+       "relayer_address": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+       "fundable": false,
+       "funding": null
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 409,
+      "body": {
+       "message": "Not fundable"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "no relayer: not fundable",
+   "signup": {
+    "status": "ready",
+    "relayerAddress": ""
+   },
+   "steps": [
+    {
+     "method": "GET",
+     "expect": {
+      "status": 200,
+      "body": {
+       "relayer_address": "",
+       "fundable": false,
+       "funding": null
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 409,
+      "body": {
+       "message": "Not fundable"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "unknown provision",
+   "signup": null,
+   "steps": [
+    {
+     "method": "GET",
+     "expect": {
+      "status": 404
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 404
+     }
+    }
+   ]
+  },
+  {
+   "name": "any amount but the fixed one refused (more, less, zero)",
+   "signup": {
+    "status": "ready",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000001",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 409,
+      "body": {
+       "message": "Wrong amount"
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "99999999999999999",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 409,
+      "body": {
+       "message": "Wrong amount"
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "0",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 409,
+      "body": {
+       "message": "Wrong amount"
+      }
+     }
+    },
+    {
+     "method": "GET",
+     "expect": {
+      "status": 200,
+      "body": {
+       "relayer_address": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+       "fundable": true,
+       "funding": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "pending, then a second pending refused, then sent, then sent repeat",
+   "signup": {
+    "status": "complete",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 200,
+      "body": {
+       "ok": true
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 409,
+      "body": {
+       "message": "Record exists"
+      }
+     }
+    },
+    {
+     "method": "GET",
+     "expect": {
+      "status": 200,
+      "body": {
+       "relayer_address": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+       "fundable": true,
+       "funding": {
+        "state": "pending",
+        "to": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+        "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+        "amount_wei": "100000000000000000",
+        "nonce": "7",
+        "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+       }
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "sent",
+      "tx_hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     "expect": {
+      "status": 409,
+      "body": {
+       "message": "Refused"
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "sent",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "expect": {
+      "status": 200,
+      "body": {
+       "ok": true
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "sent",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "expect": {
+      "status": 200,
+      "body": {
+       "ok": true,
+       "repeat": true
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "stopped",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code": "nonce_taken"
+     },
+     "expect": {
+      "status": 409
+     }
+    },
+    {
+     "method": "GET",
+     "expect": {
+      "status": 200,
+      "body": {
+       "relayer_address": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+       "fundable": true,
+       "funding": {
+        "state": "sent",
+        "to": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+        "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+        "amount_wei": "100000000000000000",
+        "nonce": "7",
+        "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "pending then stopped is final",
+   "signup": {
+    "status": "ready",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 200
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "stopped",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code": "other"
+     },
+     "expect": {
+      "status": 400
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "stopped",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "code": "nonce_taken"
+     },
+     "expect": {
+      "status": 200,
+      "body": {
+       "ok": true
+      }
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "sent",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "expect": {
+      "status": 409
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 409
+     }
+    },
+    {
+     "method": "GET",
+     "expect": {
+      "status": 200,
+      "body": {
+       "relayer_address": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+       "fundable": true,
+       "funding": {
+        "state": "stopped",
+        "to": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+        "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+        "amount_wei": "100000000000000000",
+        "nonce": "7",
+        "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "stop_code": "nonce_taken"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "finish with no record refused",
+   "signup": {
+    "status": "ready",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "sent",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "expect": {
+      "status": 409,
+      "body": {
+       "message": "Refused"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "malformed pending is 400",
+   "signup": {
+    "status": "ready",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "x",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 400
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "zz"
+     },
+     "expect": {
+      "status": 400
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "-1",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 400
+     }
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "x",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 400
+     }
+    }
+   ]
+  },
+  {
+   "name": "the destination is the stored relayer, not a request field",
+   "signup": {
+    "status": "ready",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "to": "0x9999999999999999999999999999999999999999"
+     },
+     "expect": {
+      "status": 200
+     }
+    },
+    {
+     "method": "GET",
+     "expect": {
+      "status": 200,
+      "body": {
+       "relayer_address": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+       "fundable": true,
+       "funding": {
+        "state": "pending",
+        "to": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+        "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+        "amount_wei": "100000000000000000",
+        "nonce": "7",
+        "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "wrong bearer refused",
+   "signup": {
+    "status": "ready",
+    "relayerAddress": "0x1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+   },
+   "steps": [
+    {
+     "method": "GET",
+     "expect": {
+      "status": 401
+     },
+     "bearer": "other"
+    },
+    {
+     "method": "POST",
+     "body": {
+      "provision_id": "CoNtRaCt00000000000000",
+      "action": "pending",
+      "from": "0x2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "amount_wei": "100000000000000000",
+      "nonce": "7",
+      "tx_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_tx": "0x02f8cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "expect": {
+      "status": 401
+     },
+     "bearer": "other"
+    }
+   ]
+  }
+ ]
+}

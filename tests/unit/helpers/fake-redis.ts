@@ -17,6 +17,7 @@
 
 import { LIFECYCLE_TWINS, type AtomicView } from '../../../server/utils/lifecycle'
 import { LATE_TWINS } from '../../../server/utils/pilot-late'
+import { RELAYER_FUNDING_TWINS } from '../../../server/utils/relayer-funding'
 
 type EvalHandler = (keys: string[], args: unknown[]) => unknown
 
@@ -52,7 +53,7 @@ export class FakeRedis {
 
   /** Register every lifecycle script's twin (done by the constructor unless { lifecycle: false }). */
   registerLifecycleTwins(): void {
-    LIFECYCLE_TWINS.concat(LATE_TWINS).forEach(([script, twin]) => {
+    LIFECYCLE_TWINS.concat(LATE_TWINS, RELAYER_FUNDING_TWINS).forEach(([script, twin]) => {
       this.onEval(script, (keys, args) => twin(this.atomic(), keys, args.map(a => String(a))))
     })
   }
