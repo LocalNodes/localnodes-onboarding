@@ -423,6 +423,7 @@
     "sources": [
       "app/pages/for.vue",
       "app/components/WhoItsForKind.vue",
+      "app/components/WhoItsForWindow.vue",
       "app/components/HomeKinds.vue"
     ]
   },

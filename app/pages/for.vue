@@ -7,6 +7,8 @@
 // It reads as a page of the landing: the landing's stylesheet and its `ln-home`
 // scope (teal, the landing's neutrals, its header and footer bands), its 1200px
 // container, and the landing's section-heading size for the h1.
+// At the top, beside the h1 and intro, one example window changes with the kind of
+// community picked in its tabs (WhoItsForWindow); the kinds' own sections follow.
 import '~/assets/css/home-v5.css'
 import data from '~/data/who-its-for.json'
 
@@ -29,12 +31,14 @@ useSeoMeta({
 <template>
   <div class="home-band-light text-default">
     <div class="home-wrap py-16">
-      <h1 class="home-h2 text-highlighted mb-4">
-        Who it's for
-      </h1>
-      <p class="text-base leading-normal text-default max-w-[72ch]">
-        {{ data.intro }}
-      </p>
+      <WhoItsForWindow :kinds="data.kinds" :label="data.exampleWindow.label" :note="data.exampleWindow.note">
+        <h1 class="home-h2 text-highlighted mb-4">
+          Who it's for
+        </h1>
+        <p class="text-base leading-normal text-default max-w-[72ch]">
+          {{ data.intro }}
+        </p>
+      </WhoItsForWindow>
 
       <WhoItsForKind v-for="kind in data.kinds" :key="kind.id" :kind="kind" />
 
