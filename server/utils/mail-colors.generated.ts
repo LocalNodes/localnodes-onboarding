@@ -8,13 +8,13 @@
 // Keep this the only exporter of MAIL_COLORS under server/utils/: Nitro auto-imports
 // every export in that directory, and two exporters of one name collide.
 export const MAIL_COLORS = {
-  canvas: '#f3f3f3',
+  canvas: '#f4f5f4',
   card: '#ffffff',
-  border: '#e6e6e6',
-  heading: '#343434',
-  text: '#343434',
+  border: '#e2e5e3',
+  heading: '#27272a',
+  text: '#27272a',
   button: '#0f766e',
   buttonText: '#ffffff',
   link: '#115e59',
-  footer: '#555555'
+  footer: '#555b57'
 } as const
