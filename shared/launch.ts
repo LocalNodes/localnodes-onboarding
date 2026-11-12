@@ -41,6 +41,9 @@ export const GATED_API = [
 // - /api/teardown-check and /api/teardown-result are called by
 //   teardown-instance.yml (23-36, 23-37) with the per-provision bearer, which
 //   they check before any read; a teardown must finish while closed.
+// - /api/relayer-funding (GET and POST) is called by
+//   fund-practice-relayer.yml with its own per-provision
+//   bearer, checked before any read; practice sites are funded while closed.
 
 export const EARLY_ACCESS_URL = '/#early-access'
 

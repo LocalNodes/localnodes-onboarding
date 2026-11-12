@@ -203,7 +203,9 @@ describe('launch gate (Phase 23 list)', () => {
     '/api/cron/sweep',
     // Called by teardown-instance.yml with the per-provision bearer (23-36, 23-37).
     '/api/teardown-check',
-    '/api/teardown-result'
+    '/api/teardown-result',
+    // Called by fund-practice-relayer.yml with its own bearer.
+    '/api/relayer-funding'
   ]
 
   it('GATED_API is exactly the Phase 23 sign-up routes', () => {
@@ -230,6 +232,13 @@ describe('launch gate (Phase 23 list)', () => {
     const notGated = src.slice(src.indexOf('// Not gated, on purpose:'))
     expect(notGated).toContain('/api/teardown-check')
     expect(notGated).toContain('/api/teardown-result')
+  })
+
+  it('the "Not gated, on purpose" comment names the relayer-funding route', () => {
+    const src = readFileSync(new URL('../../shared/launch.ts', import.meta.url), 'utf8')
+    const notGated = src.slice(src.indexOf('// Not gated, on purpose:'))
+    expect(notGated).toContain('/api/relayer-funding')
+    expect(GATED_API).not.toContain('/api/relayer-funding')
   })
 
   it('the provisioning callback is no longer in the gated list', () => {

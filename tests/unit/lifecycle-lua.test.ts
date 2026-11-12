@@ -21,6 +21,7 @@ import {
   type TransitionParams
 } from '../../server/utils/lifecycle'
 import { FakeRedis } from './helpers/fake-redis'
+import { RELAYER_FUNDING_FINISH_SCRIPT, RELAYER_FUNDING_PENDING_SCRIPT } from '../../server/utils/relayer-funding'
 
 /**
  * Lua parity (23-43, Task 1; Q-lua answered yes; T-23-206). Each vector runs
@@ -400,6 +401,36 @@ VECTORS.push(
   rs('recordSetup: a wrong-type signup is invalid and writes nothing', [['set', SIGNUP, 'x']]),
   rs('recordSetup: an empty id is invalid and writes nothing', [['hset', SIGNUP, { email: 'x@example.org' }]], ['', 'seti_1', '172800000']),
   rs('recordSetup: a lifetime that is not a positive integer is invalid', [['hset', SIGNUP, { email: 'x@example.org' }]], ['cus_1', 'seti_1', '0'])
+)
+
+// --- The practice relayer's funding record ------------------------------------
+const FUND = `relayer-funding:${PID}`
+const H1 = `0x${'a'.repeat(64)}`
+const H2 = `0x${'b'.repeat(64)}`
+const PHASH = `provision:${SID}`
+const pendingArgs = ['0x' + '1'.repeat(40), '0x' + '2'.repeat(40), '100000000000000000', '7', H1, '0x02f87001', '1700000000000', PID, 'ready', 'complete']
+const readySignup = { provisionId: PID, status: 'ready', relayerAddress: '0x' + '1'.repeat(40) }
+const pendingRec = { state: 'pending', to: '0x' + '1'.repeat(40), from: '0x' + '2'.repeat(40), amountWei: '100000000000000000', nonce: '7', txHash: H1, rawTx: '0x02f87001', pendingAt: '1700000000000' }
+const fp = (name: string, seed: Seed[], signup: Record<string, string> | null = readySignup, args: string[] = pendingArgs): Vector => ({ name, seed: signup ? [['hset', PHASH, signup], ...seed] : seed, script: RELAYER_FUNDING_PENDING_SCRIPT, keys: [FUND, PHASH], args })
+const ff = (name: string, seed: Seed[], args: string[]): Vector => ({ name, seed, script: RELAYER_FUNDING_FINISH_SCRIPT, keys: [FUND], args })
+VECTORS.push(
+  fp('relayerFunding pending: no record, written with no lifetime', []),
+  fp('relayerFunding pending: a pending record exists, nothing written', [['hset', FUND, pendingRec]]),
+  fp('relayerFunding pending: a sent record exists, nothing written', [['hset', FUND, { ...pendingRec, state: 'sent', sentAt: '1' }]]),
+  fp('relayerFunding pending: a complete sign-up is fundable', [], { ...readySignup, status: 'complete' }),
+  fp('relayerFunding pending: a sign-up turned declined is not fundable, nothing written', [], { ...readySignup, status: 'declined' }),
+  fp('relayerFunding pending: another stored relayer address is not fundable', [], { ...readySignup, relayerAddress: '0x' + '3'.repeat(40) }),
+  fp('relayerFunding pending: another provision id in the hash is not fundable', [], { ...readySignup, provisionId: 'Other00000000000000000' }),
+  fp('relayerFunding pending: no sign-up hash is not fundable', [], null),
+  fp('relayerFunding pending: one wei more than the fixed amount is refused, nothing written', [], readySignup, pendingArgs.map((x, i) => (i === 2 ? '100000000000000001' : x))),
+  fp('relayerFunding pending: zero is refused, nothing written', [], readySignup, pendingArgs.map((x, i) => (i === 2 ? '0' : x))),
+  ff('relayerFunding finish: pending to sent with the same hash', [['hset', FUND, pendingRec]], ['sent', H1, '1700000001000', '']),
+  ff('relayerFunding finish: pending to stopped with the same hash and a code', [['hset', FUND, pendingRec]], ['stopped', H1, '1700000001000', 'nonce_taken']),
+  ff('relayerFunding finish: another hash is refused', [['hset', FUND, pendingRec]], ['sent', H2, '1700000001000', '']),
+  ff('relayerFunding finish: no record is refused', [], ['sent', H1, '1700000001000', '']),
+  ff('relayerFunding finish: sent again is a repeat', [['hset', FUND, { ...pendingRec, state: 'sent', sentAt: '1' }]], ['sent', H1, '1700000002000', '']),
+  ff('relayerFunding finish: stopped after sent is refused', [['hset', FUND, { ...pendingRec, state: 'sent', sentAt: '1' }]], ['stopped', H1, '1700000002000', 'nonce_taken']),
+  ff('relayerFunding finish: sent after stopped is refused', [['hset', FUND, { ...pendingRec, state: 'stopped', stoppedAt: '1', stopCode: 'nonce_taken' }]], ['sent', H1, '1700000002000', ''])
 )
 
 describe.skipIf(!CLI)('Lua parity against a local Redis (LN_LUA_REDIS_CLI unset: skipped, nothing to compare)', () => {
