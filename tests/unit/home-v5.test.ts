@@ -257,8 +257,8 @@ describe('the fund act as the server renders it', () => {
     expect(html).toContain('id="fund"')
     expect(text).toContain('Funds')
     expect(text).toContain('A fund the group controls, and can see.')
-    expect(text).toContain('The money moves only when the approvers your group chose sign off. Every payment shows who approved it and what it was for.')
-    expect(text).toContain('No single person holds the purse')
+    expect(text).toContain('The people your group chose approve each payment, or, if your group prefers, members vote on each one. Every payment shows who approved it and what it was for.')
+    expect(text).toContain('Everyone can see where the money went')
     expect(text).toContain('Optional: turn the fund on when your group is ready')
     expect(text).not.toMatch(/fees? paid by members|no fees/i)
     expect(html).toMatch(/<button[^>]*>Play again<\/button>/)
@@ -373,7 +373,7 @@ describe('the page describes the product as it will be at launch', () => {
     const words = seen(inside(html, 'class="home-words"'))
     expect(words).toContain('Start with practice money, so everyone can try a payment before anything real moves. Open your real fund when the group is ready.')
     // Body text after the paragraph about approvers, not a pill.
-    expect(words.indexOf('Start with practice money')).toBeGreaterThan(words.indexOf('The money moves only when'))
+    expect(words.indexOf('Start with practice money')).toBeGreaterThan(words.indexOf('The people your group ch'))
   })
 
   it('every pending promise in the launch claims list is on the rendered page word for word', async () => {
