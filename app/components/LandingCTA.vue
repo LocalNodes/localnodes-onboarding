@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The closing band: a dark band with the words and the Boulder demo link on the left, the
+// The closing band: a dark band with the words and the demo site link on the left, the
 // early-access form in a card on the right, and below them the privacy note the form links to. The page's launching-soon
 // statement is in the hero, so this band does not repeat it.
 // The sentence about sign-in links, Upstash and Stripe in the "Where" item is
@@ -20,11 +20,11 @@
           </p>
           <a
             id="demo"
-            href="https://boulder.localnodes.xyz"
+            href="https://creekside.localnodes.xyz"
             target="_blank"
             rel="noopener noreferrer"
             class="home-link scroll-mt-20"
-          >Look around the Boulder demo site (a demo)<span class="sr-only"> (opens in a new tab)</span></a>
+          >Look around the Creekside Neighbors demo site (a demo)<span class="sr-only"> (opens in a new tab)</span></a>
         </div>
 
         <div class="home-close-form">
