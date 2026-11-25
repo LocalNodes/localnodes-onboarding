@@ -329,9 +329,9 @@ describe('the close', () => {
     expect(cta).toContain('<EarlyAccessForm')
   })
 
-  it('links the Boulder demo, labelled a demo, in a new tab, where the nav\'s Demo sites goes', () => {
-    expect(cta).toMatch(/id="demo"[^>]*href="https:\/\/boulder\.localnodes\.xyz"|href="https:\/\/boulder\.localnodes\.xyz"[^>]*id="demo"/)
-    expect(flat(cta)).toContain('Look around the Boulder demo site (a demo)')
+  it('links the neighbourhood demo, labelled a demo, in a new tab, where the nav\'s Demo sites goes', () => {
+    expect(cta).toMatch(/id="demo"[^>]*href="https:\/\/creekside\.localnodes\.xyz"|href="https:\/\/creekside\.localnodes\.xyz"[^>]*id="demo"/)
+    expect(flat(cta)).toContain('Look around the Creekside Neighbors demo site (a demo)')
     expect(cta).toContain('target="_blank"')
     expect(cta).toContain('rel="noopener noreferrer"')
     expect(flat(cta)).toContain('<span class="sr-only"> (opens in a new tab)</span>')
